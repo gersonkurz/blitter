@@ -95,3 +95,9 @@ info:
     @echo "Blitter {{version}}"
     @echo "Xcode: $(xcodebuild -version | head -1)"
     @echo "Swift: $(swift --version 2>&1 | head -1)"
+
+# Run the timing probes (large temporary folders; takes a while)
+bench: generate
+    TEST_RUNNER_BLITTER_BENCHMARK=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Release ENABLE_TESTABILITY=YES \
+        -destination "{{destination}}" -derivedDataPath {{derived_data}} \
+        -only-testing:BlitterCoreTests/DirectoryListingBenchmark | grep -E "BENCHMARK|passed|failed|error"
