@@ -22,7 +22,7 @@ Everything goes through the `justfile` (`just` with no arguments lists the recip
 ## Workflow
 
 - Work is coordinated through GitHub issues on `gersonkurz/blitter`.
-- Commit and push only when asked.
+- Git: work directly on `main`, one task per commit. Commit messages reference the issue (`Fixes #N`). Commit and push only after `just verify` passes and the review loop approves; pushing approved commits to `main` needs no further confirmation. Experimental or risky work goes on a short-lived branch that is merged or deleted afterwards. Releases are tagged (`v0.1.0`).
 
 ## Review loop
 
