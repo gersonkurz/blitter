@@ -1,0 +1,105 @@
+name: Blitter
+
+options:
+  bundleIdPrefix: com.p-nand-q
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: 9T5S26964D
+    CODE_SIGN_STYLE: Manual
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+  configs:
+    # Debug builds are signed ad hoc so local builds and tests never touch the keychain.
+    Debug:
+      CODE_SIGN_IDENTITY: "-"
+    Release:
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+      ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  BlitterCore:
+    type: framework.static
+    platform: macOS
+    sources: [Sources/BlitterCore]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+  BlitterModel:
+    type: framework.static
+    platform: macOS
+    sources: [Sources/BlitterModel]
+    dependencies:
+      - target: BlitterCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+  Blitter:
+    type: application
+    platform: macOS
+    sources: [Sources/BlitterApp]
+    dependencies:
+      # Static frameworks are linked into the executable, so there is nothing to embed.
+      - target: BlitterModel
+        embed: false
+      - target: BlitterCore
+        embed: false
+    info:
+      path: Sources/BlitterApp/Info.plist
+      properties:
+        CFBundleDisplayName: Blitter
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSPrincipalClass: NSApplication
+        NSHumanReadableCopyright: "Copyright © 2026 Gerson Kurz. MIT License."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.p-nand-q.blitter
+
+  BlitterCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/BlitterCoreTests]
+    dependencies:
+      - target: BlitterCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+  BlitterModelTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/BlitterModelTests]
+    dependencies:
+      - target: BlitterModel
+      - target: BlitterCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Blitter:
+    build:
+      targets:
+        Blitter: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BlitterCoreTests
+        - BlitterModelTests
+    archive:
+      config: Release

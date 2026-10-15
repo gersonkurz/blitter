@@ -1,0 +1,6 @@
+--swiftversion 6.0
+--exclude build,releases,Blitter.xcodeproj
+--maxwidth 120
+--indent 4
+--wraparguments preserve
+--wrapparameters preserve

@@ -1,0 +1,17 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - build
+  - releases
+  - Blitter.xcodeproj
+
+# Formatting is swiftformat's job; these rules would fight it.
+disabled_rules:
+  - trailing_comma
+  - opening_brace
+
+line_length:
+  warning: 120
+  ignores_comments: true
