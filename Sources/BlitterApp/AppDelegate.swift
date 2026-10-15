@@ -2,7 +2,7 @@ import AppKit
 import BlitterModel
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private let workspace = Workspace()
     private var windowController: MainWindowController?
 
@@ -18,8 +18,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    // MARK: Menu actions (each one is a single workspace command)
+
     @objc private func switchActiveSide(_: Any?) {
         workspace.perform(.switchActiveSide)
+    }
+
+    @objc private func toggleHiddenFiles(_: Any?) {
+        workspace.perform(.toggleHiddenFiles)
+    }
+
+    @objc private func refresh(_: Any?) {
+        workspace.perform(.refresh(workspace.activeSide))
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleHiddenFiles(_:)) {
+            menuItem.state = workspace.showsHiddenFiles ? .on : .off
+        }
+        return true
     }
 
     private func makeMainMenu() -> NSMenu {
@@ -33,15 +50,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "Quit Blitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         mainMenu.addItem(submenu: appMenu)
 
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+        mainMenu.addItem(submenu: editMenu)
+
         let viewMenu = NSMenu(title: "View")
-        let switchItem = viewMenu.addItem(withTitle: "Switch Active Side",
-                                          action: #selector(switchActiveSide(_:)),
-                                          keyEquivalent: "\t")
-        switchItem.keyEquivalentModifierMask = []
-        switchItem.target = self
+        addItem(to: viewMenu, title: "Switch Active Side", action: #selector(switchActiveSide(_:)),
+                key: "\t", modifiers: [])
+        addItem(to: viewMenu, title: "Show Hidden Files", action: #selector(toggleHiddenFiles(_:)),
+                key: ".", modifiers: [.command, .shift])
+        addItem(to: viewMenu, title: "Refresh", action: #selector(refresh(_:)), key: "r", modifiers: [.command])
         mainMenu.addItem(submenu: viewMenu)
 
         return mainMenu
+    }
+
+    private func addItem(to menu: NSMenu, title: String, action: Selector, key: String,
+                         modifiers: NSEvent.ModifierFlags)
+    {
+        let item = menu.addItem(withTitle: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+        item.target = self
     }
 }
 

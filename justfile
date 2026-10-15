@@ -100,4 +100,4 @@ info:
 bench: generate
     TEST_RUNNER_BLITTER_BENCHMARK=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Release ENABLE_TESTABILITY=YES \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} \
-        -only-testing:BlitterCoreTests/DirectoryListingBenchmark | grep -E "BENCHMARK|passed|failed|error"
+        -only-testing:BlitterCoreTests/DirectoryListingBenchmark -only-testing:BlitterModelTests/ListingBenchmark | grep -E "BENCHMARK|passed|failed|error"

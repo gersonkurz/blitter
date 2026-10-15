@@ -24,6 +24,18 @@ public struct DirectoryEntry: Equatable, Sendable {
     /// Non-zero errno if the file system could not read this entry's attributes. The other fields
     /// then hold whatever could be read.
     public var error: Int32
+
+    public init(name: String, kind: Kind, size: Int64, modificationDate: Date, isHidden: Bool, isDataless: Bool,
+                error: Int32)
+    {
+        self.name = name
+        self.kind = kind
+        self.size = size
+        self.modificationDate = modificationDate
+        self.isHidden = isHidden
+        self.isDataless = isDataless
+        self.error = error
+    }
 }
 
 /// Lists the items of a folder with `getattrlistbulk(2)`: one system call returns attributes for
