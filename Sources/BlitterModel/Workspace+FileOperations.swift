@@ -20,12 +20,38 @@ extension Workspace {
         return true
     }
 
-    func transfer(_ paths: [String], into side: Side, move: Bool) -> Bool {
-        guard let folder = sides[side]?.location, !paths.isEmpty else {
+    func transfer(_ paths: [String], into folder: String, move: Bool) -> Bool {
+        guard !paths.isEmpty else {
             return false
         }
         startJob(move ? .move(paths, into: folder) : .copy(paths, into: folder))
         return true
+    }
+
+    /// Hands the side's selection to a system service. Changes no state.
+    func withSelection(_ side: Side, _ service: ([SelectedItem]) -> Void) -> Bool {
+        let items = selectedItems(on: side)
+        if !items.isEmpty {
+            service(items)
+        }
+        return false
+    }
+
+    func togglePreview(_ side: Side) -> Bool {
+        system.togglePreview(side)
+        return false
+    }
+
+    /// The side's selected entries in list order, with what the listing knows about them, so
+    /// nobody has to ask the disk (e.g. for a pasteboard URL's folder flag).
+    public func selectedItems(on side: Side) -> [SelectedItem] {
+        guard let state = sides[side] else {
+            return []
+        }
+        return state.visibleEntries.filter { state.selection.contains($0.entry.name) }.map {
+            SelectedItem(path: Paths.appending($0.entry.name, to: state.entriesLocation),
+                         isDirectory: $0.entry.kind == .directory)
+        }
     }
 
     func trashSelection(_ side: Side) -> Bool {
@@ -156,5 +182,15 @@ extension Workspace {
         case let .rename(path, _): [parent(path)]
         case let .newFolder(folder, _): [folder]
         }
+    }
+}
+
+public struct SelectedItem: Equatable, Sendable {
+    public let path: String
+    public let isDirectory: Bool
+
+    public init(path: String, isDirectory: Bool) {
+        self.path = path
+        self.isDirectory = isDirectory
     }
 }

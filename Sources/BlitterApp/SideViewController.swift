@@ -49,6 +49,10 @@ final class SideViewController: NSSplitViewController {
         }
     }
 
+    func togglePreview() {
+        fileList.toggleQuickLook()
+    }
+
     func focusPathField() {
         fileList.focusPathField()
     }

@@ -5,8 +5,8 @@ public enum Command: Sendable {
     /// Go to a path the user typed. `~`, relative paths and `..` are resolved against the side's
     /// folder. Going to the folder the side already shows reads it again.
     case navigate(Side, path: String)
-    /// Open the entry with this name: a folder, or a symbolic link to one, is shown in this side.
-    /// Files and packages are not opened yet.
+    /// Open the entry with this name: a folder, or a symbolic link to one, is shown in this side;
+    /// files and packages (apps) open with their default app.
     case open(Side, name: String)
     case goBack(Side)
     case goForward(Side)
@@ -34,10 +34,16 @@ public enum Command: Sendable {
     case copyToOtherSide
     /// Move the active side's selection into the other side's folder.
     case moveToOtherSide
-    /// Copy items from anywhere (e.g. pasted from Finder) into the side's folder.
-    case copyItems([String], into: Side)
-    /// Move items from anywhere into the side's folder ("Move Item Here").
-    case moveItems([String], into: Side)
+    /// Copy items from anywhere (pasted, or dropped from Finder or the other side) into a folder.
+    case copyItems([String], toFolder: String)
+    /// Move items from anywhere into a folder ("Move Item Here", a drop with ⌘).
+    case moveItems([String], toFolder: String)
+    /// Show the side's selection in Finder.
+    case revealInFinder(Side)
+    /// Show or hide Quick Look for the side's selection.
+    case togglePreview(Side)
+    /// Put the side's selection on the clipboard, as Finder does with Copy.
+    case copyToPasteboard(Side)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a

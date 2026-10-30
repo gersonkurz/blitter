@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationDidFinishLaunching(_: Notification) {
         NSApp.mainMenu = makeMainMenu()
         let controller = MainWindowController(workspace: workspace)
+        workspace.system = Self.systemServices(window: controller)
         controller.showWindow(nil)
         windowController = controller
         observeVolumes()
@@ -68,6 +69,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         workspace.perform(.moveToOtherSide)
     }
 
+    @objc private func revealInFinder(_: Any?) {
+        workspace.perform(.revealInFinder(workspace.activeSide))
+    }
+
+    /// The AppKit side of the Model's system services.
+    private static func systemServices(window: MainWindowController) -> SystemServices {
+        var services = SystemServices()
+        services.open = openWithDefaultApp
+        services.reveal = { items in
+            NSWorkspace.shared.activateFileViewerSelecting(items.map { $0.url as URL })
+        }
+        services.togglePreview = { [weak window] side in window?.togglePreview(on: side) }
+        services.copyToPasteboard = { items in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects(items.map(\.url))
+        }
+        return services
+    }
+
+    /// Asynchronous, so a slow app launch or volume never holds up the window.
+    private static func openWithDefaultApp(_ path: String) {
+        NSWorkspace.shared.open(
+            URL(fileURLWithPath: path, isDirectory: false),
+            configuration: NSWorkspace.OpenConfiguration()
+        ) { _, error in
+            if error != nil {
+                DispatchQueue.main.async { NSSound.beep() }
+            }
+        }
+    }
+
     @objc private func moveToTrash(_: Any?) {
         workspace.perform(.trashSelection(workspace.activeSide))
     }
@@ -91,6 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         switch menuItem.action {
         case #selector(copyToOtherSide(_:)), #selector(moveToOtherSide(_:)), #selector(moveToTrash(_:)):
             return !isEditingText && !active.selection.isEmpty
+        case #selector(revealInFinder(_:)):
+            return !active.selection.isEmpty
         case #selector(rename(_:)):
             return !isEditingText && active.selection.count == 1
         case #selector(newFolder(_:)):
@@ -172,6 +206,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 key: Self.functionKey(NSF5FunctionKey), modifiers: [])
         addItem(to: fileMenu, title: "Move to Other Side", action: #selector(moveToOtherSide(_:)),
                 key: Self.functionKey(NSF6FunctionKey), modifiers: [])
+        addItem(to: fileMenu, title: "Reveal in Finder", action: #selector(revealInFinder(_:)), key: "r",
+                modifiers: [.command, .option])
         fileMenu.addItem(.separator())
         addItem(to: fileMenu, title: "Move to Trash", action: #selector(moveToTrash(_:)), key: "\u{8}",
                 modifiers: [.command])

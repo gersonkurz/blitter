@@ -243,16 +243,47 @@ struct FileCommandsTests {
         let moved = sides.file("outside/moved.txt")
         try await sides.settle()
 
-        sides.workspace.perform(.copyItems([copied], into: .right))
-        sides.workspace.perform(.moveItems([moved], into: .right))
+        sides.workspace.perform(.copyItems([copied], toFolder: sides.right))
+        sides.workspace.perform(.moveItems([moved], toFolder: sides.right))
         try await sides.settle()
         #expect(sides.names(.right) == ["copied.txt", "moved.txt"])
         #expect(sides.onDisk("outside") == ["copied.txt"])
 
         var changes = 0
         sides.workspace.onChange = { changes += 1 }
-        sides.workspace.perform(.copyItems([], into: .right))
+        sides.workspace.perform(.copyItems([], toFolder: sides.right))
         #expect(changes == 0 && sides.workspace.jobs.isEmpty)
+    }
+
+    // MARK: System services
+
+    /// Reveal, the clipboard and Quick Look are commands too; the Model hands them the selection.
+    @Test func revealCopyAndPreviewGoThroughTheSystemServices() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.left + "/folder", withIntermediateDirectories: false)
+        sides.file("left/a.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        var revealed: [[SelectedItem]] = []
+        var copied: [[SelectedItem]] = []
+        var previews: [Side] = []
+        sides.workspace.system.reveal = { revealed.append($0) }
+        sides.workspace.system.copyToPasteboard = { copied.append($0) }
+        sides.workspace.system.togglePreview = { previews.append($0) }
+
+        sides.workspace.perform(.revealInFinder(.left)) // nothing selected: nothing to reveal
+        sides.workspace.perform(.copyToPasteboard(.left))
+        #expect(revealed.isEmpty && copied.isEmpty)
+
+        sides.workspace.perform(.select(.left, ["a.txt", "folder"]))
+        sides.workspace.perform(.revealInFinder(.left))
+        sides.workspace.perform(.copyToPasteboard(.left))
+        sides.workspace.perform(.togglePreview(.right))
+        let expected = [SelectedItem(path: sides.left + "/folder", isDirectory: true),
+                        SelectedItem(path: sides.left + "/a.txt", isDirectory: false)]
+        #expect(revealed == [expected])
+        #expect(copied == [expected])
+        #expect(previews == [.right])
     }
 
     // MARK: Names belong to their folder

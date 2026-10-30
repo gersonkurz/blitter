@@ -201,6 +201,29 @@ struct NavigationTests {
         #expect(names(workspace) == ["a.txt"])
     }
 
+    /// Files, packages and links to files open with their default app; nothing else does.
+    @Test func filesPackagesAndLinksToFilesOpenInTheirApp() async {
+        var opened: [String] = []
+        let folders = FakeFolders(tree)
+        let workspace = Workspace(initialLocation: "/Users/me", home: "/Users/me", lister: folders.list,
+                                  directoryCheck: folders.isDirectory, volumes: { [] },
+                                  watcher: FakeWatcher.factory)
+        workspace.system.open = { opened.append($0) }
+        await workspace.settle()
+        workspace.perform(.open(.left, name: "notes.txt"))
+        workspace.perform(.open(.left, name: "Tool.app"))
+        workspace.perform(.open(.left, name: "readme")) // a link to a file
+        workspace.perform(.open(.left, name: "missing"))
+        await workspace.settle()
+        #expect(opened == ["/Users/me/notes.txt", "/Users/me/Tool.app", "/Users/me/readme"])
+        #expect(workspace.state(of: .left).location == "/Users/me")
+
+        workspace.perform(.open(.left, name: "docs")) // a link to a folder: shown, not opened
+        await workspace.settle()
+        #expect(workspace.state(of: .left).location == "/Users/me/docs")
+        #expect(opened.count == 3)
+    }
+
     @Test func openFollowsSymlinksOnlyToFolders() async {
         let workspace = await makeWorkspace(FakeFolders(tree))
         workspace.perform(.open(.left, name: "readme")) // not a folder

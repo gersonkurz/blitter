@@ -56,6 +56,10 @@ final class MainWindowController: NSWindowController {
         fatalError("init(coder:) is not supported")
     }
 
+    func togglePreview(on side: Side) {
+        sideControllers.first { $0.side == side }?.togglePreview()
+    }
+
     func focusPathField(of side: Side) {
         sideControllers.first { $0.side == side }?.focusPathField()
     }

@@ -5,6 +5,7 @@ import AppKit
 final class ActivatingTableView: NSTableView {
     var onBecomeFirstResponder: (() -> Void)?
     var onReturn: (() -> Void)?
+    var onSpace: (() -> Void)?
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -19,6 +20,8 @@ final class ActivatingTableView: NSTableView {
         let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
         if returnKeys.contains(event.keyCode), modifiers.isEmpty {
             onReturn?()
+        } else if event.keyCode == 49, modifiers.isEmpty { // Space: Quick Look, as in Finder
+            onSpace?()
         } else {
             super.keyDown(with: event)
         }

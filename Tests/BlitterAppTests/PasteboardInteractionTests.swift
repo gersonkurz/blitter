@@ -31,6 +31,11 @@ final class PasteboardInteractionTests {
         right = FileListViewController(workspace: workspace, side: .right)
         left.pasteboard = pasteboard
         right.pasteboard = pasteboard
+        let pasteboard = pasteboard
+        workspace.system.copyToPasteboard = { items in
+            pasteboard.clearContents()
+            pasteboard.writeObjects(items.map(\.url))
+        }
         let content = NSViewController()
         let stack = NSStackView(views: [left.view, right.view])
         content.view = stack

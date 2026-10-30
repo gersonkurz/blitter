@@ -14,6 +14,8 @@ public final class Workspace {
     let lister: Lister
     let directoryCheck: DirectoryCheck
     let volumes: VolumeList
+    /// Opening, revealing, Quick Look and the clipboard, provided by the app.
+    public var system = SystemServices()
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
     public internal(set) var treeRoots: [TreeRoot]
     /// Volumes, iCloud Drive and the CloudStorage providers, each read and published on its own,
@@ -101,9 +103,12 @@ public final class Workspace {
         case .toggleHiddenFiles: toggleHiddenFiles()
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
-        case let .copyItems(paths, side): transfer(paths, into: side, move: false)
-        case let .moveItems(paths, side): transfer(paths, into: side, move: true)
+        case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
+        case let .moveItems(paths, folder): transfer(paths, into: folder, move: true)
         case let .trashSelection(side): trashSelection(side)
+        case let .revealInFinder(side): withSelection(side, system.reveal)
+        case let .togglePreview(side): togglePreview(side)
+        case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .rename(side, path, newName): rename(side, path, to: newName)
         case let .requestRename(side): requestRename(side)
         case let .cancelRename(side): cancelRename(side)
@@ -365,6 +370,7 @@ extension Workspace {
                 }
                 pendingOpen[side] = nil
                 guard isFolder else {
+                    system.open(path)
                     return
                 }
                 go(side, .path(path))
@@ -372,7 +378,7 @@ extension Workspace {
             }
             return false
         default:
-            // Files and packages will open in their app (#8).
+            system.open(path) // a file or a package: its default app opens it
             return false
         }
     }

@@ -15,19 +15,22 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var pasteboard = NSPasteboard.general
     private let pathField = ActivatingComboBox()
     private let statusLabel = NSTextField(labelWithString: "")
-    private let tableView = ActivatingTableView()
+    let tableView = ActivatingTableView()
     private var renderedVersion = -1
-    private var entries: [ListedEntry] = []
+    private(set) var entries: [ListedEntry] = []
     /// The folder `entries` belong to.
-    private var location = ""
+    private(set) var location = ""
     private var renderedRecentLocations: [String] = []
-    private lazy var inlineRename = makeInlineRename()
+    lazy var inlineRename = makeInlineRename()
     /// The rename request the view has already started editing for.
-    private var handledRenameToken: Int?
+    var handledRenameToken: Int?
+    var renderedPreviewPaths: [String] = []
+    /// Called when the selected paths change; reloads an open Quick Look panel. Tests count it.
+    lazy var previewItemsChanged: () -> Void = { [weak self] in self?.quickLookSelectionChanged() }
     private var isRendering = false
     private let icons: FileIcons
 
-    private static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
+    static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
     private static let modifiedColumn = NSUserInterfaceItemIdentifier(SortColumn.modified.rawValue)
 
@@ -128,6 +131,13 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.target = self
         tableView.doubleAction = #selector(openClickedRow(_:))
         tableView.onReturn = { [weak self] in self?.openSelectedRow() }
+        tableView.onSpace = { [weak self] in
+            guard let self else {
+                return
+            }
+            workspace.perform(.togglePreview(side))
+        }
+        configureDragAndDrop()
         tableView.onBecomeFirstResponder = { [weak self] in
             guard let self else {
                 return
@@ -182,6 +192,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             tableView.scrollRowToVisible(tableView.selectedRowIndexes.first ?? 0)
         }
         startRequestedRename(state.renameRequest)
+        followSelectionInPreview()
 
         switch state.status {
         case .loading:
@@ -229,37 +240,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 }
 
 extension FileListViewController {
-    /// Starts editing a requested name once its row is there (a new folder appears a moment
-    /// after it was asked for).
-    private func startRequestedRename(_ request: RenameRequest?) {
-        // Only in the folder the request was made for.
-        guard let request, request.token != handledRenameToken, !inlineRename.isEditing, request.folder == location,
-              let row = entries.firstIndex(where: { $0.entry.name == request.name })
-        else {
-            return
-        }
-        handledRenameToken = request.token
-        inlineRename.begin(row: row, column: tableView.column(withIdentifier: Self.nameColumn), name: request.name,
-                           path: request.path)
-    }
-
-    private func makeInlineRename() -> InlineRename {
-        let rename = InlineRename(tableView: tableView)
-        rename.onCommit = { [weak self] path, newName in
-            guard let self else {
-                return
-            }
-            workspace.perform(.rename(side, path: path, newName: newName))
-        }
-        rename.onCancel = { [weak self] in
-            guard let self else {
-                return
-            }
-            workspace.perform(.cancelRename(side))
-        }
-        return rename
-    }
-
     func focusList() {
         view.window?.makeFirstResponder(tableView)
     }

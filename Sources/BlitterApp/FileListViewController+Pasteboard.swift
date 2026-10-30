@@ -2,31 +2,21 @@ import AppKit
 import BlitterModel
 
 /// Copy and paste of files, the way Finder does it: Copy puts the selected items on the pasteboard
-/// as file URLs; Paste copies file URLs from the pasteboard into this side's folder, and Move Item
+/// as file URLs (through the Model's system services); Paste copies file URLs from the pasteboard
+/// into this side's folder, and Move Item
 /// Here (⌥⌘V) moves them. The Edit menu reaches these through the responder chain; while a text
 /// field is edited, its editor gets them first.
 extension FileListViewController: NSMenuItemValidation {
     @objc func copy(_: Any?) {
-        // Whether each item is a folder comes from the listing: `URL(fileURLWithPath:)` without
-        // that hint asks the disk, which can hang on a network volume.
-        let state = workspace.state(of: side)
-        let urls = state.visibleEntries.filter { state.selection.contains($0.entry.name) }.map { listed in
-            URL(fileURLWithPath: (state.entriesLocation as NSString).appendingPathComponent(listed.entry.name),
-                isDirectory: listed.entry.kind == .directory) as NSURL
-        }
-        guard !urls.isEmpty else {
-            return
-        }
-        pasteboard.clearContents()
-        pasteboard.writeObjects(urls)
+        workspace.perform(.copyToPasteboard(side))
     }
 
     @objc func paste(_: Any?) {
-        workspace.perform(.copyItems(pastedPaths(), into: side))
+        workspace.perform(.copyItems(pastedPaths(), toFolder: workspace.state(of: side).location))
     }
 
     @objc func moveItemsHere(_: Any?) {
-        workspace.perform(.moveItems(pastedPaths(), into: side))
+        workspace.perform(.moveItems(pastedPaths(), toFolder: workspace.state(of: side).location))
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -46,4 +36,12 @@ extension FileListViewController: NSMenuItemValidation {
     }
 
     private static let fileURLsOnly: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+}
+
+extension SelectedItem {
+    /// The folder flag comes from the listing: `URL(fileURLWithPath:)` without it asks the disk,
+    /// which can hang on a network volume.
+    var url: NSURL {
+        URL(fileURLWithPath: path, isDirectory: isDirectory) as NSURL
+    }
 }
