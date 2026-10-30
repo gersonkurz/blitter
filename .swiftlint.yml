@@ -15,3 +15,7 @@ disabled_rules:
 line_length:
   warning: 120
   ignores_comments: true
+
+# The command dispatch switch grows with every command; its cases are one line each.
+cyclomatic_complexity:
+  ignores_case_statements: true

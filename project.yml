@@ -89,6 +89,19 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
+  # Hosted in the app, so view controllers run in a real window with the real main menu.
+  BlitterAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/BlitterAppTests]
+    dependencies:
+      - target: Blitter
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Blitter.app/Contents/MacOS/Blitter
+        BUNDLE_LOADER: $(TEST_HOST)
+
 schemes:
   Blitter:
     build:
@@ -101,5 +114,6 @@ schemes:
       targets:
         - BlitterCoreTests
         - BlitterModelTests
+        - BlitterAppTests
     archive:
       config: Release

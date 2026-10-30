@@ -40,6 +40,10 @@ final class MainWindowController: NSWindowController {
         fatalError("init(coder:) is not supported")
     }
 
+    func focusPathField(of side: Side) {
+        sideControllers.first { $0.side == side }?.focusPathField()
+    }
+
     private func render() {
         for controller in sideControllers {
             controller.render()

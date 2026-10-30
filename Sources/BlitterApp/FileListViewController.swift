@@ -3,19 +3,22 @@ import BlitterCore
 import BlitterModel
 import UniformTypeIdentifiers
 
-/// One side's file list: a header with the location and a detail table. It renders the side's
-/// state from the workspace and turns user input into workspace commands.
+/// One side's file list: a path field with the recent folders and a detail table. It renders the
+/// side's state from the workspace and turns user input into workspace commands.
 @MainActor
-final class FileListViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+final class FileListViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
+    NSComboBoxDelegate
+{
     private let workspace: Workspace
-    private let side: Side
-    private let locationLabel = NSTextField(labelWithString: "")
+    let side: Side
+    private let pathField = ActivatingComboBox()
     private let statusLabel = NSTextField(labelWithString: "")
     private let tableView = ActivatingTableView()
     private var renderedVersion = -1
     private var entries: [ListedEntry] = []
     /// The folder `entries` belong to.
     private var location = ""
+    private var renderedRecentLocations: [String] = []
     private var isRendering = false
     private let icons: FileIcons
 
@@ -35,10 +38,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         fatalError("init(coder:) is not supported")
     }
 
-    var table: NSTableView {
-        tableView
-    }
-
     override func loadView() {
         configureTable()
 
@@ -48,23 +47,22 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
 
-        locationLabel.lineBreakMode = .byTruncatingHead
-        locationLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
+        configurePathField()
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.alignment = .center
         statusLabel.lineBreakMode = .byWordWrapping
         statusLabel.maximumNumberOfLines = 0
 
         let root = NSView()
-        for subview in [locationLabel, scrollView, statusLabel] {
+        for subview in [pathField, scrollView, statusLabel] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
         NSLayoutConstraint.activate([
-            locationLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 6),
-            locationLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 8),
-            locationLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
-            scrollView.topAnchor.constraint(equalTo: locationLabel.bottomAnchor, constant: 6),
+            pathField.topAnchor.constraint(equalTo: root.topAnchor, constant: 6),
+            pathField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
+            pathField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
+            scrollView.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -74,6 +72,25 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: 300),
         ])
         view = root
+    }
+
+    private func configurePathField() {
+        pathField.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        pathField.controlSize = .small
+        pathField.completes = false
+        pathField.numberOfVisibleItems = 20
+        pathField.lineBreakMode = .byTruncatingHead
+        // Navigate on Return or on picking a recent folder, never just because focus moved away.
+        pathField.cell?.sendsActionOnEndEditing = false
+        pathField.target = self
+        pathField.action = #selector(pathEntered(_:))
+        pathField.delegate = self
+        pathField.onBecomeFirstResponder = { [weak self] in
+            guard let self else {
+                return
+            }
+            workspace.perform(.activate(side))
+        }
     }
 
     private func configureTable() {
@@ -103,6 +120,9 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.target = self
+        tableView.doubleAction = #selector(openClickedRow(_:))
+        tableView.onReturn = { [weak self] in self?.openSelectedRow() }
         tableView.onBecomeFirstResponder = { [weak self] in
             guard let self else {
                 return
@@ -118,24 +138,38 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         defer { isRendering = false }
         let state = workspace.state(of: side)
         let isActive = workspace.activeSide == side
-        locationLabel.stringValue = state.location
-        locationLabel.textColor = isActive ? .controlAccentColor : .secondaryLabelColor
+        // Never overwrite what the user is typing.
+        if pathField.currentEditor() == nil {
+            pathField.stringValue = state.location
+        }
+        pathField.textColor = isActive ? .controlAccentColor : .secondaryLabelColor
+        if state.recentLocations != renderedRecentLocations {
+            renderedRecentLocations = state.recentLocations
+            pathField.removeAllItems()
+            pathField.addItems(withObjectValues: state.recentLocations)
+        }
 
         let sortDescriptor = NSSortDescriptor(key: state.sort.column.rawValue, ascending: state.sort.ascending)
         if tableView.sortDescriptors.first != sortDescriptor {
             tableView.sortDescriptors = [sortDescriptor]
         }
 
+        var folderChanged = false
         if state.entriesVersion != renderedVersion {
             renderedVersion = state.entriesVersion
             entries = state.visibleEntries
-            if location != state.location {
+            if location != state.entriesLocation {
                 icons.cancelPending()
-                location = state.location
+                location = state.entriesLocation
+                folderChanged = true
             }
             tableView.reloadData()
         }
         applySelection(state.selection)
+        if folderChanged, !entries.isEmpty {
+            // A new folder starts at the top, or at the folder we came up from.
+            tableView.scrollRowToVisible(tableView.selectedRowIndexes.first ?? 0)
+        }
 
         switch state.status {
         case .loading:
@@ -146,9 +180,88 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             statusLabel.stringValue = message
         }
 
-        if isActive, let window = view.window, window.firstResponder !== tableView {
+        // The active side gets keyboard focus, unless something inside it (the path field) has it.
+        if isActive, let window = view.window, (window.firstResponder as? NSView)?.isDescendant(of: view) != true {
             window.makeFirstResponder(tableView)
         }
+    }
+
+    private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
+        let cell = NSTableCellView()
+        cell.identifier = identifier
+        let text = NSTextField(labelWithString: "")
+        text.lineBreakMode = .byTruncatingMiddle
+        text.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(text)
+        cell.textField = text
+        var constraints = [
+            text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
+        ]
+        if identifier == nameColumn {
+            let image = NSImageView()
+            image.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(image)
+            cell.imageView = image
+            constraints += [
+                image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+                image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                image.widthAnchor.constraint(equalToConstant: 16),
+                image.heightAnchor.constraint(equalToConstant: 16),
+                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 4),
+            ]
+        } else {
+            constraints.append(text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2))
+        }
+        if identifier == sizeColumn {
+            text.alignment = .right
+        }
+        NSLayoutConstraint.activate(constraints)
+        return cell
+    }
+}
+
+extension FileListViewController {
+    func focusPathField() {
+        view.window?.makeFirstResponder(pathField)
+    }
+
+    // MARK: User input
+
+    @objc private func pathEntered(_ sender: NSComboBox) {
+        let typed = sender.stringValue
+        // Hand focus back to the list first, so the field shows the resolved path afterwards.
+        view.window?.makeFirstResponder(tableView)
+        workspace.perform(.navigate(side, path: typed))
+        pathField.stringValue = workspace.state(of: side).location
+    }
+
+    func control(_: NSControl, textView _: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.cancelOperation(_:)) else {
+            return false
+        }
+        // Escape in the path field drops the edit.
+        view.window?.makeFirstResponder(tableView)
+        pathField.stringValue = workspace.state(of: side).location
+        return true
+    }
+
+    @objc private func openClickedRow(_: Any?) {
+        open(row: tableView.clickedRow)
+    }
+
+    private func openSelectedRow() {
+        let rows = tableView.selectedRowIndexes
+        if rows.count == 1, let row = rows.first {
+            open(row: row)
+        }
+    }
+
+    private func open(row: Int) {
+        guard row >= 0, row < entries.count else {
+            return
+        }
+        workspace.perform(.open(side, name: entries[row].entry.name))
     }
 
     private func applySelection(_ names: Set<String>) {
@@ -207,6 +320,14 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.reloadData(forRowIndexes: [row], columnIndexes: [column])
     }
 
+    /// Type-to-select matches the start of the name.
+    func tableView(_: NSTableView, typeSelectStringFor column: NSTableColumn?, row: Int) -> String? {
+        guard column == nil || column?.identifier == Self.nameColumn, row < entries.count else {
+            return nil
+        }
+        return entries[row].entry.name
+    }
+
     func tableViewSelectionDidChange(_: Notification) {
         // Selection changes made while rendering mirror the model; they are not user input.
         guard !isRendering else {
@@ -223,45 +344,13 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         }
         workspace.perform(.sort(side, ListSort(column: column, ascending: descriptor.ascending)))
     }
-
-    private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
-        let cell = NSTableCellView()
-        cell.identifier = identifier
-        let text = NSTextField(labelWithString: "")
-        text.lineBreakMode = .byTruncatingMiddle
-        text.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(text)
-        cell.textField = text
-        var constraints = [
-            text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
-        ]
-        if identifier == nameColumn {
-            let image = NSImageView()
-            image.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(image)
-            cell.imageView = image
-            constraints += [
-                image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-                image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                image.widthAnchor.constraint(equalToConstant: 16),
-                image.heightAnchor.constraint(equalToConstant: 16),
-                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 4),
-            ]
-        } else {
-            constraints.append(text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2))
-        }
-        if identifier == sizeColumn {
-            text.alignment = .right
-        }
-        NSLayoutConstraint.activate(constraints)
-        return cell
-    }
 }
 
-/// A table view that reports when it gains keyboard focus, which makes its side the active side.
+/// A table view that reports when it gains keyboard focus, which makes its side the active side,
+/// and when Return is pressed, which opens the selected entry.
 final class ActivatingTableView: NSTableView {
     var onBecomeFirstResponder: (() -> Void)?
+    var onReturn: (() -> Void)?
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -270,63 +359,27 @@ final class ActivatingTableView: NSTableView {
         }
         return accepted
     }
-}
 
-/// Icons for one side's file list. Every entry first gets its content type's icon, cached for the
-/// whole app, which needs no disk access. Packages such as apps have their own icon; it is read in
-/// the background, only when a cell asks for it, by a loader that belongs to this side alone.
-@MainActor
-final class FileIcons {
-    private static var byType: [String: NSImage] = [:]
-    private let packageIcons: PathLoader<NSImage>
-
-    init(side: Side) {
-        packageIcons = PathLoader(label: "Blitter.FileIcons.\(side)") { NSWorkspace.shared.icon(forFile: $0) }
-    }
-
-    func icon(for listed: ListedEntry, in folder: String, onLoaded: @escaping () -> Void) -> NSImage {
-        if listed.contentType.conforms(to: .package) {
-            let path = (folder as NSString).appendingPathComponent(listed.entry.name)
-            if let icon = packageIcons.value(for: path, onLoaded: onLoaded) {
-                return icon
-            }
+    override func keyDown(with event: NSEvent) {
+        let returnKeys: Set<UInt16> = [36, 76] // Return, keypad Enter
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        if returnKeys.contains(event.keyCode), modifiers.isEmpty {
+            onReturn?()
+        } else {
+            super.keyDown(with: event)
         }
-        let identifier = listed.contentType.identifier
-        if let cached = Self.byType[identifier] {
-            return cached
-        }
-        let icon = NSWorkspace.shared.icon(for: listed.contentType)
-        Self.byType[identifier] = icon
-        return icon
-    }
-
-    /// Drops icon requests for a folder the side no longer shows.
-    func cancelPending() {
-        packageIcons.cancelAll()
     }
 }
 
-@MainActor
-enum Formatting {
-    private static let sizeFormatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter
-    }()
+/// A combo box that reports when it gains keyboard focus, which makes its side the active side.
+final class ActivatingComboBox: NSComboBox {
+    var onBecomeFirstResponder: (() -> Void)?
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        formatter.doesRelativeDateFormatting = true
-        return formatter
-    }()
-
-    static func size(of entry: DirectoryEntry) -> String {
-        entry.kind == .directory ? "--" : sizeFormatter.string(fromByteCount: entry.size)
-    }
-
-    static func date(_ date: Date) -> String {
-        dateFormatter.string(from: date)
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted {
+            onBecomeFirstResponder?()
+        }
+        return accepted
     }
 }

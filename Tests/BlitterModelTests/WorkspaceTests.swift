@@ -1,6 +1,7 @@
 import BlitterCore
 @testable import BlitterModel
 import Foundation
+import Synchronization
 import Testing
 import UniformTypeIdentifiers
 
@@ -45,8 +46,6 @@ final class FakeLister: Sendable {
         return try result.get()
     }
 }
-
-import Synchronization
 
 @MainActor
 struct WorkspaceTests {

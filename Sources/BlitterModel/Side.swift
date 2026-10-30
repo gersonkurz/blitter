@@ -23,8 +23,11 @@ public enum LoadStatus: Equatable, Sendable {
 
 /// State of a single side.
 public struct SideState: Sendable {
-    /// Absolute path of the folder this side shows.
+    /// Absolute path of the folder this side shows, or is about to show while it is being read.
     public internal(set) var location: String
+    /// The folder `visibleEntries` belong to. After a navigation it still names the previous
+    /// folder until the new listing arrives, so the old rows stay usable until they are replaced.
+    public internal(set) var entriesLocation: String
     public internal(set) var status: LoadStatus = .loading
     /// Everything in the folder, unsorted, including hidden items.
     var allEntries: [DirectoryEntry] = []
@@ -36,4 +39,29 @@ public struct SideState: Sendable {
     /// Increases whenever `visibleEntries` is replaced, so views can tell a new listing from a
     /// selection change and reload only when needed.
     public internal(set) var entriesVersion = 0
+    /// Folders to go back to, the most recent last.
+    public internal(set) var backStack: [String] = []
+    /// Folders to go forward to after going back, the next one last.
+    public internal(set) var forwardStack: [String] = []
+    /// Folders this side visited, the most recent first, without duplicates. The path field's
+    /// dropdown offers them.
+    public internal(set) var recentLocations: [String]
+
+    init(location: String) {
+        self.location = location
+        entriesLocation = location
+        recentLocations = [location]
+    }
+
+    public var canGoBack: Bool {
+        !backStack.isEmpty
+    }
+
+    public var canGoForward: Bool {
+        !forwardStack.isEmpty
+    }
+
+    public var canGoToParent: Bool {
+        location != "/"
+    }
 }
