@@ -5,11 +5,11 @@ import BlitterModel
 @MainActor
 final class MainWindowController: NSWindowController {
     private let workspace: Workspace
-    private let sideControllers: [FileListViewController]
+    private let sideControllers: [SideViewController]
 
     init(workspace: Workspace) {
         self.workspace = workspace
-        sideControllers = Side.allCases.map { FileListViewController(workspace: workspace, side: $0) }
+        sideControllers = Side.allCases.map { SideViewController(workspace: workspace, side: $0) }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1400, height: 800),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered,

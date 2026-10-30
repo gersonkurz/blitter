@@ -63,16 +63,9 @@ struct NavigationTests {
 
     private func makeWorkspace(_ folders: FakeFolders, at location: String = "/Users/me") async -> Workspace {
         let workspace = Workspace(initialLocation: location, home: "/Users/me", lister: folders.list,
-                                  directoryCheck: folders.isDirectory)
-        await settle(workspace)
+                                  directoryCheck: folders.isDirectory, volumes: { [] })
+        await workspace.settle()
         return workspace
-    }
-
-    private func settle(_ workspace: Workspace) async {
-        for side in Side.allCases {
-            await workspace.pendingOpen[side]?.value
-            await workspace.pendingWork[side]?.value
-        }
     }
 
     private func names(_ workspace: Workspace) -> [String] {
@@ -111,7 +104,7 @@ struct NavigationTests {
         workspace.onChange = { changes += 1 }
 
         workspace.perform(.navigate(.left, path: "~/Documents"))
-        await settle(workspace)
+        await workspace.settle()
         let state = workspace.state(of: .left)
         #expect(state.location == "/Users/me/Documents")
         #expect(state.entriesLocation == "/Users/me/Documents")
@@ -119,7 +112,7 @@ struct NavigationTests {
         #expect(state.backStack == ["/Users/me"])
         #expect(state.canGoBack && !state.canGoForward)
         #expect(state.recentLocations == ["/Users/me/Documents", "/Users/me"])
-        #expect(changes == 2) // the navigation, then the listing
+        #expect(changes == 3) // the navigation, the listing, and the tree's subfolders of /Users/me
         // The other side did not move.
         #expect(workspace.state(of: .right).location == "/Users/me")
     }
@@ -129,7 +122,7 @@ struct NavigationTests {
         let workspace = await makeWorkspace(folders)
         let before = folders.listed.count
         workspace.perform(.navigate(.left, path: "."))
-        await settle(workspace)
+        await workspace.settle()
         #expect(folders.listed.count == before + 1)
         #expect(workspace.state(of: .left).backStack.isEmpty)
     }
@@ -138,13 +131,13 @@ struct NavigationTests {
         let workspace = await makeWorkspace(FakeFolders(tree))
         workspace.perform(.navigate(.left, path: "Documents"))
         workspace.perform(.navigate(.left, path: "/tmp"))
-        await settle(workspace)
+        await workspace.settle()
 
         workspace.perform(.goBack(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me/Documents")
         workspace.perform(.goBack(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me")
         #expect(!workspace.state(of: .left).canGoBack)
         // Going back past the start does nothing and does not notify.
@@ -154,13 +147,13 @@ struct NavigationTests {
         #expect(changes == 0)
 
         workspace.perform(.goForward(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me/Documents")
         #expect(workspace.state(of: .left).forwardStack == ["/tmp"])
 
         // A new navigation drops the forward history.
         workspace.perform(.navigate(.left, path: "/"))
-        await settle(workspace)
+        await workspace.settle()
         #expect(!workspace.state(of: .left).canGoForward)
         #expect(workspace.state(of: .left).backStack == ["/Users/me", "/Users/me/Documents"])
         #expect(workspace.state(of: .left).recentLocations == ["/", "/Users/me/Documents", "/Users/me", "/tmp"])
@@ -169,16 +162,16 @@ struct NavigationTests {
     @Test func goToParentSelectsTheFolderWeCameFrom() async {
         let workspace = await makeWorkspace(FakeFolders(tree), at: "/Users/me/Documents")
         workspace.perform(.goToParent(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me")
         #expect(workspace.state(of: .left).selection == ["Documents"])
 
         // Back into Documents and back out again also selects it.
         workspace.perform(.goBack(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).selection.isEmpty)
         workspace.perform(.goForward(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).selection == ["Documents"])
     }
 
@@ -202,7 +195,7 @@ struct NavigationTests {
         #expect(workspace.state(of: .left).location == "/Users/me")
 
         workspace.perform(.open(.left, name: "Documents"))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me/Documents")
         #expect(names(workspace) == ["a.txt"])
     }
@@ -210,11 +203,11 @@ struct NavigationTests {
     @Test func openFollowsSymlinksOnlyToFolders() async {
         let workspace = await makeWorkspace(FakeFolders(tree))
         workspace.perform(.open(.left, name: "readme")) // not a folder
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me")
 
         workspace.perform(.open(.left, name: "docs"))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).location == "/Users/me/docs")
         #expect(names(workspace) == ["linked.txt"])
     }
@@ -224,7 +217,7 @@ struct NavigationTests {
         let workspace = await makeWorkspace(folders)
         workspace.perform(.open(.left, name: "docs"))
         workspace.perform(.navigate(.left, path: "/tmp"))
-        await settle(workspace)
+        await workspace.settle()
         try await Task.sleep(for: .milliseconds(400)) // the check has returned by now
         #expect(workspace.state(of: .left).location == "/tmp")
         #expect(workspace.state(of: .left).backStack == ["/Users/me"])
@@ -235,7 +228,7 @@ struct NavigationTests {
         let workspace = await makeWorkspace(folders)
         workspace.perform(.open(.left, name: "docs"))
         workspace.perform(.navigate(.left, path: "."))
-        await settle(workspace)
+        await workspace.settle()
         try await Task.sleep(for: .milliseconds(400)) // the check has returned by now
         #expect(workspace.state(of: .left).location == "/Users/me")
         #expect(workspace.state(of: .left).backStack.isEmpty)
@@ -253,7 +246,7 @@ struct NavigationTests {
         workspace.perform(.navigate(.left, path: "Documents"))
         #expect(workspace.state(of: .left).entriesLocation == "/Users/me") // still the old rows
         workspace.perform(.open(.left, name: "Documents"))
-        await settle(workspace)
+        await workspace.settle()
         // /Users/me + Documents, which is where the side already goes: no deeper, no extra history.
         #expect(workspace.state(of: .left).location == "/Users/me/Documents")
         #expect(workspace.state(of: .left).backStack == ["/Users/me"])
@@ -270,7 +263,7 @@ struct NavigationTests {
         #expect(loading.entriesLocation == "/Users/me")
         #expect(loading.visibleEntries.count == 5)
 
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).entriesLocation == "/Users/me/Documents")
         #expect(names(workspace) == ["a.txt"])
     }
@@ -280,7 +273,7 @@ struct NavigationTests {
         let workspace = await makeWorkspace(folders)
         workspace.perform(.navigate(.left, path: "Documents"))
         workspace.perform(.navigate(.left, path: "/tmp"))
-        await settle(workspace)
+        await workspace.settle()
         try await Task.sleep(for: .milliseconds(400))
         #expect(workspace.state(of: .left).entriesLocation == "/tmp")
         #expect(names(workspace) == ["scratch"])
@@ -289,12 +282,12 @@ struct NavigationTests {
     @Test func aMissingFolderReportsTheErrorAndBackReturns() async {
         let workspace = await makeWorkspace(FakeFolders(tree))
         workspace.perform(.navigate(.left, path: "/nowhere"))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).status == .failed("/nowhere: No such file or directory"))
         #expect(workspace.state(of: .left).visibleEntries.isEmpty)
 
         workspace.perform(.goBack(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).status == .loaded)
         #expect(workspace.state(of: .left).location == "/Users/me")
     }
@@ -308,7 +301,7 @@ struct NavigationTests {
         for index in 0 ..< 30 {
             workspace.perform(.navigate(.left, path: "/f\(index)"))
         }
-        await settle(workspace)
+        await workspace.settle()
         let recent = workspace.state(of: .left).recentLocations
         #expect(recent.count == 20)
         #expect(recent.first == "/f29")

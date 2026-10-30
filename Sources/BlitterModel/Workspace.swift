@@ -13,6 +13,13 @@ public enum Command: Sendable {
     case goForward(Side)
     /// Go to the enclosing folder and select the folder we came from.
     case goToParent(Side)
+    /// Expand a folder in the side's tree; its subfolders are read in the background.
+    case expandTreeNode(Side, TreeNodeID)
+    case collapseTreeNode(Side, TreeNodeID)
+    /// Show the tree node's folder in the side, keeping the tree selection under that node's root.
+    case selectTreeNode(Side, TreeNodeID)
+    /// Read the mounted volumes and cloud drives again, e.g. after a volume was mounted.
+    case refreshTreeRoots
     /// Make the other side the active (source) side.
     case switchActiveSide
     /// Make this side the active (source) side, e.g. when the user clicks into it.
@@ -31,11 +38,21 @@ public enum Command: Sendable {
 public final class Workspace {
     public typealias Lister = @Sendable (String) async throws -> [DirectoryEntry]
     public typealias DirectoryCheck = @Sendable (String) async -> Bool
+    public typealias VolumeList = @Sendable () async -> [MountedVolume]
 
-    private var sides: [Side: SideState]
-    private let home: String
-    private let lister: Lister
-    private let directoryCheck: DirectoryCheck
+    var sides: [Side: SideState]
+    let home: String
+    let lister: Lister
+    let directoryCheck: DirectoryCheck
+    let volumes: VolumeList
+    /// Places at the top of every side's tree: favorites, volumes, cloud drives.
+    public internal(set) var treeRoots: [TreeRoot]
+    /// Volumes, iCloud Drive and the CloudStorage providers, each read and published on its own,
+    /// so a stalled cloud drive cannot hold back the volumes.
+    var rootParts: [TreeRoots.Part: [TreeRoot]] = [:]
+    var rootsWork: [TreeRoots.Part: Task<Void, Never>] = [:]
+    /// Subfolder reads per side and folder path.
+    var treeWork: [Side: [String: Task<Void, Never>]] = [:]
     /// The running load or re-sort per side. A new one cancels the previous one.
     private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
@@ -50,15 +67,20 @@ public final class Workspace {
     public var onChange: (() -> Void)?
 
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
-                lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory)
+                lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
+                volumes: @escaping VolumeList = mountedVolumes)
     {
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
         self.home = home
         self.lister = lister
         self.directoryCheck = directoryCheck
+        self.volumes = volumes
+        treeRoots = TreeRoots.favorites(home: home)
         for side in Side.allCases {
             load(side)
+            revealInTree(side, preferredRoot: nil)
         }
+        loadTreeRoots()
     }
 
     public func state(of side: Side) -> SideState {
@@ -79,6 +101,10 @@ public final class Workspace {
         case let .goBack(side): go(side, .back)
         case let .goForward(side): go(side, .forward)
         case let .goToParent(side): goToParent(side)
+        case let .expandTreeNode(side, node): expandTreeNode(side, node)
+        case let .collapseTreeNode(side, node): collapseTreeNode(side, node)
+        case let .selectTreeNode(side, node): selectTreeNode(side, node)
+        case .refreshTreeRoots: refreshTreeRoots()
         case .switchActiveSide: activate(activeSide.opposite)
         case let .activate(side): activate(side)
         case let .refresh(side): refresh(side)
@@ -104,16 +130,17 @@ public final class Workspace {
         return go(side, .path(parent))
     }
 
-    private enum Destination {
+    enum Destination {
         case path(String)
         case back
         case forward
     }
 
-    /// Moves the side to another folder, records it in the history and starts reading it. The old
-    /// listing stays visible until the new one arrives. Returns false if there is nowhere to go.
+    /// Moves the side to another folder, records it in the history, starts reading it and reveals
+    /// it in the tree, under `treeRoot` if given. The old listing stays visible until the new one
+    /// arrives. Returns false if there is nowhere to go.
     @discardableResult
-    private func go(_ side: Side, _ destination: Destination) -> Bool {
+    func go(_ side: Side, _ destination: Destination, treeRoot: String? = nil) -> Bool {
         guard var state = sides[side] else {
             return false
         }
@@ -153,6 +180,7 @@ public final class Workspace {
         sides[side] = state
         cancelPendingOpen(side)
         load(side)
+        revealInTree(side, preferredRoot: treeRoot)
         return true
     }
 
@@ -178,10 +206,14 @@ public final class Workspace {
             let directoryCheck = directoryCheck
             pendingOpen[side]?.cancel()
             pendingOpen[side] = Task { [weak self] in
-                guard await directoryCheck(path), !Task.isCancelled, let self else {
+                let isFolder = await directoryCheck(path)
+                guard !Task.isCancelled, let self else {
                     return
                 }
                 pendingOpen[side] = nil
+                guard isFolder else {
+                    return
+                }
                 go(side, .path(path))
                 onChange?()
             }
@@ -190,46 +222,6 @@ public final class Workspace {
             // Files and packages will open in their app (#8).
             return false
         }
-    }
-
-    // MARK: View options
-
-    private func activate(_ side: Side) -> Bool {
-        guard activeSide != side else {
-            return false
-        }
-        activeSide = side
-        return true
-    }
-
-    private func refresh(_ side: Side) -> Bool {
-        load(side)
-        return true
-    }
-
-    private func sort(_ side: Side, _ order: ListSort) -> Bool {
-        guard sides[side]?.sort != order else {
-            return false
-        }
-        sides[side]?.sort = order
-        relist(side)
-        return true
-    }
-
-    private func select(_ side: Side, _ names: Set<String>) -> Bool {
-        guard sides[side]?.selection != names else {
-            return false
-        }
-        sides[side]?.selection = names
-        return true
-    }
-
-    private func toggleHiddenFiles() -> Bool {
-        showsHiddenFiles.toggle()
-        for side in Side.allCases {
-            relist(side)
-        }
-        return true
     }
 
     // MARK: Loading
@@ -318,5 +310,48 @@ public final class Workspace {
             return "\(location): \(String(cString: strerror(posix.code.rawValue)))"
         }
         return "\(location): \(error.localizedDescription)"
+    }
+}
+
+// MARK: View options
+
+extension Workspace {
+    private func activate(_ side: Side) -> Bool {
+        guard activeSide != side else {
+            return false
+        }
+        activeSide = side
+        return true
+    }
+
+    private func refresh(_ side: Side) -> Bool {
+        load(side)
+        return true
+    }
+
+    private func sort(_ side: Side, _ order: ListSort) -> Bool {
+        guard sides[side]?.sort != order else {
+            return false
+        }
+        sides[side]?.sort = order
+        relist(side)
+        return true
+    }
+
+    private func select(_ side: Side, _ names: Set<String>) -> Bool {
+        guard sides[side]?.selection != names else {
+            return false
+        }
+        sides[side]?.selection = names
+        return true
+    }
+
+    private func toggleHiddenFiles() -> Bool {
+        showsHiddenFiles.toggle()
+        for side in Side.allCases {
+            relist(side)
+            sides[side]?.tree.version += 1
+        }
+        return true
     }
 }

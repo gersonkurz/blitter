@@ -11,11 +11,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let controller = MainWindowController(workspace: workspace)
         controller.showWindow(nil)
         windowController = controller
+        observeVolumes()
         NSApp.activate()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
+    }
+
+    /// Mounting, unmounting or renaming a volume changes the tree's Volumes section.
+    private func observeVolumes() {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification,
+                     NSWorkspace.didRenameVolumeNotification]
+        {
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.workspace.perform(.refreshTreeRoots)
+                }
+            }
+        }
     }
 
     // MARK: Menu actions (each one is a single workspace command)

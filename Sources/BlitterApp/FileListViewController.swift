@@ -179,11 +179,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         case let .failed(message):
             statusLabel.stringValue = message
         }
-
-        // The active side gets keyboard focus, unless something inside it (the path field) has it.
-        if isActive, let window = view.window, (window.firstResponder as? NSView)?.isDescendant(of: view) != true {
-            window.makeFirstResponder(tableView)
-        }
     }
 
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
@@ -222,6 +217,10 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 }
 
 extension FileListViewController {
+    func focusList() {
+        view.window?.makeFirstResponder(tableView)
+    }
+
     func focusPathField() {
         view.window?.makeFirstResponder(pathField)
     }

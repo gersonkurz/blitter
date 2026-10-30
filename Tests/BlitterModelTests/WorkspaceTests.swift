@@ -28,7 +28,12 @@ final class FakeLister: Sendable {
 
     private let calls = Mutex(0)
 
-    func list(_: String) async throws -> [DirectoryEntry] {
+    /// Only "/folder" answers; reads of anything else (the tree, cloud drives) fail without
+    /// using up a result.
+    func list(_ path: String) async throws -> [DirectoryEntry] {
+        guard path == "/folder" else {
+            throw POSIXError(.ENOENT)
+        }
         let (call, result) = results.withLock { results in
             let call = calls.withLock { calls in
                 calls += 1
@@ -50,15 +55,10 @@ final class FakeLister: Sendable {
 @MainActor
 struct WorkspaceTests {
     private func makeWorkspace(_ lister: FakeLister) async -> Workspace {
-        let workspace = Workspace(initialLocation: "/folder", lister: lister.list)
-        await settle(workspace)
+        let workspace = Workspace(initialLocation: "/folder", home: "/home", lister: lister.list,
+                                  directoryCheck: { _ in false }, volumes: { [] })
+        await workspace.settle()
         return workspace
-    }
-
-    private func settle(_ workspace: Workspace) async {
-        for side in Side.allCases {
-            await workspace.pendingWork[side]?.value
-        }
     }
 
     private func names(_ workspace: Workspace, _ side: Side = .left) -> [String] {
@@ -106,7 +106,7 @@ struct WorkspaceTests {
             entry("a", size: 1), entry("b", size: 100), entry("dir", .directory), entry("c", size: 50),
         ]))
         workspace.perform(.sort(.left, ListSort(column: .size, ascending: false)))
-        await settle(workspace)
+        await workspace.settle()
         #expect(names(workspace) == ["dir", "b", "c", "a"])
         // The other side keeps its own sort order (by name).
         #expect(names(workspace, .right) == ["dir", "a", "b", "c"])
@@ -117,14 +117,14 @@ struct WorkspaceTests {
             entry("b", modified: 10), entry("a", modified: 10), entry("c", modified: 5),
         ]))
         workspace.perform(.sort(.left, ListSort(column: .modified, ascending: true)))
-        await settle(workspace)
+        await workspace.settle()
         #expect(names(workspace) == ["c", "a", "b"])
     }
 
     @Test func sortByKindUsesTheKindDescription() async {
         let workspace = await makeWorkspace(FakeLister([entry("x.pdf"), entry("y.txt"), entry("z.pdf")]))
         workspace.perform(.sort(.left, ListSort(column: .kind, ascending: true)))
-        await settle(workspace)
+        await workspace.settle()
 
         let pdf = UTType.pdf.localizedDescription ?? ""
         let text = UTType(filenameExtension: "txt")?.localizedDescription ?? ""
@@ -161,7 +161,7 @@ struct WorkspaceTests {
         #expect(names(workspace) == ["visible"])
 
         workspace.perform(.toggleHiddenFiles)
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.showsHiddenFiles)
         #expect(Set(names(workspace)) == [".secret", "flagged", "visible"])
         #expect(Set(names(workspace, .right)) == [".secret", "flagged", "visible"])
@@ -182,7 +182,7 @@ struct WorkspaceTests {
         #expect(workspace.state(of: .left).selection == ["a", "b"])
 
         workspace.perform(.refresh(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).selection == ["a"])
     }
 
@@ -192,7 +192,7 @@ struct WorkspaceTests {
         workspace.perform(.select(.left, ["a"]))
         #expect(workspace.state(of: .left).entriesVersion == version)
         workspace.perform(.refresh(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(workspace.state(of: .left).entriesVersion > version)
     }
 
@@ -208,7 +208,7 @@ struct WorkspaceTests {
         workspace.perform(.refresh(.left))
         try await Task.sleep(for: .milliseconds(50)) // the slow call is now in flight
         workspace.perform(.refresh(.left))
-        await settle(workspace)
+        await workspace.settle()
         #expect(names(workspace) == ["fresh"])
 
         try await Task.sleep(for: .milliseconds(400)) // the slow call has returned by now

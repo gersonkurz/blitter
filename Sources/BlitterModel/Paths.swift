@@ -28,6 +28,11 @@ enum Paths {
         return normalize(path + "/..")
     }
 
+    /// Whether `path` is `folder` itself or somewhere below it.
+    static func contains(_ path: String, in folder: String) -> Bool {
+        folder == "/" || path == folder || path.hasPrefix(folder + "/")
+    }
+
     static func appending(_ name: String, to folder: String) -> String {
         folder == "/" ? "/" + name : folder + "/" + name
     }

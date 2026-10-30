@@ -5,16 +5,6 @@ import BlitterModel
 import Foundation
 import Testing
 
-private func folder(_ name: String) -> DirectoryEntry {
-    DirectoryEntry(name: name, kind: .directory, size: 0, modificationDate: .distantPast, isHidden: false,
-                   isDataless: false, error: 0)
-}
-
-private func file(_ name: String) -> DirectoryEntry {
-    DirectoryEntry(name: name, kind: .file, size: 1, modificationDate: .distantPast, isHidden: false,
-                   isDataless: false, error: 0)
-}
-
 private let fakeFolders: [String: [DirectoryEntry]] = [
     "/home": [folder("Desktop"), folder("Documents"),
               folder("Downloads"), file("notes.txt")],
@@ -38,7 +28,7 @@ final class FileListInteractionTests {
                 throw POSIXError(.ENOENT)
             }
             return entries
-        }, directoryCheck: { fakeFolders[$0] != nil })
+        }, directoryCheck: { fakeFolders[$0] != nil }, volumes: { [] })
         controller = FileListViewController(workspace: workspace, side: .left)
         window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 700, height: 500),
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)

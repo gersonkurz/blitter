@@ -46,6 +46,8 @@ public struct SideState: Sendable {
     /// Folders this side visited, the most recent first, without duplicates. The path field's
     /// dropdown offers them.
     public internal(set) var recentLocations: [String]
+    /// Expanded folders, loaded subfolders and the selection of this side's folder tree.
+    public internal(set) var tree = FolderTreeState()
 
     init(location: String) {
         self.location = location
