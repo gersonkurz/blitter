@@ -9,8 +9,10 @@ import UniformTypeIdentifiers
 final class FileListViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
     NSComboBoxDelegate
 {
-    private let workspace: Workspace
+    let workspace: Workspace
     let side: Side
+    /// The general pasteboard; tests use one of their own, so they never touch the user's clipboard.
+    var pasteboard = NSPasteboard.general
     private let pathField = ActivatingComboBox()
     private let statusLabel = NSTextField(labelWithString: "")
     private let tableView = ActivatingTableView()

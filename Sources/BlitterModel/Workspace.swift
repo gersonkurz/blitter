@@ -101,6 +101,8 @@ public final class Workspace {
         case .toggleHiddenFiles: toggleHiddenFiles()
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
+        case let .copyItems(paths, side): transfer(paths, into: side, move: false)
+        case let .moveItems(paths, side): transfer(paths, into: side, move: true)
         case let .trashSelection(side): trashSelection(side)
         case let .rename(side, path, newName): rename(side, path, to: newName)
         case let .requestRename(side): requestRename(side)

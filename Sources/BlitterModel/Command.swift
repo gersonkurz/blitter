@@ -34,6 +34,10 @@ public enum Command: Sendable {
     case copyToOtherSide
     /// Move the active side's selection into the other side's folder.
     case moveToOtherSide
+    /// Copy items from anywhere (e.g. pasted from Finder) into the side's folder.
+    case copyItems([String], into: Side)
+    /// Move items from anywhere into the side's folder ("Move Item Here").
+    case moveItems([String], into: Side)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a

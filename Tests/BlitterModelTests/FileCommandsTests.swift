@@ -234,6 +234,27 @@ struct FileCommandsTests {
         #expect(try String(contentsOfFile: sides.right + "/a.txt", encoding: .utf8) == "old")
     }
 
+    // MARK: Items from elsewhere (pasted)
+
+    @Test func itemsFromElsewhereAreCopiedOrMovedIntoTheSide() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.root + "/outside", withIntermediateDirectories: false)
+        let copied = sides.file("outside/copied.txt")
+        let moved = sides.file("outside/moved.txt")
+        try await sides.settle()
+
+        sides.workspace.perform(.copyItems([copied], into: .right))
+        sides.workspace.perform(.moveItems([moved], into: .right))
+        try await sides.settle()
+        #expect(sides.names(.right) == ["copied.txt", "moved.txt"])
+        #expect(sides.onDisk("outside") == ["copied.txt"])
+
+        var changes = 0
+        sides.workspace.onChange = { changes += 1 }
+        sides.workspace.perform(.copyItems([], into: .right))
+        #expect(changes == 0 && sides.workspace.jobs.isEmpty)
+    }
+
     // MARK: Names belong to their folder
 
     /// Going up selects the folder we came from only once the parent's listing is there; before

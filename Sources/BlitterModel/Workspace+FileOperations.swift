@@ -20,6 +20,14 @@ extension Workspace {
         return true
     }
 
+    func transfer(_ paths: [String], into side: Side, move: Bool) -> Bool {
+        guard let folder = sides[side]?.location, !paths.isEmpty else {
+            return false
+        }
+        startJob(move ? .move(paths, into: folder) : .copy(paths, into: folder))
+        return true
+    }
+
     func trashSelection(_ side: Side) -> Bool {
         guard let state = sides[side], !state.selection.isEmpty else {
             return false
