@@ -1,38 +1,6 @@
 import BlitterCore
 import Foundation
 
-/// Everything the user can do. The UI (and later the MCP server) changes state only through these.
-public enum Command: Sendable {
-    /// Go to a path the user typed. `~`, relative paths and `..` are resolved against the side's
-    /// folder. Going to the folder the side already shows reads it again.
-    case navigate(Side, path: String)
-    /// Open the entry with this name: a folder, or a symbolic link to one, is shown in this side.
-    /// Files and packages are not opened yet.
-    case open(Side, name: String)
-    case goBack(Side)
-    case goForward(Side)
-    /// Go to the enclosing folder and select the folder we came from.
-    case goToParent(Side)
-    /// Expand a folder in the side's tree; its subfolders are read in the background.
-    case expandTreeNode(Side, TreeNodeID)
-    case collapseTreeNode(Side, TreeNodeID)
-    /// Show the tree node's folder in the side, keeping the tree selection under that node's root.
-    case selectTreeNode(Side, TreeNodeID)
-    /// Read the mounted volumes and cloud drives again, e.g. after a volume was mounted.
-    case refreshTreeRoots
-    /// Make the other side the active (source) side.
-    case switchActiveSide
-    /// Make this side the active (source) side, e.g. when the user clicks into it.
-    case activate(Side)
-    /// Read the side's folder again.
-    case refresh(Side)
-    case sort(Side, ListSort)
-    /// Replace the side's selection with these entry names.
-    case select(Side, Set<String>)
-    /// Show or hide hidden files on both sides.
-    case toggleHiddenFiles
-}
-
 /// The state of the whole window: both sides, which of them is active, and the view options.
 @MainActor
 public final class Workspace {
@@ -54,6 +22,11 @@ public final class Workspace {
     var rootsWork: [TreeRoots.Part: Task<Void, Never>] = [:]
     /// Subfolder reads per side and folder path.
     var treeWork: [Side: [String: Task<Void, Never>]] = [:]
+    /// File operations in the background.
+    let jobQueue: JobQueue
+    /// What to do after a job succeeded, e.g. select a renamed item.
+    var jobFollowUps: [Int: (Workspace) -> Void] = [:]
+    var nextRenameToken = 0
     /// Watches the folders both sides show, and the expanded tree folders, for changes on disk.
     var watcher: (any FolderWatching)?
     var watchedFolders: Set<String> = []
@@ -73,8 +46,10 @@ public final class Workspace {
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
                 volumes: @escaping VolumeList = mountedVolumes,
-                watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) })
+                watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) },
+                jobs: JobQueue = JobQueue())
     {
+        jobQueue = jobs
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
         self.home = home
         self.lister = lister
@@ -92,6 +67,8 @@ public final class Workspace {
         }
         loadTreeRoots()
         updateWatchedFolders()
+        jobs.onChange = { [weak self] in self?.notifyChange() }
+        jobs.onFinish = { [weak self] job in self?.jobFinished(job) }
     }
 
     public func state(of side: Side) -> SideState {
@@ -122,122 +99,29 @@ public final class Workspace {
         case let .sort(side, order): sort(side, order)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
-        }
-    }
-
-    // MARK: Navigation
-
-    private func navigate(_ side: Side, _ input: String) -> Bool {
-        guard let state = sides[side], let path = Paths.resolve(input, relativeTo: state.location, home: home) else {
-            return false
-        }
-        return go(side, .path(path))
-    }
-
-    private func goToParent(_ side: Side) -> Bool {
-        guard let parent = sides[side].flatMap({ Paths.parent(of: $0.location) }) else {
-            return false
-        }
-        return go(side, .path(parent))
-    }
-
-    enum Destination {
-        case path(String)
-        case back
-        case forward
-    }
-
-    /// Moves the side to another folder, records it in the history, starts reading it and reveals
-    /// it in the tree, under `treeRoot` if given. The old listing stays visible until the new one
-    /// arrives. Returns false if there is nowhere to go.
-    @discardableResult
-    func go(_ side: Side, _ destination: Destination, treeRoot: String? = nil) -> Bool {
-        guard var state = sides[side] else {
-            return false
-        }
-        let previous = state.location
-        let location: String
-        switch destination {
-        case let .path(path):
-            guard path != previous else {
-                cancelPendingOpen(side)
-                load(side)
-                return true
-            }
-            state.backStack.append(previous)
-            state.forwardStack.removeAll()
-            location = path
-        case .back:
-            guard let target = state.backStack.popLast() else {
-                return false
-            }
-            state.forwardStack.append(previous)
-            location = target
-        case .forward:
-            guard let target = state.forwardStack.popLast() else {
-                return false
-            }
-            state.backStack.append(previous)
-            location = target
-        }
-        state.location = location
-        state.recentLocations.removeAll { $0 == location }
-        state.recentLocations.insert(location, at: 0)
-        if state.recentLocations.count > Self.maxRecentLocations {
-            state.recentLocations.removeLast()
-        }
-        // Coming up out of a folder selects it, so the user sees where they came from.
-        state.selection = Paths.parent(of: previous) == location ? [Paths.lastComponent(of: previous)] : []
-        sides[side] = state
-        cancelPendingOpen(side)
-        load(side)
-        revealInTree(side, preferredRoot: treeRoot)
-        return true
-    }
-
-    /// A navigation the user asked for wins over a symbolic link still being checked.
-    private func cancelPendingOpen(_ side: Side) {
-        pendingOpen[side]?.cancel()
-        pendingOpen[side] = nil
-    }
-
-    /// Opens a folder entry in this side. Returns true if the state changed now; a symbolic link
-    /// is first checked in the background and opened only if it leads to a folder.
-    private func open(_ side: Side, _ name: String) -> Bool {
-        guard let state = sides[side],
-              let listed = state.visibleEntries.first(where: { $0.entry.name == name })
-        else {
-            return false
-        }
-        let path = Paths.appending(name, to: state.entriesLocation)
-        switch listed.entry.kind {
-        case .directory where !listed.contentType.conforms(to: .package):
-            return go(side, .path(path))
-        case .symlink:
-            let directoryCheck = directoryCheck
-            pendingOpen[side]?.cancel()
-            pendingOpen[side] = Task { [weak self] in
-                let isFolder = await directoryCheck(path)
-                guard !Task.isCancelled, let self else {
-                    return
-                }
-                pendingOpen[side] = nil
-                guard isFolder else {
-                    return
-                }
-                go(side, .path(path))
-                notifyChange()
-            }
-            return false
-        default:
-            // Files and packages will open in their app (#8).
-            return false
+        case .copyToOtherSide: transferSelection(move: false)
+        case .moveToOtherSide: transferSelection(move: true)
+        case let .trashSelection(side): trashSelection(side)
+        case let .rename(side, path, newName): rename(side, path, to: newName)
+        case let .requestRename(side): requestRename(side)
+        case let .cancelRename(side): cancelRename(side)
+        case let .newFolder(side): newFolder(side)
+        case let .answerConflict(job, answer): answerConflict(job, answer)
+        case let .cancelJob(job): cancelJob(job)
+        case let .dismissJob(job): dismissJob(job)
         }
     }
 
     // MARK: Loading
 
     /// Reads the side's folder, then filters and sorts it, all off the main thread.
+    /// Reads the side's folder again if it shows one of `folders`.
+    func reload(showing folders: Set<String>) {
+        for side in Side.allCases where sides[side].map({ folders.contains($0.location) }) == true {
+            load(side)
+        }
+    }
+
     func load(_ side: Side) {
         guard let state = sides[side] else {
             return
@@ -295,6 +179,11 @@ public final class Workspace {
         guard var state = sides[side] else {
             return
         }
+        // A selection belongs to the listing it was made in: a listing of another folder starts
+        // without one, so a command never applies names to the wrong folder.
+        if state.entriesLocation != location {
+            state.selection = []
+        }
         state.entriesLocation = location
         switch result {
         case let .success((all, visible)):
@@ -304,6 +193,10 @@ public final class Workspace {
             // Keep only selected names that still exist.
             let visibleNames = Set(visible.map(\.entry.name))
             state.selection.formIntersection(visibleNames)
+            if let pending = state.pendingSelection, pending.folder == location, visibleNames.contains(pending.name) {
+                state.selection = [pending.name]
+                state.pendingSelection = nil
+            }
         case let .failure(error):
             state.allEntries = []
             state.visibleEntries = []
@@ -364,5 +257,121 @@ extension Workspace {
             sides[side]?.tree.version += 1
         }
         return true
+    }
+}
+
+// MARK: Navigation
+
+extension Workspace {
+    private func navigate(_ side: Side, _ input: String) -> Bool {
+        guard let state = sides[side], let path = Paths.resolve(input, relativeTo: state.location, home: home) else {
+            return false
+        }
+        return go(side, .path(path))
+    }
+
+    private func goToParent(_ side: Side) -> Bool {
+        guard let parent = sides[side].flatMap({ Paths.parent(of: $0.location) }) else {
+            return false
+        }
+        return go(side, .path(parent))
+    }
+
+    enum Destination {
+        case path(String)
+        case back
+        case forward
+    }
+
+    /// Moves the side to another folder, records it in the history, starts reading it and reveals
+    /// it in the tree, under `treeRoot` if given. The old listing stays visible until the new one
+    /// arrives. Returns false if there is nowhere to go.
+    @discardableResult
+    func go(_ side: Side, _ destination: Destination, treeRoot: String? = nil) -> Bool {
+        guard var state = sides[side] else {
+            return false
+        }
+        let previous = state.location
+        let location: String
+        switch destination {
+        case let .path(path):
+            guard path != previous else {
+                cancelPendingOpen(side)
+                load(side)
+                return true
+            }
+            state.backStack.append(previous)
+            state.forwardStack.removeAll()
+            location = path
+        case .back:
+            guard let target = state.backStack.popLast() else {
+                return false
+            }
+            state.forwardStack.append(previous)
+            location = target
+        case .forward:
+            guard let target = state.forwardStack.popLast() else {
+                return false
+            }
+            state.backStack.append(previous)
+            location = target
+        }
+        state.location = location
+        state.recentLocations.removeAll { $0 == location }
+        state.recentLocations.insert(location, at: 0)
+        if state.recentLocations.count > Self.maxRecentLocations {
+            state.recentLocations.removeLast()
+        }
+        // Coming up out of a folder selects it once the parent's listing is there, so the user sees
+        // where they came from. Until then the old rows are shown, with nothing selected.
+        state.selection = []
+        state.renameRequest = nil
+        state.pendingSelection = Paths.parent(of: previous) == location
+            ? PendingSelection(folder: location, name: Paths.lastComponent(of: previous)) : nil
+        sides[side] = state
+        cancelPendingOpen(side)
+        load(side)
+        revealInTree(side, preferredRoot: treeRoot)
+        return true
+    }
+
+    /// A navigation the user asked for wins over a symbolic link still being checked.
+    private func cancelPendingOpen(_ side: Side) {
+        pendingOpen[side]?.cancel()
+        pendingOpen[side] = nil
+    }
+
+    /// Opens a folder entry in this side. Returns true if the state changed now; a symbolic link
+    /// is first checked in the background and opened only if it leads to a folder.
+    private func open(_ side: Side, _ name: String) -> Bool {
+        guard let state = sides[side],
+              let listed = state.visibleEntries.first(where: { $0.entry.name == name })
+        else {
+            return false
+        }
+        let path = Paths.appending(name, to: state.entriesLocation)
+        switch listed.entry.kind {
+        case .directory where !listed.contentType.conforms(to: .package):
+            return go(side, .path(path))
+        case .symlink:
+            let directoryCheck = directoryCheck
+            pendingOpen[side]?.cancel()
+            pendingOpen[side] = Task { [weak self] in
+                let isFolder = await directoryCheck(path)
+                guard !Task.isCancelled, let self else {
+                    return
+                }
+                pendingOpen[side] = nil
+                guard isFolder else {
+                    return
+                }
+                go(side, .path(path))
+                notifyChange()
+            }
+            return false
+        default:
+            // Files and packages will open in their app (#8).
+            return false
+        }
     }
 }

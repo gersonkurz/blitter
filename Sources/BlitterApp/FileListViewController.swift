@@ -19,6 +19,9 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     /// The folder `entries` belong to.
     private var location = ""
     private var renderedRecentLocations: [String] = []
+    private lazy var inlineRename = makeInlineRename()
+    /// The rename request the view has already started editing for.
+    private var handledRenameToken: Int?
     private var isRendering = false
     private let icons: FileIcons
 
@@ -176,6 +179,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             // A new folder starts at the top, or at the folder we came up from.
             tableView.scrollRowToVisible(tableView.selectedRowIndexes.first ?? 0)
         }
+        startRequestedRename(state.renameRequest)
 
         switch state.status {
         case .loading:
@@ -223,6 +227,37 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 }
 
 extension FileListViewController {
+    /// Starts editing a requested name once its row is there (a new folder appears a moment
+    /// after it was asked for).
+    private func startRequestedRename(_ request: RenameRequest?) {
+        // Only in the folder the request was made for.
+        guard let request, request.token != handledRenameToken, !inlineRename.isEditing, request.folder == location,
+              let row = entries.firstIndex(where: { $0.entry.name == request.name })
+        else {
+            return
+        }
+        handledRenameToken = request.token
+        inlineRename.begin(row: row, column: tableView.column(withIdentifier: Self.nameColumn), name: request.name,
+                           path: request.path)
+    }
+
+    private func makeInlineRename() -> InlineRename {
+        let rename = InlineRename(tableView: tableView)
+        rename.onCommit = { [weak self] path, newName in
+            guard let self else {
+                return
+            }
+            workspace.perform(.rename(side, path: path, newName: newName))
+        }
+        rename.onCancel = { [weak self] in
+            guard let self else {
+                return
+            }
+            workspace.perform(.cancelRename(side))
+        }
+        return rename
+    }
+
     func focusList() {
         view.window?.makeFirstResponder(tableView)
     }
@@ -348,43 +383,5 @@ extension FileListViewController {
             return
         }
         workspace.perform(.sort(side, ListSort(column: column, ascending: descriptor.ascending)))
-    }
-}
-
-/// A table view that reports when it gains keyboard focus, which makes its side the active side,
-/// and when Return is pressed, which opens the selected entry.
-final class ActivatingTableView: NSTableView {
-    var onBecomeFirstResponder: (() -> Void)?
-    var onReturn: (() -> Void)?
-
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
-        if accepted {
-            onBecomeFirstResponder?()
-        }
-        return accepted
-    }
-
-    override func keyDown(with event: NSEvent) {
-        let returnKeys: Set<UInt16> = [36, 76] // Return, keypad Enter
-        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-        if returnKeys.contains(event.keyCode), modifiers.isEmpty {
-            onReturn?()
-        } else {
-            super.keyDown(with: event)
-        }
-    }
-}
-
-/// A combo box that reports when it gains keyboard focus, which makes its side the active side.
-final class ActivatingComboBox: NSComboBox {
-    var onBecomeFirstResponder: (() -> Void)?
-
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
-        if accepted {
-            onBecomeFirstResponder?()
-        }
-        return accepted
     }
 }

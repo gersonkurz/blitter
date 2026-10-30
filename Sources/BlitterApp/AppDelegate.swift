@@ -52,6 +52,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         windowController?.focusPathField(of: workspace.activeSide)
     }
 
+    @objc private func newFolder(_: Any?) {
+        workspace.perform(.newFolder(workspace.activeSide))
+    }
+
+    @objc private func rename(_: Any?) {
+        workspace.perform(.requestRename(workspace.activeSide))
+    }
+
+    @objc private func copyToOtherSide(_: Any?) {
+        workspace.perform(.copyToOtherSide)
+    }
+
+    @objc private func moveToOtherSide(_: Any?) {
+        workspace.perform(.moveToOtherSide)
+    }
+
+    @objc private func moveToTrash(_: Any?) {
+        workspace.perform(.trashSelection(workspace.activeSide))
+    }
+
     @objc private func switchActiveSide(_: Any?) {
         workspace.perform(.switchActiveSide)
     }
@@ -66,7 +86,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         let active = workspace.state(of: workspace.activeSide)
+        // While text is edited (path field, a name), keys such as ⌘⌫ belong to the text.
+        let isEditingText = NSApp.keyWindow?.firstResponder is NSText
         switch menuItem.action {
+        case #selector(copyToOtherSide(_:)), #selector(moveToOtherSide(_:)), #selector(moveToTrash(_:)):
+            return !isEditingText && !active.selection.isEmpty
+        case #selector(rename(_:)):
+            return !isEditingText && active.selection.count == 1
+        case #selector(newFolder(_:)):
+            return !isEditingText && active.status == .loaded
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = workspace.showsHiddenFiles ? .on : .off
             return true
@@ -103,6 +131,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
         mainMenu.addItem(submenu: editMenu)
 
+        let fileMenu = makeFileMenu()
+        let fileItem = NSMenuItem()
+        fileItem.submenu = fileMenu
+        mainMenu.insertItem(fileItem, at: 1) // after the app menu, before Edit
+
         let viewMenu = NSMenu(title: "View")
         addItem(to: viewMenu, title: "Switch Active Side", action: #selector(switchActiveSide(_:)),
                 key: "\t", modifiers: [])
@@ -123,6 +156,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         mainMenu.addItem(submenu: goMenu)
 
         return mainMenu
+    }
+
+    private func makeFileMenu() -> NSMenu {
+        let fileMenu = NSMenu(title: "File")
+        addItem(to: fileMenu, title: "New Folder", action: #selector(newFolder(_:)), key: "n",
+                modifiers: [.command, .shift])
+        addItem(to: fileMenu, title: "Rename", action: #selector(rename(_:)), key: Self.functionKey(NSF2FunctionKey),
+                modifiers: [])
+        fileMenu.addItem(.separator())
+        addItem(to: fileMenu, title: "Copy to Other Side", action: #selector(copyToOtherSide(_:)),
+                key: Self.functionKey(NSF5FunctionKey), modifiers: [])
+        addItem(to: fileMenu, title: "Move to Other Side", action: #selector(moveToOtherSide(_:)),
+                key: Self.functionKey(NSF6FunctionKey), modifiers: [])
+        fileMenu.addItem(.separator())
+        addItem(to: fileMenu, title: "Move to Trash", action: #selector(moveToTrash(_:)), key: "\u{8}",
+                modifiers: [.command])
+        return fileMenu
+    }
+
+    private static func functionKey(_ key: Int) -> String {
+        String(Character(UnicodeScalar(UInt16(key))!)) // swiftlint:disable:this force_unwrapping
     }
 
     private func addItem(to menu: NSMenu, title: String, action: Selector, key: String,

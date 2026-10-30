@@ -46,6 +46,13 @@ public struct SideState: Sendable {
     /// Folders this side visited, the most recent first, without duplicates. The path field's
     /// dropdown offers them.
     public internal(set) var recentLocations: [String]
+    /// An entry to select once the listing of its folder contains it: the folder we came up from,
+    /// or one a job created or renamed. Bound to its folder, so it never selects a same-named
+    /// entry elsewhere; navigation drops it.
+    var pendingSelection: PendingSelection?
+    /// The entry whose name the view should edit in place, in the folder it belongs to. The token
+    /// changes with every request, so the view can tell a new request from one it already started.
+    public internal(set) var renameRequest: RenameRequest?
     /// Expanded folders, loaded subfolders and the selection of this side's folder tree.
     public internal(set) var tree = FolderTreeState()
 
@@ -66,4 +73,20 @@ public struct SideState: Sendable {
     public var canGoToParent: Bool {
         location != "/"
     }
+}
+
+public struct RenameRequest: Equatable, Sendable {
+    public let name: String
+    /// The folder the entry is in; the view edits only while it shows that folder.
+    public let folder: String
+    public let token: Int
+
+    public var path: String {
+        Paths.appending(name, to: folder)
+    }
+}
+
+struct PendingSelection: Equatable {
+    let folder: String
+    let name: String
 }

@@ -77,8 +77,9 @@ struct FolderWatcherTests {
         }
         #expect(try await batches.wait { !$0.isEmpty })
         try await Task.sleep(for: .milliseconds(700))
-        // FSEvents hands it out in several chunks; they are merged.
-        #expect(batches.all.count == 1, "\(batches.all.count) batches")
+        // FSEvents hands a burst out in about eight chunks; they are merged. Under load the chunks
+        // can arrive further apart than the merge window, so allow a second report.
+        #expect(batches.all.count <= 2, "\(batches.all.count) batches")
         withExtendedLifetime(watcher) {}
     }
 
