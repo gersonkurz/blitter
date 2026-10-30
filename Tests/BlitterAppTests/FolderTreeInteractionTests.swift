@@ -30,7 +30,7 @@ final class FolderTreeInteractionTests {
             return entries
         }, directoryCheck: { treeFolders[$0] != nil }, volumes: {
             [MountedVolume(name: "Disk", path: "/Volumes/Disk", isLocal: true, isRoot: false)]
-        })
+        }, watcher: { _ in FakeWatcher() })
         controller = SideViewController(workspace: workspace, side: .left)
         window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 900, height: 600),
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)

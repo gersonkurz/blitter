@@ -69,6 +69,9 @@ public struct FolderTreeState: Sendable {
     /// Subfolders by folder path, shared by every root that shows the folder. Unfiltered: use
     /// `Workspace.treeChildren(of:on:)` for what the tree shows.
     var children: [String: TreeChildren] = [:]
+    /// Folders whose loaded subfolders may be out of date: they stopped being watched after they
+    /// were read. They are read again before they are shown again.
+    var stale: Set<String> = []
     /// The node of the side's folder, if a root contains it.
     public internal(set) var selection: TreeNodeID?
     /// Increases whenever what the tree shows changes, so the view rebuilds only then.
@@ -147,7 +150,8 @@ extension Workspace {
         guard sides[side]?.tree.expanded.insert(node).inserted == true else {
             return false
         }
-        loadTreeChildren(side, node.path)
+        // Subfolders read while the folder was collapsed (and so not watched) may be out of date.
+        loadTreeChildren(side, node.path, again: sides[side]?.tree.stale.contains(node.path) == true)
         sides[side]?.tree.version += 1
         return true
     }
@@ -228,7 +232,7 @@ extension Workspace {
             for side in Side.allCases {
                 revealInTree(side, preferredRoot: nil)
             }
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -264,20 +268,26 @@ extension Workspace {
         state.tree.version += 1
         sides[side] = state
         for ancestor in ancestors.reversed() {
-            loadTreeChildren(side, ancestor)
+            loadTreeChildren(side, ancestor, again: sides[side]?.tree.stale.contains(ancestor) == true)
         }
     }
 
     /// Reads the subfolders of `path` for this side's tree unless they are loaded or being read.
-    /// Each folder is read on its own, so a stalled volume holds up only its own nodes.
-    func loadTreeChildren(_ side: Side, _ path: String) {
+    /// Each folder is read on its own, so a stalled volume holds up only its own nodes. With
+    /// `again` the folder is read anyway: loaded subfolders stay visible until the new ones
+    /// arrive, and a read still running is replaced, so an older result never wins.
+    func loadTreeChildren(_ side: Side, _ path: String, again: Bool = false) {
         switch sides[side]?.tree.children[path] {
         case .loading?, .loaded?:
-            return
+            guard again else {
+                return
+            }
         case .failed?, nil:
-            break
+            sides[side]?.tree.children[path] = .loading
         }
-        sides[side]?.tree.children[path] = .loading
+        treeWork[side]?[path]?.cancel()
+        // The folder is watched again by now (expanded folders are), so this read is current.
+        sides[side]?.tree.stale.remove(path)
         let lister = lister
         treeWork[side, default: [:]][path] = Task { [weak self] in
             let children: TreeChildren
@@ -290,9 +300,12 @@ extension Workspace {
                 return
             }
             treeWork[side]?[path] = nil
+            guard sides[side]?.tree.children[path] != children else {
+                return // read again after a change elsewhere in the folder: nothing to show
+            }
             sides[side]?.tree.children[path] = children
             sides[side]?.tree.version += 1
-            onChange?()
+            notifyChange()
         }
     }
 

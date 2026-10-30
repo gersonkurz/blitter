@@ -33,7 +33,8 @@ struct FolderTreeTests {
     private func makeWorkspace(_ folders: FakeFolders, at location: String = "/Users/me") async -> Workspace {
         let volumes = volumes
         let workspace = Workspace(initialLocation: location, home: "/Users/me", lister: folders.list,
-                                  directoryCheck: folders.isDirectory, volumes: { volumes })
+                                  directoryCheck: folders.isDirectory, volumes: { volumes },
+                                  watcher: FakeWatcher.factory)
         await workspace.settle()
         return workspace
     }
@@ -80,7 +81,8 @@ struct FolderTreeTests {
     @Test func refreshingTheRootsPicksUpANewVolume() async {
         let mounted = MountedVolumesBox(volumes)
         let workspace = Workspace(initialLocation: "/Users/me", home: "/Users/me", lister: FakeFolders(tree).list,
-                                  directoryCheck: { _ in false }, volumes: { mounted.value })
+                                  directoryCheck: { _ in false }, volumes: { mounted.value },
+                                  watcher: FakeWatcher.factory)
         await workspace.settle()
         #expect(!workspace.treeRoots.contains { $0.title == "Stick" })
 
@@ -101,7 +103,8 @@ struct FolderTreeTests {
                                   slow: ["/Users/me/Library/CloudStorage", iCloud], delay: 1.0)
         let mounted = MountedVolumesBox(volumes)
         let workspace = Workspace(initialLocation: "/Users/me", home: "/Users/me", lister: folders.list,
-                                  directoryCheck: folders.isDirectory, volumes: { mounted.value })
+                                  directoryCheck: folders.isDirectory, volumes: { mounted.value },
+                                  watcher: FakeWatcher.factory)
         let start = ContinuousClock.now
         try await waitUntil { workspace.treeRoots.contains { $0.title == "Backup" } }
         #expect(ContinuousClock.now - start < .milliseconds(500))
@@ -144,7 +147,9 @@ struct FolderTreeTests {
             == [".config", "Desktop", "Documents", "Downloads", "Library"])
     }
 
-    @Test func expandingTwiceDoesNothingAndCollapsingKeepsTheChildren() async {
+    /// A collapsed folder is not watched, so expanding it again reads it again; until the new
+    /// subfolders arrive, the ones read before stay visible.
+    @Test func expandingTwiceDoesNothingAndReexpandingReadsAgain() async {
         let folders = FakeFolders(tree)
         let workspace = await makeWorkspace(folders, at: "/Volumes/Backup")
         let documents = node("favorites:/Users/me/Documents", "/Users/me/Documents")
@@ -159,8 +164,9 @@ struct FolderTreeTests {
         #expect(!workspace.state(of: .left).tree.expanded.contains(documents))
         let reads = folders.listed.count
         workspace.perform(.expandTreeNode(.left, documents))
+        #expect(names(workspace.treeChildren(of: "/Users/me/Documents", on: .left)) == ["a9", "a10", "b", "Projects"])
         await workspace.settle()
-        #expect(folders.listed.count == reads) // still loaded, not read again
+        #expect(folders.listed.count == reads + 1)
     }
 
     @Test func collapsingStopsAReadNobodyWaitsFor() async throws {
@@ -235,7 +241,8 @@ struct FolderTreeTests {
     @Test func aFolderOutsideEveryRootHasNoSelection() async {
         // No volumes: nothing contains /elsewhere.
         let workspace = Workspace(initialLocation: "/Users/me", home: "/Users/me", lister: FakeFolders(tree).list,
-                                  directoryCheck: { _ in false }, volumes: { [] })
+                                  directoryCheck: { _ in false }, volumes: { [] },
+                                  watcher: FakeWatcher.factory)
         await workspace.settle()
         workspace.perform(.navigate(.left, path: "/elsewhere"))
         #expect(workspace.state(of: .left).tree.selection == nil)

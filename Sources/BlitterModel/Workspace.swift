@@ -39,6 +39,7 @@ public final class Workspace {
     public typealias Lister = @Sendable (String) async throws -> [DirectoryEntry]
     public typealias DirectoryCheck = @Sendable (String) async -> Bool
     public typealias VolumeList = @Sendable () async -> [MountedVolume]
+    public typealias WatcherFactory = (@escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching
 
     var sides: [Side: SideState]
     let home: String
@@ -53,6 +54,9 @@ public final class Workspace {
     var rootsWork: [TreeRoots.Part: Task<Void, Never>] = [:]
     /// Subfolder reads per side and folder path.
     var treeWork: [Side: [String: Task<Void, Never>]] = [:]
+    /// Watches the folders both sides show, and the expanded tree folders, for changes on disk.
+    var watcher: (any FolderWatching)?
+    var watchedFolders: Set<String> = []
     /// The running load or re-sort per side. A new one cancels the previous one.
     private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
@@ -68,7 +72,8 @@ public final class Workspace {
 
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
-                volumes: @escaping VolumeList = mountedVolumes)
+                volumes: @escaping VolumeList = mountedVolumes,
+                watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) })
     {
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
         self.home = home
@@ -76,11 +81,17 @@ public final class Workspace {
         self.directoryCheck = directoryCheck
         self.volumes = volumes
         treeRoots = TreeRoots.favorites(home: home)
+        // Before anything is read: the watcher reports every change from the moment it exists,
+        // so nothing that happens while the folders are being read can be missed.
+        watcher = makeWatcher { [weak self] changes in
+            Task { @MainActor in self?.foldersChanged(changes) }
+        }
         for side in Side.allCases {
             load(side)
             revealInTree(side, preferredRoot: nil)
         }
         loadTreeRoots()
+        updateWatchedFolders()
     }
 
     public func state(of side: Side) -> SideState {
@@ -89,7 +100,7 @@ public final class Workspace {
 
     public func perform(_ command: Command) {
         if apply(command) {
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -215,7 +226,7 @@ public final class Workspace {
                     return
                 }
                 go(side, .path(path))
-                onChange?()
+                notifyChange()
             }
             return false
         default:
@@ -227,7 +238,7 @@ public final class Workspace {
     // MARK: Loading
 
     /// Reads the side's folder, then filters and sorts it, all off the main thread.
-    private func load(_ side: Side) {
+    func load(_ side: Side) {
         guard let state = sides[side] else {
             return
         }
@@ -302,7 +313,7 @@ public final class Workspace {
         state.entriesVersion += 1
         sides[side] = state
         pendingWork[side] = nil
-        onChange?()
+        notifyChange()
     }
 
     private static func message(for error: Error, location: String) -> String {

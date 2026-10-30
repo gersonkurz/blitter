@@ -1,4 +1,6 @@
+import BlitterCore
 @testable import BlitterModel
+import Synchronization
 import Testing
 
 extension Workspace {
@@ -16,5 +18,23 @@ extension Workspace {
             }
         }
         Issue.record("the workspace did not settle")
+    }
+}
+
+/// Records which folders the workspace wants watched; tests report changes by calling
+/// `Workspace.foldersChanged` directly, so nothing depends on FSEvents timing.
+final class FakeWatcher: FolderWatching {
+    private let folders = Mutex<Set<String>>([])
+
+    var watched: Set<String> {
+        folders.withLock { $0 }
+    }
+
+    func watch(_ paths: Set<String>) {
+        folders.withLock { $0 = paths }
+    }
+
+    static func factory(_: @escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching {
+        FakeWatcher()
     }
 }

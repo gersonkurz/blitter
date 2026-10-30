@@ -157,13 +157,19 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         var folderChanged = false
         if state.entriesVersion != renderedVersion {
             renderedVersion = state.entriesVersion
+            let previous = entries
             entries = state.visibleEntries
             if location != state.entriesLocation {
                 icons.cancelPending()
                 location = state.entriesLocation
                 folderChanged = true
+                tableView.reloadData()
+            } else if let changes = RowChanges.between(previous, entries) {
+                // The same folder read again (a change on disk, a refresh): update only what changed.
+                tableView.apply(changes)
+            } else {
+                tableView.reloadData()
             }
-            tableView.reloadData()
         }
         applySelection(state.selection)
         if folderChanged, !entries.isEmpty {

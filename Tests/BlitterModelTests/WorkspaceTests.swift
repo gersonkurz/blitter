@@ -56,7 +56,8 @@ final class FakeLister: Sendable {
 struct WorkspaceTests {
     private func makeWorkspace(_ lister: FakeLister) async -> Workspace {
         let workspace = Workspace(initialLocation: "/folder", home: "/home", lister: lister.list,
-                                  directoryCheck: { _ in false }, volumes: { [] })
+                                  directoryCheck: { _ in false }, volumes: { [] },
+                                  watcher: FakeWatcher.factory)
         await workspace.settle()
         return workspace
     }

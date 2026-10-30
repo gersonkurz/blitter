@@ -63,7 +63,8 @@ struct NavigationTests {
 
     private func makeWorkspace(_ folders: FakeFolders, at location: String = "/Users/me") async -> Workspace {
         let workspace = Workspace(initialLocation: location, home: "/Users/me", lister: folders.list,
-                                  directoryCheck: folders.isDirectory, volumes: { [] })
+                                  directoryCheck: folders.isDirectory, volumes: { [] },
+                                  watcher: FakeWatcher.factory)
         await workspace.settle()
         return workspace
     }

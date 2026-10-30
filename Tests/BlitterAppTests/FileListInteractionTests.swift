@@ -28,7 +28,8 @@ final class FileListInteractionTests {
                 throw POSIXError(.ENOENT)
             }
             return entries
-        }, directoryCheck: { fakeFolders[$0] != nil }, volumes: { [] })
+        }, directoryCheck: { fakeFolders[$0] != nil }, volumes: { [] },
+        watcher: FakeWatcher.factory)
         controller = FileListViewController(workspace: workspace, side: .left)
         window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 700, height: 500),
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
