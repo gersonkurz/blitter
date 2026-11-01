@@ -92,10 +92,16 @@ final class TreeContextMenuTests {
     /// Runs `show`, which opens the outline view's menu; a timer reads it and closes it.
     private func whileOpen(_ show: () -> Void) throws -> [String] {
         let reader = try MenuReader(#require(tree.outlineView.menu))
+        reader.menu.removeAllItems() // so items left from an earlier opening never count
         RunLoop.main.add(reader.timer, forMode: .common)
         show()
         reader.timer.invalidate()
-        return try #require(reader.titles, "the menu did not open")
+        // A test host that is not the active app sometimes gets no menu tracking at all: the
+        // pop-up returns at once. The menu was still prepared for this click (menuNeedsUpdate),
+        // and its items are what is checked.
+        let titles = reader.titles ?? reader.menu.items.map { $0.isSeparatorItem ? "-" : $0.title }
+        try #require(!titles.isEmpty, "the menu was not prepared")
+        return titles
     }
 
     private func choose(_ title: String) throws {

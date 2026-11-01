@@ -12,7 +12,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     let outlineView = ActivatingOutlineView()
     private var renderedVersion = -1
     private var renderedRoots: [TreeRoot] = []
-    private var isRendering = false
+    private(set) var isRendering = false
     /// Items by key, so the outline view sees the same object for a node across reloads.
     private var items: [String: TreeItem] = [:]
     /// Children per item, computed once per rebuild: the outline view asks for every child by index.
@@ -244,27 +244,6 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         cell.textField?.font = isSection ? Self.sectionFont : nil
         cell.imageView?.image = isSection ? nil : TreeIcons.icon(for: item.root?.kind)
         return cell
-    }
-
-    func outlineViewItemDidExpand(_ notification: Notification) {
-        guard !isRendering, let node = (notification.userInfo?["NSObject"] as? TreeItem)?.node else {
-            return
-        }
-        workspace.perform(.expandTreeNode(side, node))
-    }
-
-    func outlineViewItemDidCollapse(_ notification: Notification) {
-        guard !isRendering, let node = (notification.userInfo?["NSObject"] as? TreeItem)?.node else {
-            return
-        }
-        workspace.perform(.collapseTreeNode(side, node))
-    }
-
-    func outlineViewSelectionDidChange(_: Notification) {
-        guard !isRendering, let node = (outlineView.item(atRow: outlineView.selectedRow) as? TreeItem)?.node else {
-            return
-        }
-        workspace.perform(.selectTreeNode(side, node))
     }
 
     private static let sectionFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)

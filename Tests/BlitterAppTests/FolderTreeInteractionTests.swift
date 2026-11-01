@@ -81,7 +81,32 @@ final class FolderTreeInteractionTests {
                                                                              path: "/Volumes/Disk")))
         try outlineView.collapseItem(outlineView.item(atRow: #require(row(titled: "Disk"))))
         #expect(!rowTitles().contains("Archive"))
-        #expect(workspace.state(of: .left).tree.expanded.isEmpty)
+        // The model hears of it once AppKit is done collapsing (crash report 2026-11-01).
+        try await waitUntil { self.workspace.state(of: .left).tree.expanded.isEmpty }
+    }
+
+    /// Crash report 2026-11-01: collapsing a node whose children are expanded. AppKit tells us
+    /// about each item it collapses while it is still at work; re-rendering the tree right there
+    /// pulled the rows from under it (EXC_BAD_ACCESS in _recursiveCollapseItemEntry).
+    @Test func collapsingANodeWithExpandedChildrenIsSafe() async throws {
+        for collapseChildren in [false, true] {
+            try expand("Home")
+            try await waitUntil { self.rowTitles().contains("Documents") && self.rowTitles().contains("Music") }
+            try expand("Documents")
+            try await waitUntil { self.rowTitles().contains("Projects") }
+            let homeRow = try #require(row(titled: "Home"))
+            let home = try #require(outlineView.item(atRow: homeRow))
+            outlineView.collapseItem(home, collapseChildren: collapseChildren)
+            try await Task.sleep(for: .milliseconds(100))
+            #expect(!rowTitles().contains("Projects"), "\(collapseChildren)")
+            #expect(!workspace.state(of: .left).tree.expanded.contains { $0.path == "/home" })
+        }
+    }
+
+    private func expand(_ title: String) throws {
+        let index = try #require(row(titled: title))
+        let item = try #require(outlineView.item(atRow: index))
+        outlineView.expandItem(item)
     }
 
     @Test func arrowKeysInTheTreeNavigate() async throws {
