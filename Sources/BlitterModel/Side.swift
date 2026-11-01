@@ -56,6 +56,10 @@ public struct SideState: Sendable {
     /// Expanded folders, loaded subfolders and the selection of this side's folder tree.
     public internal(set) var tree = FolderTreeState()
 
+    /// Set for a folder restored from the last session: if its first listing fails (the folder is
+    /// gone, its volume unmounted), the side starts at the home folder instead.
+    var fallsBackToHome = false
+
     init(location: String) {
         self.location = location
         entriesLocation = location

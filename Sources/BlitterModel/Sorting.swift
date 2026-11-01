@@ -3,14 +3,14 @@ import Foundation
 import UniformTypeIdentifiers
 
 /// Columns the file list can be sorted by.
-public enum SortColumn: String, CaseIterable, Sendable {
+public enum SortColumn: String, CaseIterable, Codable, Sendable {
     case name
     case size
     case modified
     case kind
 }
 
-public struct ListSort: Equatable, Sendable {
+public struct ListSort: Equatable, Codable, Sendable {
     public var column: SortColumn = .name
     public var ascending = true
 

@@ -34,7 +34,7 @@ final class SideViewController: NSSplitViewController {
         addSplitViewItem(treeItem)
         addSplitViewItem(NSSplitViewItem(viewController: fileList))
         // Set after the items exist, so the saved position applies to them.
-        splitView.autosaveName = "Side-\(side)"
+        splitView.autosaveName = AppEnvironment.autosaveName("Side-\(side)")
         super.viewDidLoad()
     }
 

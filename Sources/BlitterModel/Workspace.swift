@@ -39,8 +39,8 @@ public final class Workspace {
     private static let maxRecentLocations = 20
 
     /// The source side. File operations go from here to the opposite side.
-    public private(set) var activeSide: Side = .left
-    public private(set) var showsHiddenFiles = false
+    public internal(set) var activeSide: Side = .left
+    public internal(set) var showsHiddenFiles = false
 
     /// Called after every state change.
     public var onChange: (() -> Void)?
@@ -49,10 +49,14 @@ public final class Workspace {
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
                 volumes: @escaping VolumeList = mountedVolumes,
                 watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) },
-                jobs: JobQueue = JobQueue())
+                jobs: JobQueue = JobQueue(), restoring saved: WorkspaceState? = nil)
     {
         jobQueue = jobs
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
+        if let saved {
+            sides = [.left: SideState(restoring: saved.left), .right: SideState(restoring: saved.right)]
+            showsHiddenFiles = saved.showsHiddenFiles
+        }
         self.home = home
         self.lister = lister
         self.directoryCheck = directoryCheck
@@ -122,6 +126,18 @@ public final class Workspace {
     // MARK: Loading
 
     /// Reads the side's folder, then filters and sorts it, all off the main thread.
+    private func startAtHome(_ side: Side, _ restored: SideState) {
+        var state = restored
+        state.fallsBackToHome = false
+        state.location = home
+        state.recentLocations = [home]
+        sides[side] = state
+        pendingWork[side] = nil
+        load(side)
+        revealInTree(side, preferredRoot: nil)
+        notifyChange()
+    }
+
     /// Reads the side's folder again if it shows one of `folders`.
     func reload(showing folders: Set<String>) {
         for side in Side.allCases where sides[side].map({ folders.contains($0.location) }) == true {
@@ -144,7 +160,7 @@ public final class Workspace {
     }
 
     /// Filters and sorts the already loaded entries again, e.g. after the sort order changed.
-    private func relist(_ side: Side) {
+    func relist(_ side: Side) {
         guard let state = sides[side], state.status == .loaded else {
             // A load in progress picks up the new options when it starts; restart it.
             if sides[side]?.status == .loading {
@@ -194,6 +210,7 @@ public final class Workspace {
         state.entriesLocation = location
         switch result {
         case let .success((all, visible)):
+            state.fallsBackToHome = false
             state.allEntries = all
             state.visibleEntries = visible
             state.status = .loaded
@@ -204,6 +221,10 @@ public final class Workspace {
                 state.selection = [pending.name]
                 state.pendingSelection = nil
             }
+        case .failure where state.fallsBackToHome && location != home:
+            // A folder from the last session that is gone: start at home, without an error.
+            startAtHome(side, state)
+            return
         case let .failure(error):
             state.allEntries = []
             state.visibleEntries = []
@@ -221,49 +242,6 @@ public final class Workspace {
             return "\(location): \(String(cString: strerror(posix.code.rawValue)))"
         }
         return "\(location): \(error.localizedDescription)"
-    }
-}
-
-// MARK: View options
-
-extension Workspace {
-    private func activate(_ side: Side) -> Bool {
-        guard activeSide != side else {
-            return false
-        }
-        activeSide = side
-        return true
-    }
-
-    private func refresh(_ side: Side) -> Bool {
-        load(side)
-        return true
-    }
-
-    private func sort(_ side: Side, _ order: ListSort) -> Bool {
-        guard sides[side]?.sort != order else {
-            return false
-        }
-        sides[side]?.sort = order
-        relist(side)
-        return true
-    }
-
-    private func select(_ side: Side, _ names: Set<String>) -> Bool {
-        guard sides[side]?.selection != names else {
-            return false
-        }
-        sides[side]?.selection = names
-        return true
-    }
-
-    private func toggleHiddenFiles() -> Bool {
-        showsHiddenFiles.toggle()
-        for side in Side.allCases {
-            relist(side)
-            sides[side]?.tree.version += 1
-        }
-        return true
     }
 }
 
@@ -333,6 +311,7 @@ extension Workspace {
         // where they came from. Until then the old rows are shown, with nothing selected.
         state.selection = []
         state.renameRequest = nil
+        state.fallsBackToHome = false
         state.pendingSelection = Paths.parent(of: previous) == location
             ? PendingSelection(folder: location, name: Paths.lastComponent(of: previous)) : nil
         sides[side] = state

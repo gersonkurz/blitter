@@ -118,8 +118,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             }
             tableView.addTableColumn(column)
         }
-        tableView.autosaveName = "FileList-\(side)"
-        tableView.autosaveTableColumns = true
+        tableView.autosaveName = AppEnvironment.autosaveName("FileList-\(side)")
+        tableView.autosaveTableColumns = !AppEnvironment.isHostedTest
         tableView.style = .fullWidth
         tableView.rowSizeStyle = .small
         tableView.usesAlternatingRowBackgroundColors = true

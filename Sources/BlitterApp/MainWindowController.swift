@@ -8,6 +8,8 @@ final class MainWindowController: NSWindowController {
     private let workspace: Workspace
     private let sideControllers: [SideViewController]
     private let jobsController: JobsViewController
+    /// Runs after every render, e.g. to save the state for the next launch.
+    var afterRender: (() -> Void)?
 
     init(workspace: Workspace) {
         self.workspace = workspace
@@ -23,10 +25,11 @@ final class MainWindowController: NSWindowController {
         let splitViewController = NSSplitViewController()
         splitViewController.splitView.isVertical = true
         splitViewController.splitView.dividerStyle = .thin
-        splitViewController.splitView.autosaveName = "MainSplit"
         for controller in sideControllers {
             splitViewController.addSplitViewItem(NSSplitViewItem(viewController: controller))
         }
+        // Set after the items exist, so the saved divider position applies to them.
+        splitViewController.splitView.autosaveName = AppEnvironment.autosaveName("MainSplit")
         let content = NSViewController()
         let stack = NSStackView(views: [splitViewController.view, jobsController.view])
         stack.orientation = .vertical
@@ -42,10 +45,12 @@ final class MainWindowController: NSWindowController {
         content.addChild(jobsController)
         window.contentViewController = content
         window.setContentSize(NSSize(width: 1400, height: 800))
-        if !window.setFrameUsingName("MainWindow") {
-            window.center()
+        if let name = AppEnvironment.autosaveName("MainWindow") {
+            if !window.setFrameUsingName(name) {
+                window.center()
+            }
+            window.setFrameAutosaveName(name)
         }
-        window.setFrameAutosaveName("MainWindow")
 
         workspace.onChange = { [weak self] in self?.render() }
         render()
@@ -69,5 +74,6 @@ final class MainWindowController: NSWindowController {
             controller.render()
         }
         jobsController.render()
+        afterRender?()
     }
 }

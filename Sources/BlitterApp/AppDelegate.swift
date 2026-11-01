@@ -3,13 +3,26 @@ import BlitterModel
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
-    private let workspace = Workspace()
+    private let stateStore = StateStore()
+    /// Starts where the last session ended.
+    private lazy var workspace = Workspace(restoring: AppEnvironment.isHostedTest ? nil : stateStore.load())
     private var windowController: MainWindowController?
 
     func applicationDidFinishLaunching(_: Notification) {
         NSApp.mainMenu = makeMainMenu()
+        // Hosting the app tests: the menu is all they need. No window, nothing saved, so a test
+        // run never touches the user's workspace or layout.
+        guard !AppEnvironment.isHostedTest else {
+            return
+        }
         let controller = MainWindowController(workspace: workspace)
         workspace.system = Self.systemServices(window: controller)
+        controller.afterRender = { [weak self] in
+            guard let self else {
+                return
+            }
+            stateStore.save(workspace.savedState)
+        }
         controller.showWindow(nil)
         windowController = controller
         observeVolumes()
@@ -17,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        true
+        // The test host has no main window; closing a test's window must not end the run.
+        !AppEnvironment.isHostedTest
     }
 
     /// Mounting, unmounting or renaming a volume changes the tree's Volumes section.
