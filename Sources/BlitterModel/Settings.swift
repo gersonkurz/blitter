@@ -14,6 +14,8 @@ public struct Settings: Equatable, Sendable {
     public var contextMenus = ContextMenus.defaults
     /// Colors (#21): Base16 schemes for light and dark mode, and the role of each color.
     public var theme = ThemeSettings()
+    /// The action items of the File and Edit menus, with their shortcuts (#24).
+    public var menuBar = MenuBarSettings.defaults
 
     public init() {}
 
@@ -61,6 +63,28 @@ public struct Settings: Equatable, Sendable {
     ]
     # For the folder itself (a click on empty space).
     folder = ["new-folder", "-", "open-in-terminal", "open-in-code"]
+
+    # The menu bar's action items: the File menu, and the Edit menu after its own items. An entry
+    # is an action name, "-" for a separator, or { action = "…", key = "…" } with a shortcut such
+    # as "shift+cmd+n", "f2", "opt+cmd+backspace"; alternate = true shows it in place of the item
+    # before it while its extra modifier is held.
+    [menu_bar]
+    file = [
+        { action = "new-folder", key = "shift+cmd+n" },
+        { action = "rename", key = "f2" },
+        "-",
+        { action = "copy-to-other-side", key = "f5" },
+        { action = "move-to-other-side", key = "f6" },
+        { action = "reveal-in-finder", key = "opt+cmd+r" },
+        "-",
+        { action = "move-to-trash", key = "cmd+backspace" },
+        { action = "delete-immediately", key = "opt+cmd+backspace" },
+        { action = "delete-immediately-without-asking", key = "shift+opt+cmd+backspace", alternate = true },
+    ]
+    edit = [
+        { action = "copy-path", key = "opt+cmd+c" },
+        { action = "copy-name", key = "shift+opt+cmd+c" },
+    ]
 
     # Colors: a Base16 scheme for light mode and one for dark mode; "system" keeps macOS's colors.
     # Built in: default-dark, default-light, solarized-dark, solarized-light. Add your own as
@@ -110,6 +134,8 @@ public struct Settings: Equatable, Sendable {
             switch section {
             case "context_menu":
                 problems += readContextMenus(table, into: &settings)
+            case "menu_bar":
+                problems += readMenuBar(table, into: &settings)
             case "theme":
                 problems += settings.theme.apply(table, entries: entries)
             case "tools":
@@ -123,7 +149,30 @@ public struct Settings: Equatable, Sendable {
         let known = Set(ActionRegistry.builtIn.all.map(\.id) + settings.tools.map(\.id))
         let checked = settings.contextMenus.keepingKnown(known)
         settings.contextMenus = checked.menus
-        return (settings, problems + checked.problems)
+        let checkedBar = settings.menuBar.keepingKnown(known)
+        settings.menuBar = checkedBar.menus
+        return (settings, problems + checked.problems + checkedBar.problems)
+    }
+
+    private static func readMenuBar(_ table: TOMLTable, into settings: inout Settings) -> [String] {
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            let name = "menu_bar.\(key)"
+            guard let value, key == "file" || key == "edit" else {
+                problems.append(value == nil ? unreadableKey(name) : "Unknown setting “\(name)”.")
+                continue
+            }
+            let read = MenuBarSettings.items(value, at: name)
+            if read.problems.isEmpty {
+                if key == "file" {
+                    settings.menuBar.file = read.items
+                } else {
+                    settings.menuBar.edit = read.items
+                }
+            }
+            problems += read.problems
+        }
+        return problems
     }
 
     /// A section of plain entries, each checked by its schema function.

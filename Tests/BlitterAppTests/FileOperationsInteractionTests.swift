@@ -177,6 +177,58 @@ final class FileOperationsInteractionTests {
         #expect(!delegate.validateMenuItem(path) && !delegate.validateMenuItem(name))
     }
 
+    /// #24: the File and Edit menus' action items follow the settings, shortcuts included.
+    @Test func theMenusFollowTheSettings() throws {
+        let delegate = try #require(NSApp.delegate as? AppDelegate)
+        let fileMenu = try #require(NSApp.mainMenu?.items.compactMap(\.submenu).first { $0.title == "File" })
+        let editMenu = try #require(NSApp.mainMenu?.items.compactMap(\.submenu).first { $0.title == "Edit" })
+        let original = delegate.workspace.settings.menuBar
+        defer {
+            delegate.workspace.settings.menuBar = original
+            delegate.updateMenuBar()
+        }
+        delegate.workspace.settings.menuBar = MenuBarSettings(
+            file: [.action("copy-path", shortcut: Shortcut(.function(12), [.control]), alternate: false), .separator,
+                   .action("move-to-trash", shortcut: nil, alternate: false)],
+            edit: []
+        )
+        delegate.updateMenuBar()
+        #expect(fileMenu.items.map { $0.isSeparatorItem ? "-" : $0.title } == ["Copy Path", "-", "Move to Trash"])
+        let f12 = try String(Character(#require(UnicodeScalar(UInt32(NSF12FunctionKey)))))
+        #expect(fileMenu.items[0].keyEquivalent == f12 && fileMenu.items[0].keyEquivalentModifierMask == .control)
+        #expect(fileMenu.items[2].keyEquivalent.isEmpty)
+        // The settings' items are gone; the Edit menu's own (and those macOS adds) stay.
+        #expect(settingsItems(editMenu).isEmpty)
+        #expect(editMenu.items.contains { $0.title == "Select All" })
+
+        delegate.workspace.settings.menuBar = original
+        delegate.updateMenuBar()
+        #expect(fileMenu.items.first?.title == "New Folder")
+        #expect(settingsItems(editMenu) == ["Copy Path", "Copy Name"])
+    }
+
+    /// A tool's new title shows in the menu bar although `[menu_bar]` itself did not change.
+    @Test func aRenamedToolIsRenamedInTheMenuBar() throws {
+        let delegate = try #require(NSApp.delegate as? AppDelegate)
+        let fileMenu = try #require(NSApp.mainMenu?.items.compactMap(\.submenu).first { $0.title == "File" })
+        let original = delegate.workspace.settings
+        defer {
+            delegate.workspace.settings = original
+            delegate.updateMenuBar()
+        }
+        delegate.workspace.settings.menuBar.file = [.action("open-in-terminal", shortcut: nil, alternate: false)]
+        delegate.updateMenuBar()
+        #expect(fileMenu.items.map(\.title) == ["Open in Terminal"])
+        delegate.workspace.settings.tools[0].title = "Open in Warp"
+        delegate.updateMenuBar()
+        #expect(fileMenu.items.map(\.title) == ["Open in Warp"])
+    }
+
+    /// The items a menu got from `[menu_bar]` (tagged 24), separators left out.
+    private func settingsItems(_ menu: NSMenu) -> [String] {
+        menu.items.filter { $0.tag == 24 && !$0.isSeparatorItem }.map(\.title)
+    }
+
     @Test func aNoticeShowsInTheStripUntilDismissed() throws {
         workspace.addNotice("Settings file: something is off.")
         workspace.onChange?()

@@ -6,9 +6,14 @@ import BlitterModel
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate {
     private let stateStore = StateStore()
     /// Starts where the last session ended.
-    private lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
+    lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
         : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
     private var windowController: MainWindowController?
+    /// The menus whose action items come from the settings (#24), and what they were built from.
+    var fileMenuItems: NSMenu?
+    var editMenuItems: NSMenu?
+    var renderedMenuBar: MenuBarSettings?
+    var renderedTools: [Tool]?
 
     func applicationDidFinishLaunching(_: Notification) {
         NSApp.mainMenu = makeMainMenu()
@@ -24,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 return
             }
             stateStore.save(workspace.savedState)
+            updateMenuBar() // the settings file may have changed the menus
         }
         controller.showWindow(nil)
         windowController = controller
@@ -69,40 +75,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         windowController?.focusPathField(of: workspace.activeSide)
     }
 
-    @objc private func newFolder(_: Any?) {
-        workspace.perform(.newFolder(workspace.activeSide))
-    }
-
-    @objc private func rename(_: Any?) {
-        workspace.perform(.requestRename(workspace.activeSide))
-    }
-
-    @objc private func copyToOtherSide(_: Any?) {
-        workspace.perform(.copyToOtherSide)
-    }
-
-    @objc private func moveToOtherSide(_: Any?) {
-        workspace.perform(.moveToOtherSide)
-    }
-
     @objc private func openSettings(_: Any?) {
         workspace.perform(.openSettingsFile)
     }
 
-    @objc private func revealInFinder(_: Any?) {
-        workspace.perform(.revealInFinder(workspace.activeSide))
-    }
-
     /// A menu item whose `representedObject` is an action id runs that action on the active side.
-    @objc private func runAction(_ sender: NSMenuItem) {
+    @objc func runAction(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else {
             return
         }
         workspace.perform(.runAction(id, workspace.activeSide))
-    }
-
-    @objc private func moveToTrash(_: Any?) {
-        workspace.perform(.trashSelection(workspace.activeSide))
     }
 
     @objc private func switchActiveSide(_: Any?) {
@@ -127,14 +109,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 return false
             }
             return !isEditingText && workspace.canRun(id, on: workspace.activeSide)
-        case #selector(copyToOtherSide(_:)), #selector(moveToOtherSide(_:)), #selector(moveToTrash(_:)):
-            return !isEditingText && !active.selection.isEmpty
-        case #selector(revealInFinder(_:)):
-            return !active.selection.isEmpty
-        case #selector(rename(_:)):
-            return !isEditingText && active.selection.count == 1
-        case #selector(newFolder(_:)):
-            return !isEditingText && active.status == .loaded
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = workspace.showsHiddenFiles ? .on : .off
             return true
@@ -163,23 +137,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         appMenu.addItem(withTitle: "Quit Blitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         mainMenu.addItem(submenu: appMenu)
 
-        // No target: these go to the first responder, e.g. the path field while it is edited.
-        let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
-        editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        let moveHere = editMenu.addItem(withTitle: "Move Item Here", action: Selector(("moveItemsHere:")),
-                                        keyEquivalent: "v")
-        moveHere.keyEquivalentModifierMask = [.command, .option]
-        addActionItem(to: editMenu, "copy-path", key: "c", modifiers: [.command, .option])
-        addActionItem(to: editMenu, "copy-name", key: "c", modifiers: [.command, .option, .shift])
-        editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+        let editMenu = makeEditMenu()
         mainMenu.addItem(submenu: editMenu)
 
-        let fileMenu = makeFileMenu()
+        let fileMenu = NSMenu(title: "File")
         let fileItem = NSMenuItem()
         fileItem.submenu = fileMenu
         mainMenu.insertItem(fileItem, at: 1) // after the app menu, before Edit
@@ -208,31 +169,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         toolsMenu.delegate = self
         mainMenu.addItem(submenu: toolsMenu)
 
+        fileMenuItems = fileMenu
+        editMenuItems = editMenu
+        updateMenuBar()
         return mainMenu
     }
 
-    private func makeFileMenu() -> NSMenu {
-        let fileMenu = NSMenu(title: "File")
-        addItem(to: fileMenu, title: "New Folder", action: #selector(newFolder(_:)), key: "n",
-                modifiers: [.command, .shift])
-        addItem(to: fileMenu, title: "Rename", action: #selector(rename(_:)), key: Self.functionKey(NSF2FunctionKey),
-                modifiers: [])
-        fileMenu.addItem(.separator())
-        addItem(to: fileMenu, title: "Copy to Other Side", action: #selector(copyToOtherSide(_:)),
-                key: Self.functionKey(NSF5FunctionKey), modifiers: [])
-        addItem(to: fileMenu, title: "Move to Other Side", action: #selector(moveToOtherSide(_:)),
-                key: Self.functionKey(NSF6FunctionKey), modifiers: [])
-        addItem(to: fileMenu, title: "Reveal in Finder", action: #selector(revealInFinder(_:)), key: "r",
-                modifiers: [.command, .option])
-        fileMenu.addItem(.separator())
-        addItem(to: fileMenu, title: "Move to Trash", action: #selector(moveToTrash(_:)), key: "\u{8}",
-                modifiers: [.command])
-        addActionItem(to: fileMenu, "delete-immediately", key: "\u{8}", modifiers: [.command, .option])
-        // Shown in its place while ⇧ is held.
-        addActionItem(to: fileMenu, "delete-immediately-without-asking", key: "\u{8}",
-                      modifiers: [.command, .option, .shift])
-        fileMenu.items.last?.isAlternate = true
-        return fileMenu
+    /// The Edit menu's own items; the settings' action items follow them (`updateMenuBar`).
+    /// No target: these go to the first responder, e.g. the path field while it is edited.
+    private func makeEditMenu() -> NSMenu {
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        let moveHere = editMenu.addItem(withTitle: "Move Item Here", action: Selector(("moveItemsHere:")),
+                                        keyEquivalent: "v")
+        moveHere.keyEquivalentModifierMask = [.command, .option]
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+        return editMenu
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -249,16 +206,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     /// An item that runs an action from the registry, with the action's title.
-    private func addActionItem(to menu: NSMenu, _ id: String, key: String, modifiers: NSEvent.ModifierFlags) {
+    func addActionItem(to menu: NSMenu, _ id: String, key: String, modifiers: NSEvent.ModifierFlags) {
         guard let action = workspace.actionRegistry.action(id) else {
             return
         }
         addItem(to: menu, title: action.title, action: #selector(runAction(_:)), key: key, modifiers: modifiers)
         menu.items.last?.representedObject = id
-    }
-
-    private static func functionKey(_ key: Int) -> String {
-        String(Character(UnicodeScalar(UInt16(key))!)) // swiftlint:disable:this force_unwrapping
     }
 
     private func addItem(to menu: NSMenu, title: String, action: Selector, key: String,
