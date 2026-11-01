@@ -14,6 +14,15 @@ public final class Workspace {
     let lister: Lister
     let directoryCheck: DirectoryCheck
     let volumes: VolumeList
+    /// The user's configuration; defaults until the settings file has been read.
+    public internal(set) var settings = Settings()
+    /// Messages for the user that stay until dismissed, e.g. problems in the settings file.
+    public internal(set) var notices: [Notice] = []
+    var nextNoticeID = 0
+    var settingsNotice: Notice?
+    /// The settings file, or nil to use the defaults only (tests).
+    let settingsFile: String?
+    var settingsWork: Task<Void, Never>?
     /// Opening, revealing, Quick Look and the clipboard, provided by the app.
     public var system = SystemServices()
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
@@ -49,9 +58,10 @@ public final class Workspace {
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
                 volumes: @escaping VolumeList = mountedVolumes,
                 watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) },
-                jobs: JobQueue = JobQueue(), restoring saved: WorkspaceState? = nil)
+                jobs: JobQueue = JobQueue(), restoring saved: WorkspaceState? = nil, settingsFile: String? = nil)
     {
         jobQueue = jobs
+        self.settingsFile = settingsFile
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
         if let saved {
             sides = [.left: SideState(restoring: saved.left), .right: SideState(restoring: saved.right)]
@@ -73,6 +83,7 @@ public final class Workspace {
         }
         loadTreeRoots()
         updateWatchedFolders()
+        loadSettings()
         jobs.onChange = { [weak self] in self?.notifyChange() }
         jobs.onFinish = { [weak self] job in self?.jobFinished(job) }
     }
@@ -113,6 +124,8 @@ public final class Workspace {
         case let .revealInFinder(side): withSelection(side, system.reveal)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
+        case .openSettingsFile: openSettingsFile()
+        case let .dismissNotice(id): dismissNotice(id)
         case let .rename(side, path, newName): rename(side, path, to: newName)
         case let .requestRename(side): requestRename(side)
         case let .cancelRename(side): cancelRename(side)

@@ -6,4 +6,9 @@ public enum UserPaths {
     public static var home: String {
         NSHomeDirectory()
     }
+
+    /// Where Blitter's settings live: `~/.config/blitter/settings.toml`.
+    public static var settingsFile: String {
+        home + "/.config/blitter/settings.toml"
+    }
 }

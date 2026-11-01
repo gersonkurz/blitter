@@ -9,6 +9,8 @@ public struct SystemServices {
     public var reveal: ([SelectedItem]) -> Void = { _ in }
     /// Show or hide Quick Look for the side's selection.
     public var togglePreview: (Side) -> Void = { _ in }
+    /// Open a text file for editing (the settings file).
+    public var editText: (String) -> Void = { _ in }
     /// Put items on the clipboard as files, as Finder does.
     public var copyToPasteboard: ([SelectedItem]) -> Void = { _ in }
 

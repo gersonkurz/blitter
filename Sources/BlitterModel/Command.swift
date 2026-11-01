@@ -38,6 +38,10 @@ public enum Command: Sendable {
     case copyItems([String], toFolder: String)
     /// Move items from anywhere into a folder ("Move Item Here", a drop with ⌘).
     case moveItems([String], toFolder: String)
+    /// Open the settings file for editing, creating it with commented defaults if there is none.
+    case openSettingsFile
+    /// Remove a notice (e.g. a settings problem) from the window.
+    case dismissNotice(Int)
     /// Show the side's selection in Finder.
     case revealInFinder(Side)
     /// Show or hide Quick Look for the side's selection.

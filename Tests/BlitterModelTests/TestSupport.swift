@@ -1,5 +1,6 @@
 import BlitterCore
 @testable import BlitterModel
+import Foundation
 import Synchronization
 import Testing
 
@@ -9,6 +10,7 @@ extension Workspace {
     func settle() async {
         for _ in 0 ..< 20 {
             let pending = Array(rootsWork.values) + Array(pendingOpen.values) + Array(pendingWork.values)
+                + [settingsWork].compactMap(\.self)
                 + treeWork.values.flatMap(\.values)
             guard !pending.isEmpty else {
                 return
@@ -36,5 +38,19 @@ final class FakeWatcher: FolderWatching {
 
     static func factory(_: @escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching {
         FakeWatcher()
+    }
+}
+
+/// A temporary folder that is deleted when the test finishes.
+final class TemporaryFolder {
+    let path: String
+
+    init() throws {
+        path = NSTemporaryDirectory() + "BlitterModelTests-" + UUID().uuidString
+        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: false)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(atPath: path)
     }
 }

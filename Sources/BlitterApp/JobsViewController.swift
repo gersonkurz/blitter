@@ -10,6 +10,7 @@ final class JobsViewController: NSViewController {
     private let workspace: Workspace
     private let stack = NSStackView()
     private var rows: [Int: JobRowView] = [:]
+    private var noticeRows: [Int: NoticeRowView] = [:]
 
     init(workspace: Workspace) {
         self.workspace = workspace
@@ -42,7 +43,25 @@ final class JobsViewController: NSViewController {
             let row = rows[job.id] ?? makeRow(for: job.id)
             row.configure(job)
         }
-        view.isHidden = jobs.isEmpty
+        renderNotices()
+        view.isHidden = jobs.isEmpty && workspace.notices.isEmpty
+    }
+
+    /// Notices (e.g. settings problems) sit above the jobs, each with Dismiss.
+    private func renderNotices() {
+        let notices = workspace.notices
+        let ids = Set(notices.map(\.id))
+        for (id, row) in noticeRows where !ids.contains(id) {
+            stack.removeArrangedSubview(row)
+            row.removeFromSuperview()
+            noticeRows[id] = nil
+        }
+        for notice in notices where noticeRows[notice.id] == nil {
+            let row = NoticeRowView(notice) { [weak self] in self?.workspace.perform(.dismissNotice(notice.id)) }
+            stack.insertArrangedSubview(row, at: 0)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
+            noticeRows[notice.id] = row
+        }
     }
 
     private func makeRow(for id: Int) -> JobRowView {
@@ -155,6 +174,39 @@ final class JobRowView: NSView {
         button.controlSize = .small
         button.bezelStyle = .push
         buttons.addArrangedSubview(button)
+    }
+}
+
+/// A notice: its text, wrapped, and Dismiss.
+@MainActor
+final class NoticeRowView: NSView {
+    let text: NSTextField
+
+    init(_ notice: Notice, dismiss: @escaping () -> Void) {
+        text = NSTextField(wrappingLabelWithString: notice.text)
+        super.init(frame: .zero)
+        text.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        text.textColor = .systemOrange
+        let button = CommandButton(title: "Dismiss", handler: dismiss)
+        button.controlSize = .small
+        button.bezelStyle = .push
+        let line = NSStackView(views: [text, button])
+        line.orientation = .horizontal
+        line.alignment = .centerY
+        line.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(line)
+        NSLayoutConstraint.activate([
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor),
+            line.topAnchor.constraint(equalTo: topAnchor),
+            line.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        text.setContentHuggingPriority(.defaultLow, for: .horizontal)
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) is not supported")
     }
 }
 

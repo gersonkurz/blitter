@@ -18,6 +18,9 @@ extension Workspace {
             folders.insert(state.location)
             folders.formUnion(state.tree.expanded.map(\.path))
         }
+        if let settingsFolder {
+            folders.insert(settingsFolder)
+        }
         guard folders != watchedFolders else {
             return
         }
@@ -32,6 +35,9 @@ extension Workspace {
     }
 
     func foldersChanged(_ changes: [FolderChange]) {
+        if let settingsFolder, changes.contains(where: { $0.affects(settingsFolder) }) {
+            loadSettings()
+        }
         for side in Side.allCases {
             guard let state = sides[side] else {
                 continue

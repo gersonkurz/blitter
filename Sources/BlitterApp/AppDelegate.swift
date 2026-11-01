@@ -1,11 +1,13 @@
 import AppKit
+import BlitterCore
 import BlitterModel
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private let stateStore = StateStore()
     /// Starts where the last session ended.
-    private lazy var workspace = Workspace(restoring: AppEnvironment.isHostedTest ? nil : stateStore.load())
+    private lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
+        : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
     private var windowController: MainWindowController?
 
     func applicationDidFinishLaunching(_: Notification) {
@@ -83,6 +85,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         workspace.perform(.moveToOtherSide)
     }
 
+    @objc private func openSettings(_: Any?) {
+        workspace.perform(.openSettingsFile)
+    }
+
+    /// The settings file opens in whatever edits `.toml` files, or TextEdit if nothing does.
+    private static func editText(_ path: String) {
+        let url = URL(fileURLWithPath: path, isDirectory: false)
+        NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            guard error != nil else {
+                return
+            }
+            DispatchQueue.main.async {
+                let textEdit = URL(fileURLWithPath: "/System/Applications/TextEdit.app", isDirectory: true)
+                NSWorkspace.shared.open(
+                    [url],
+                    withApplicationAt: textEdit,
+                    configuration: NSWorkspace.OpenConfiguration()
+                )
+            }
+        }
+    }
+
     @objc private func revealInFinder(_: Any?) {
         workspace.perform(.revealInFinder(workspace.activeSide))
     }
@@ -91,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private static func systemServices(window: MainWindowController) -> SystemServices {
         var services = SystemServices()
         services.open = openWithDefaultApp
+        services.editText = editText
         services.reveal = { items in
             NSWorkspace.shared.activateFileViewerSelecting(items.map { $0.url as URL })
         }
@@ -164,6 +189,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         appMenu.addItem(withTitle: "About Blitter",
                         action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                         keyEquivalent: "")
+        appMenu.addItem(.separator())
+        let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: ",")
+        settings.target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Blitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         mainMenu.addItem(submenu: appMenu)

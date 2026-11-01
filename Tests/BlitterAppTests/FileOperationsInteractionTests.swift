@@ -156,6 +156,23 @@ final class FileOperationsInteractionTests {
         #expect(jobsStrip.view.isHidden)
     }
 
+    @Test func theAppMenuOpensTheSettings() throws {
+        let appMenu = try #require(NSApp.mainMenu?.items.first?.submenu)
+        let item = try #require(appMenu.items.first { $0.title == "Settings…" })
+        #expect(item.keyEquivalent == "," && item.keyEquivalentModifierMask == .command)
+        #expect(item.target is AppDelegate)
+    }
+
+    @Test func aNoticeShowsInTheStripUntilDismissed() throws {
+        workspace.addNotice("Settings file: something is off.")
+        workspace.onChange?()
+        #expect(!jobsStrip.view.isHidden)
+        #expect(texts().contains("Settings file: something is off."))
+        try #require(button("Dismiss")).performClick(nil)
+        #expect(workspace.notices.isEmpty)
+        #expect(jobsStrip.view.isHidden)
+    }
+
     @Test func jobTextDescribesOperationsAndProgress() {
         #expect(JobText.title(.copy(["/a/x.txt"], into: "/b")) == "Copying “x.txt” to “b”")
         #expect(JobText.title(.move(["/a/x", "/a/y"], into: "/b")) == "Moving 2 items to “b”")

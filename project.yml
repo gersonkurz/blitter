@@ -25,6 +25,12 @@ settings:
       CODE_SIGN_IDENTITY: "Developer ID Application"
       ENABLE_HARDENED_RUNTIME: YES
 
+packages:
+  # The settings file is TOML (#11); TOMLKit wraps the toml++ parser. Pinned.
+  TOMLKit:
+    url: https://github.com/LebJe/TOMLKit
+    exactVersion: 0.6.0
+
 targets:
   BlitterCore:
     type: framework.static
@@ -40,6 +46,7 @@ targets:
     sources: [Sources/BlitterModel]
     dependencies:
       - target: BlitterCore
+      - package: TOMLKit
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
