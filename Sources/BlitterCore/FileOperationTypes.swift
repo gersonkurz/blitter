@@ -8,6 +8,9 @@ public enum FileOperation: Equatable, Sendable {
     case move([String], into: String)
     /// Move items to the Trash.
     case trash([String])
+    /// Delete items for good, folders with everything in them: the one operation that bypasses
+    /// the Trash, run only on the user's explicit request (#17).
+    case delete([String])
     /// Give an item a new name in the same folder.
     case rename(String, newName: String)
     /// Create a folder.

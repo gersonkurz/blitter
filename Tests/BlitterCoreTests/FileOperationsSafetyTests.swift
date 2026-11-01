@@ -166,6 +166,7 @@ struct FileOperationsSafetyTests {
             .copy([fixture.source + "/tree"], into: fixture.destination),
             .move([file], into: fixture.destination),
             .trash([file]),
+            .delete([file, fixture.source + "/tree"]),
         ]
         var ids: [Int] = []
         for operation in operations {

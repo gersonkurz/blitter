@@ -272,6 +272,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         fileMenu.addItem(.separator())
         addItem(to: fileMenu, title: "Move to Trash", action: #selector(moveToTrash(_:)), key: "\u{8}",
                 modifiers: [.command])
+        addActionItem(to: fileMenu, "delete-immediately", key: "\u{8}", modifiers: [.command, .option])
+        // Shown in its place while ⇧ is held.
+        addActionItem(to: fileMenu, "delete-immediately-without-asking", key: "\u{8}",
+                      modifiers: [.command, .option, .shift])
+        fileMenu.items.last?.isAlternate = true
         return fileMenu
     }
 

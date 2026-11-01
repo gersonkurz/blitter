@@ -83,6 +83,9 @@ public struct ActionRegistry: Sendable {
         },
         Action("reveal-in-finder", "Reveal in Finder", scope: .selection) { _, side in .revealInFinder(side) },
         Action("move-to-trash", "Move to Trash", scope: .selection) { _, side in .trashSelection(side) },
+        Action("delete-immediately", "Delete Immediately", scope: .selection) { _, side in .deleteSelection(side) },
+        Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
+               scope: .selection) { _, side in .deleteSelectionWithoutAsking(side) },
         Action("new-folder", "New Folder", scope: .folder) { _, side in .newFolder(side) },
     ])
 }

@@ -20,6 +20,18 @@ struct SettingsParsingTests {
         #expect(problems.isEmpty)
     }
 
+    @Test func deleteConfirmationCanBeTurnedOff() {
+        #expect(Settings().confirmDelete)
+        let (off, problems) = Settings.parse("[files]\nconfirm_delete = false\n")
+        #expect(!off.confirmDelete && problems.isEmpty)
+        // Anything but a boolean keeps the safe default.
+        for value in ["\"no\"", "0", "1"] {
+            let (settings, problems) = Settings.parse("[files]\nconfirm_delete = \(value)\n")
+            #expect(settings.confirmDelete, "\(value)")
+            #expect(problems.count == 1 && problems[0].contains("files.confirm_delete"), "\(value)")
+        }
+    }
+
     @Test func unknownEntriesAndWrongTypesAreReportedAndTheRestApplies() {
         let text = """
         [files]

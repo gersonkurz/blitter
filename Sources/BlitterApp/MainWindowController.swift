@@ -8,6 +8,8 @@ final class MainWindowController: NSWindowController {
     private let workspace: Workspace
     private let sideControllers: [SideViewController]
     private let jobsController: JobsViewController
+    /// The delete request the window has already asked about.
+    private var askedDeleteToken: Int?
     /// Runs after every render, e.g. to save the state for the next launch.
     var afterRender: (() -> Void)?
 
@@ -74,6 +76,44 @@ final class MainWindowController: NSWindowController {
             controller.render()
         }
         jobsController.render()
+        askToDeleteIfNeeded()
         afterRender?()
+    }
+
+    /// Delete Immediately asks in a sheet; the answer goes back as a command.
+    private func askToDeleteIfNeeded() {
+        guard let request = workspace.deleteRequest, request.token != askedDeleteToken, let window else {
+            return
+        }
+        askedDeleteToken = request.token
+        let alert = DeleteConfirmation.alert(for: request)
+        alert.beginSheetModal(for: window) { [weak self] response in
+            self?.workspace.perform(.answerDelete(token: request.token, delete: response == DeleteConfirmation.delete))
+        }
+    }
+}
+
+/// The question before deleting for good. Cancel is the default button (Return and Escape);
+/// deleting takes a click on Delete, or ⇧⌥⌘⌫ to skip the question.
+enum DeleteConfirmation {
+    static let delete = NSApplication.ModalResponse.alertSecondButtonReturn
+
+    static func alert(for request: DeleteRequest) -> NSAlert {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = message(for: request.paths)
+        alert.informativeText = request.paths.count == 1
+            ? "It is deleted right away, not moved to the Trash. This cannot be undone."
+            : "They are deleted right away, not moved to the Trash. This cannot be undone."
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Delete").hasDestructiveAction = true
+        return alert
+    }
+
+    static func message(for paths: [String]) -> String {
+        if paths.count == 1, let path = paths.first {
+            return "Delete “\((path as NSString).lastPathComponent)” immediately?"
+        }
+        return "Delete \(paths.count) items immediately?"
     }
 }

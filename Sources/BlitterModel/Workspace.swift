@@ -53,6 +53,9 @@ public final class Workspace {
 
     /// Called after every state change.
     public var onChange: (() -> Void)?
+    /// Items waiting for the user to confirm that they are deleted for good; the window asks.
+    public internal(set) var deleteRequest: DeleteRequest?
+    var nextDeleteToken = 0
     /// Every action the user can run, by id (#15).
     public let actionRegistry = ActionRegistry.builtIn
 
@@ -123,6 +126,9 @@ public final class Workspace {
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
         case let .moveItems(paths, folder): transfer(paths, into: folder, move: true)
         case let .trashSelection(side): trashSelection(side)
+        case let .deleteSelection(side): deleteSelection(side, ask: settings.confirmDelete)
+        case let .deleteSelectionWithoutAsking(side): deleteSelection(side, ask: false)
+        case let .answerDelete(token, delete): answerDelete(token, delete: delete)
         case let .revealInFinder(side): withSelection(side, system.reveal)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)

@@ -236,6 +236,8 @@ enum JobText {
             "Moving \(items(paths)) to “\(name(folder))”"
         case let .trash(paths):
             "Moving \(items(paths)) to the Trash"
+        case let .delete(paths):
+            "Deleting \(items(paths))"
         case let .rename(path, newName):
             "Renaming “\(name(path))” to “\(newName)”"
         case let .newFolder(_, folderName):

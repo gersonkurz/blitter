@@ -6,6 +6,8 @@ import TOMLKit
 public struct Settings: Equatable, Sendable {
     /// How the Date Modified column shows dates, as a Unicode date pattern (#12).
     public var dateFormat = "dd.MM.yyyy HH:mm"
+    /// Whether Delete Immediately asks first (#17). Delete Immediately Without Asking never does.
+    public var confirmDelete = true
 
     public init() {}
 
@@ -17,6 +19,8 @@ public struct Settings: Equatable, Sendable {
     [files]
     # How the Date Modified column shows dates (Unicode date pattern), e.g. "yyyy-MM-dd HH:mm".
     date_format = "dd.MM.yyyy HH:mm"
+    # Whether Delete Immediately (⌥⌘⌫) asks before deleting for good. ⇧⌥⌘⌫ never asks.
+    confirm_delete = true
 
     """
 
@@ -94,6 +98,13 @@ public struct Settings: Equatable, Sendable {
                     return "expected a date pattern such as “dd.MM.yyyy HH:mm”."
                 }
                 settings.dateFormat = format
+                return nil
+            },
+            "confirm_delete": { settings, value in
+                guard let confirm = value.bool else {
+                    return "expected true or false."
+                }
+                settings.confirmDelete = confirm
                 return nil
             },
         ],

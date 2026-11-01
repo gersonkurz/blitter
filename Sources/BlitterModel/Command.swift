@@ -54,6 +54,13 @@ public enum Command: Sendable {
     case copyNames(Side)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
+    /// Delete the side's selection for good, bypassing the Trash. Asks first (`deleteRequest`)
+    /// unless the settings turn that off.
+    case deleteSelection(Side)
+    /// Delete the side's selection for good without asking.
+    case deleteSelectionWithoutAsking(Side)
+    /// The answer to `deleteRequest`: delete exactly the items it named, or keep them.
+    case answerDelete(token: Int, delete: Bool)
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a
     /// rename always hits the item it was started for. `side` selects the result.
     case rename(Side, path: String, newName: String)

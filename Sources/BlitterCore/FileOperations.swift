@@ -16,7 +16,7 @@ protocol OperationContext: AnyObject, Sendable {
 /// name in the destination folder and renamed to its final name only when complete, with
 /// `RENAME_EXCL`, so a cancelled or failed copy leaves nothing but the temporary item (which is
 /// removed), and an existing item is never merged into. Replacing an existing item moves it to the
-/// Trash first. Deleting always means the Trash.
+/// Trash first. Deleting means the Trash, except for `.delete`, which the user asks for explicitly.
 struct FileOperations {
     /// Moves an item to the Trash. Tests use a folder of their own instead of the user's Trash.
     typealias Trasher = @Sendable (String) throws -> Void
@@ -67,6 +67,8 @@ struct FileOperations {
             transfer(sources, into: folder, move: true)
         case let .trash(paths):
             trash(paths)
+        case let .delete(paths):
+            delete(paths)
         case let .rename(path, name):
             rename(path, to: name)
         case let .newFolder(folder, name):
@@ -224,6 +226,26 @@ struct FileOperations {
                 try trashItem(path)
             } catch {
                 fail(path, error.localizedDescription)
+            }
+            context.update { $0.doneItems += 1 }
+        }
+    }
+
+    private mutating func delete(_ paths: [String]) {
+        context.update { $0.totalItems = paths.count }
+        for path in paths {
+            guard !isCancelled else {
+                return
+            }
+            context.update { $0.currentItem = (path as NSString).lastPathComponent }
+            let cancellation = context.cancellation
+            let code = Self.deleteForGood(path) { cancellation.isSet }
+            if code == ECANCELED {
+                if Self.exists(path) {
+                    fail(path, "Deleting was cancelled; some of its contents may already be gone.")
+                }
+            } else if code != 0 {
+                fail(path, Self.message(code))
             }
             context.update { $0.doneItems += 1 }
         }

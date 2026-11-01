@@ -62,6 +62,33 @@ extension Workspace {
         return true
     }
 
+    /// The paths are taken now: what is confirmed is exactly what is deleted, even if the
+    /// selection changes while the question is open.
+    func deleteSelection(_ side: Side, ask: Bool) -> Bool {
+        guard let state = sides[side], !state.selection.isEmpty else {
+            return false
+        }
+        let paths = selectedPaths(state)
+        if ask {
+            nextDeleteToken += 1
+            deleteRequest = DeleteRequest(paths: paths, token: nextDeleteToken)
+        } else {
+            startJob(.delete(paths))
+        }
+        return true
+    }
+
+    func answerDelete(_ token: Int, delete: Bool) -> Bool {
+        guard let request = deleteRequest, request.token == token else {
+            return false // an old question; a newer one replaced it
+        }
+        deleteRequest = nil
+        if delete {
+            startJob(.delete(request.paths))
+        }
+        return true
+    }
+
     func rename(_ side: Side, _ path: String, to newName: String) -> Bool {
         if sides[side]?.renameRequest?.path == path {
             sides[side]?.renameRequest = nil
@@ -178,11 +205,18 @@ extension Workspace {
         return switch operation {
         case let .copy(_, folder): [folder]
         case let .move(sources, folder): Set(sources.map(parent)).union([folder])
-        case let .trash(paths): Set(paths.map(parent))
+        case let .trash(paths), let .delete(paths): Set(paths.map(parent))
         case let .rename(path, _): [parent(path)]
         case let .newFolder(folder, _): [folder]
         }
     }
+}
+
+/// Items the user asked to delete for good, waiting for confirmation.
+public struct DeleteRequest: Equatable, Sendable {
+    public let paths: [String]
+    /// Changes with every request, so an answer always belongs to the question it was given for.
+    public let token: Int
 }
 
 public struct SelectedItem: Equatable, Sendable {
