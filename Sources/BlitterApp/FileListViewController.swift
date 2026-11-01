@@ -14,6 +14,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     /// The general pasteboard; tests use one of their own, so they never touch the user's clipboard.
     var pasteboard = NSPasteboard.general
     private let pathField = ActivatingComboBox()
+    private(set) lazy var navigationButtons = NavigationButtons(side: side)
     private let statusLabel = NSTextField(labelWithString: "")
     let tableView = ActivatingTableView()
     private var renderedVersion = -1
@@ -61,14 +62,17 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         statusLabel.lineBreakMode = .byWordWrapping
         statusLabel.maximumNumberOfLines = 0
 
+        navigationButtons.onCommand = { [weak self] command in self?.workspace.perform(command) }
         let root = NSView()
-        for subview in [pathField, scrollView, statusLabel] {
+        for subview in [navigationButtons, pathField, scrollView, statusLabel] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
         NSLayoutConstraint.activate([
+            navigationButtons.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
+            navigationButtons.centerYAnchor.constraint(equalTo: pathField.centerYAnchor),
             pathField.topAnchor.constraint(equalTo: root.topAnchor, constant: 6),
-            pathField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
+            pathField.leadingAnchor.constraint(equalTo: navigationButtons.trailingAnchor, constant: 6),
             pathField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
             scrollView.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -158,6 +162,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             pathField.stringValue = state.location
         }
         pathField.textColor = isActive ? .controlAccentColor : .secondaryLabelColor
+        navigationButtons.render(state)
         if state.recentLocations != renderedRecentLocations {
             renderedRecentLocations = state.recentLocations
             pathField.removeAllItems()
