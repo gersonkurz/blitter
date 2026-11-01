@@ -4,7 +4,7 @@ import Synchronization
 import Testing
 
 /// Collects the batches a watcher reports.
-private final class Batches: Sendable {
+final class Batches: Sendable {
     private let batches = Mutex<[[FolderChange]]>([])
 
     func append(_ changes: [FolderChange]) {

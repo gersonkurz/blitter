@@ -194,6 +194,10 @@ struct SettingsFileTests {
         }
         #expect(edited == [path])
         #expect(try String(contentsOfFile: path, encoding: .utf8) == Settings.defaultFile)
+        // The folder exists only now: the watcher is handed the same set again, to try it (#29).
+        let watcher = try #require(workspace.watcher as? FakeWatcher)
+        #expect(watcher.watched.contains(folder.path + "/config/blitter"))
+        let callsBefore = watcher.watchCalls
 
         try "[files]\ndate_format = \"mine\"\n".write(toFile: path, atomically: true, encoding: .utf8)
         workspace.perform(.openSettingsFile)
@@ -201,6 +205,7 @@ struct SettingsFileTests {
             try await Task.sleep(for: .milliseconds(5))
         }
         await workspace.settle()
+        #expect(watcher.watchCalls > callsBefore)
         #expect(try String(contentsOfFile: path, encoding: .utf8).contains("mine")) // not overwritten
         #expect(workspace.settings.dateFormat == "mine")
     }

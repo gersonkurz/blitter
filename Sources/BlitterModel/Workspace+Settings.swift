@@ -115,7 +115,7 @@ extension Workspace {
                 return
             }
             system.editText(path)
-            updateWatchedFolders() // its folder may only exist now
+            updateWatchedFolders(retry: true) // its folder may only exist now
             loadSettings()
         }
         return false

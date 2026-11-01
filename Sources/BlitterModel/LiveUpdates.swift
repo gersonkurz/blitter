@@ -12,7 +12,9 @@ extension Workspace {
 
     /// The sides' folders and every expanded tree folder. A folder is watched from the moment it
     /// is shown or expanded, before it is read, so a change while it is being read is not missed.
-    func updateWatchedFolders() {
+    /// `retry`: hand the set over even if it is unchanged, so the watcher tries again folders it
+    /// could not open before (one that has just been created).
+    func updateWatchedFolders(retry: Bool = false) {
         var folders: Set<String> = []
         for state in sides.values {
             folders.insert(state.location)
@@ -21,7 +23,7 @@ extension Workspace {
         if let settingsFolder {
             folders.insert(settingsFolder)
         }
-        guard folders != watchedFolders else {
+        guard folders != watchedFolders || retry else {
             return
         }
         // Changes to folders nobody watches go unnoticed: their cached subfolders cannot be trusted.

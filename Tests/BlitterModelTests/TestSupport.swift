@@ -27,13 +27,20 @@ extension Workspace {
 /// `Workspace.foldersChanged` directly, so nothing depends on FSEvents timing.
 final class FakeWatcher: FolderWatching {
     private let folders = Mutex<Set<String>>([])
+    private let calls = Mutex(0)
 
     var watched: Set<String> {
         folders.withLock { $0 }
     }
 
+    /// How often the set was handed over, the same set again included.
+    var watchCalls: Int {
+        calls.withLock { $0 }
+    }
+
     func watch(_ paths: Set<String>) {
         folders.withLock { $0 = paths }
+        calls.withLock { $0 += 1 }
     }
 
     static func factory(_: @escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching {

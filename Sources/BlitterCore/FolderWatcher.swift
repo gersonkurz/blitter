@@ -20,42 +20,50 @@ public protocol FolderWatching: AnyObject, Sendable {
     func watch(_ paths: Set<String>)
 }
 
-/// Watches a set of folders with one FSEvents stream and reports which of them changed.
+/// Watches a set of folders, each with its own FSEvents stream, and reports which of them changed.
 ///
 /// - FSEvents keeps no file descriptor open, so a watched volume can still be ejected.
 /// - Events are coalesced for `latency` seconds, and the chunks FSEvents hands one burst out in
 ///   are merged, so unpacking an archive arrives as one report.
-/// - Nothing is lost across a change of the watched set: every new stream starts at the last
-///   event the previous one saw, and the first one at the moment the watcher was created, so
-///   FSEvents replays whatever happened in between. Create the watcher before reading the
-///   folders it will watch.
+/// - One stream per folder, each made on a background thread (#29): making a stream opens its
+///   folder, and that `open` can wait for a privacy prompt (Documents, Desktop) or a stalled
+///   network volume — at first or on any later visit. Only that folder waits; the others keep
+///   their streams, which a change of the watched set never touches.
+/// - Nothing is lost while a folder waits: its stream starts at the newest event the watcher had
+///   seen when the folder was asked for (or when the watcher was made), so FSEvents replays what
+///   happened since. Create the watcher before reading the folders it will watch.
+/// - A folder that cannot be opened (not there yet, access refused) is not watched; the next
+///   `watch`, even with the same set, tries it again.
 /// - FSEvents reports resolved paths (`/private/tmp` for `/tmp`); they are mapped back to the
-///   paths given to `watch`. Resolving can block on a stalled network volume, so each path is
-///   resolved on its own background task; until then it is watched as given.
+///   paths given to `watch`.
 ///
 /// Stream handling runs on the watcher's own queue; `onChange` is called there.
 public final class FolderWatcher: FolderWatching, @unchecked Sendable {
-    public typealias Resolver = @Sendable (String) -> String
+    /// The path to give FSEvents for a folder, or nil if the folder cannot be opened now. Runs on
+    /// a background thread.
+    public typealias Resolver = @Sendable (String) -> String?
 
     private let queue = DispatchQueue(label: "Blitter.FolderWatcher")
     private static let queueKey = DispatchSpecificKey<Void>()
     private let latency: Double
     private let resolve: Resolver
     private let onChange: @Sendable ([FolderChange]) -> Void
-    // Only touched on `queue`.
-    private var stream: FSEventStreamRef?
+    /// Only touched on `queue`.
     private var watched: Set<String> = []
-    /// The newest event seen; the next stream starts there.
+    /// Watched path → its running stream.
+    private var streams: [String: StreamHandle] = [:]
+    /// Folders whose stream is being made on a background thread. One at a time per folder: a
+    /// folder asked for again while its stream is still being made waits for that one, so a
+    /// folder that hangs never ties up more than one thread, however often it is revisited.
+    private var inFlight: Set<String> = []
+    /// The newest event seen by any stream; a folder asked for now starts there.
     private var lastEventID: FSEventStreamEventId
-    /// Watched path → its resolved path, once known.
-    private var resolved: [String: String] = [:]
-    private var resolving: Set<String> = []
-    /// Resolved path → the watched paths that resolve to it, for the running stream.
-    private var byStreamPath: [String: [String]] = [:]
+    /// Identifies each stream, so events of one that has been replaced are ignored.
+    private var nextAttempt = 0
     /// Changes collected from the callbacks of one burst, by watched path.
     private var pending: [String: Bool] = [:]
 
-    public init(latency: Double = 0.3, resolve: @escaping Resolver = { FolderWatcher.realPath($0) },
+    public init(latency: Double = 0.3, resolve: @escaping Resolver = { FolderWatcher.watchablePath($0) },
                 onChange: @escaping @Sendable ([FolderChange]) -> Void)
     {
         self.latency = latency
@@ -66,52 +74,42 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
     }
 
     deinit {
-        // The stream refers to the watcher without retaining it, so it must be gone before the
-        // watcher is. Queued work holds the watcher weakly, but the last reference can still be
-        // dropped on the queue itself, where a sync would deadlock.
+        // A running stream reaches the watcher only weakly, but it must not outlive it. Queued
+        // work holds the watcher weakly too; the last reference can still be dropped on the queue
+        // itself, where a sync would deadlock. Streams still being made release themselves when
+        // they find the watcher gone.
         if DispatchQueue.getSpecific(key: Self.queueKey) != nil {
-            stopStream()
+            stopAll()
         } else {
-            queue.sync { stopStream() }
+            queue.sync { stopAll() }
         }
     }
 
-    /// Replaces the watched folders. Does nothing if the set is unchanged.
+    /// Replaces the watched folders: new ones get a stream, dropped ones lose theirs, the rest
+    /// keep theirs untouched. Folders that could not be opened before are tried again.
     public func watch(_ paths: Set<String>) {
         queue.async { [weak self] in
-            guard let self, paths != watched else {
+            guard let self else {
                 return
             }
+            for path in watched.subtracting(paths) {
+                stop(path)
+            }
             watched = paths
-            resolveNewPaths()
-            restart()
-        }
-    }
-
-    // MARK: Paths
-
-    private func resolveNewPaths() {
-        for path in watched where resolved[path] == nil && !resolving.contains(path) {
-            resolving.insert(path)
-            let resolve = resolve
-            DispatchQueue.global(qos: .utility).async { [weak self] in
-                let result = resolve(path)
-                self?.queue.async { [weak self] in self?.resolvedPath(path, result) }
+            for path in paths where streams[path] == nil && !inFlight.contains(path) {
+                startStream(for: path)
             }
         }
     }
 
-    private func resolvedPath(_ path: String, _ result: String) {
-        resolving.remove(path)
-        resolved[path] = result
-        // Only a path that resolves differently changes what the stream must watch. Until now its
-        // events arrived under the resolved path and matched nothing, so a change may have been
-        // missed: report it as changed once, and the folder is read again.
-        guard result != path, watched.contains(path) else {
-            return
+    /// The real path of a folder that opens now, as FSEvents' root watching opens it.
+    public static func watchablePath(_ path: String) -> String? {
+        let descriptor = open(path, O_EVTONLY)
+        guard descriptor >= 0 else {
+            return nil
         }
-        restart()
-        report([path: false])
+        close(descriptor)
+        return realPath(path)
     }
 
     public static func realPath(_ path: String) -> String {
@@ -122,80 +120,145 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
         return String(cString: resolved)
     }
 
-    // MARK: Stream
+    // MARK: Streams
 
-    private func restart() {
-        var byStreamPath: [String: [String]] = [:]
-        for path in watched {
-            byStreamPath[resolved[path] ?? path, default: []].append(path)
+    /// A running stream and what its callback knows; handed between threads, used on one at a
+    /// time.
+    private struct StreamHandle: @unchecked Sendable {
+        let stream: FSEventStreamRef
+        let info: Unmanaged<StreamInfo>
+        let streamPath: String
+        let attempt: Int
+
+        func release(started: Bool) {
+            if started {
+                FSEventStreamStop(stream)
+                FSEventStreamInvalidate(stream)
+            }
+            FSEventStreamRelease(stream)
+            info.release()
         }
-        guard byStreamPath != self.byStreamPath || stream == nil else {
-            return
-        }
-        stopStream()
-        self.byStreamPath = byStreamPath
-        guard !byStreamPath.isEmpty else {
-            return
-        }
-        var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
-                                           retain: nil, release: nil, copyDescription: nil)
-        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagWatchRoot)
-        guard let stream = FSEventStreamCreate(nil, Self.callback, &context, Array(byStreamPath.keys) as CFArray,
-                                               lastEventID, latency, flags)
-        else {
-            return
-        }
-        FSEventStreamSetDispatchQueue(stream, queue)
-        FSEventStreamStart(stream)
-        self.stream = stream
     }
 
-    private func stopStream() {
-        guard let stream else {
+    /// What a stream's callback needs: whose stream it is. It reaches the watcher only weakly, so
+    /// neither a stream nor a thread still making one keeps the watcher alive.
+    private final class StreamInfo: @unchecked Sendable {
+        weak var watcher: FolderWatcher?
+        let path: String
+        let attempt: Int
+
+        init(watcher: FolderWatcher, path: String, attempt: Int) {
+            self.watcher = watcher
+            self.path = path
+            self.attempt = attempt
+        }
+    }
+
+    /// Makes the folder's stream on a background thread, then starts it on the queue if the
+    /// folder is still watched. The thread holds only `StreamInfo`, never the watcher.
+    private func startStream(for path: String) {
+        nextAttempt += 1
+        let attempt = nextAttempt
+        inFlight.insert(path)
+        let info = StreamInfo(watcher: self, path: path, attempt: attempt)
+        let since = lastEventID
+        let (resolve, latency, queue) = (resolve, latency, queue)
+        DispatchQueue.global(qos: .utility).async {
+            var handle: StreamHandle?
+            // Both steps can wait for a privacy prompt or a stalled volume: here they only hold up
+            // this folder.
+            if let streamPath = resolve(path) {
+                let retained = Unmanaged.passRetained(info)
+                var context = FSEventStreamContext(version: 0, info: retained.toOpaque(), retain: nil, release: nil,
+                                                   copyDescription: nil)
+                let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes
+                    | kFSEventStreamCreateFlagWatchRoot)
+                if let stream = FSEventStreamCreate(nil, Self.callback, &context, [streamPath] as CFArray, since,
+                                                    latency, flags)
+                {
+                    handle = StreamHandle(stream: stream, info: retained, streamPath: streamPath, attempt: attempt)
+                } else {
+                    retained.release()
+                }
+            }
+            queue.async {
+                guard let watcher = info.watcher else {
+                    handle?.release(started: false) // the watcher is gone
+                    return
+                }
+                watcher.streamMade(handle, for: path)
+            }
+        }
+    }
+
+    /// The stream is made (nil: the folder could not be opened; the next `watch` tries again).
+    private func streamMade(_ handle: StreamHandle?, for path: String) {
+        inFlight.remove(path)
+        guard let handle else {
             return
         }
-        FSEventStreamStop(stream)
-        FSEventStreamInvalidate(stream)
-        FSEventStreamRelease(stream)
-        self.stream = nil
+        guard watched.contains(path), streams[path] == nil else {
+            handle.release(started: false) // dropped while it was being made
+            return
+        }
+        FSEventStreamSetDispatchQueue(handle.stream, queue)
+        FSEventStreamStart(handle.stream)
+        streams[path] = handle
+    }
+
+    private func stop(_ path: String) {
+        streams.removeValue(forKey: path)?.release(started: true)
+    }
+
+    private func stopAll() {
+        for path in Array(streams.keys) {
+            stop(path)
+        }
     }
 
     private static let callback: FSEventStreamCallback = { _, info, count, paths, flags, ids in
         guard let info else {
             return
         }
-        let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
+        let streamInfo = Unmanaged<StreamInfo>.fromOpaque(info).takeUnretainedValue()
         let eventPaths = unsafeBitCast(paths, to: NSArray.self) as? [String] ?? []
         let eventFlags = UnsafeBufferPointer(start: flags, count: count)
         let eventIDs = UnsafeBufferPointer(start: ids, count: count)
-        watcher.handle(Array(zip(eventPaths, eventFlags)), newestID: eventIDs.max())
+        streamInfo.watcher?.handle(Array(zip(eventPaths, eventFlags)), newestID: eventIDs.max(),
+                                   for: streamInfo.path, attempt: streamInfo.attempt)
     }
 
     /// Without file-level events, FSEvents reports the folder whose contents changed. Changes in
-    /// folders nobody watches (subfolders of a watched folder) are ignored.
-    private func handle(_ events: [(path: String, flags: FSEventStreamEventFlags)], newestID: FSEventStreamEventId?) {
+    /// its subfolders (which may have streams of their own) are not this folder's.
+    private func handle(_ events: [(path: String, flags: FSEventStreamEventFlags)], newestID: FSEventStreamEventId?,
+                        for path: String, attempt: Int)
+    {
+        guard let stream = streams[path], stream.attempt == attempt else {
+            return
+        }
+        let streamPath = stream.streamPath
         if let newestID {
             lastEventID = max(lastEventID, newestID)
         }
-        var changes: [String: Bool] = [:]
         let rescanFlags = FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs
             | kFSEventStreamEventFlagUserDropped | kFSEventStreamEventFlagKernelDropped
             | kFSEventStreamEventFlagRootChanged)
-        for (path, flags) in events {
-            let eventPath = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
-            let rescan = flags & rescanFlags != 0
-            for (streamPath, originals) in byStreamPath {
-                let matches = streamPath == eventPath
-                    || (rescan && (eventPath == "/" || streamPath.hasPrefix(eventPath + "/")))
-                guard matches else {
-                    continue
-                }
-                for original in originals {
-                    changes[original] = (changes[original] ?? false) || rescan
-                }
+        let historyDone = FSEventStreamEventFlags(kFSEventStreamEventFlagHistoryDone)
+        var changed = false
+        var rescan = false
+        // A stream started from an earlier event ends its replay with a marker that carries its
+        // path; it is not a change.
+        for (eventPath, flags) in events where flags & historyDone == 0 {
+            let trimmed = eventPath.count > 1 && eventPath.hasSuffix("/") ? String(eventPath.dropLast()) : eventPath
+            let isRescan = flags & rescanFlags != 0
+            if trimmed == streamPath || (isRescan && (trimmed == "/" || streamPath.hasPrefix(trimmed + "/"))) {
+                changed = true
+                rescan = rescan || isRescan
             }
         }
-        report(changes)
+        if changed {
+            report([path: rescan])
+        }
     }
 
     /// Collects changes for the next flush.
