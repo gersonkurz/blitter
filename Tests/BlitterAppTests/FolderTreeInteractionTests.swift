@@ -98,6 +98,27 @@ final class FolderTreeInteractionTests {
         #expect(selectedTitle() == "Desktop")
     }
 
+    /// #14: the tree looks like the file list, and section headers have no grey group band.
+    @Test func theTreeHasTheFileListsLook() throws {
+        #expect(outlineView.style == .fullWidth)
+        #expect(outlineView.backgroundColor == .controlBackgroundColor)
+        #expect(outlineView.usesAlternatingRowBackgroundColors)
+        #expect(outlineView.rowSizeStyle == .small)
+        let favorites = try #require(row(titled: "Favorites"))
+        let rowView = try #require(outlineView.rowView(atRow: favorites, makeIfNecessary: true))
+        #expect(rowView is SectionRowView && !rowView.isGroupRowStyle)
+    }
+
+    /// Sections are the fixed root: they can't be collapsed (a collapse would also come undone at
+    /// the next rebuild of the tree).
+    @Test func sectionsStayOpen() throws {
+        let favoritesRow = try #require(row(titled: "Favorites"))
+        let favorites = try #require(outlineView.item(atRow: favoritesRow))
+        outlineView.collapseItem(favorites)
+        #expect(outlineView.isItemExpanded(favorites))
+        #expect(rowTitles().contains("Home"))
+    }
+
     // MARK: Helpers
 
     private var outlineView: NSOutlineView {

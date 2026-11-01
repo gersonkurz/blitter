@@ -35,7 +35,10 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
-        outlineView.style = .sourceList
+        // The file list's look (#14): plain style, its background and row stripes, its row height.
+        outlineView.style = .fullWidth
+        outlineView.backgroundColor = .controlBackgroundColor
+        outlineView.usesAlternatingRowBackgroundColors = true
         outlineView.rowSizeStyle = .small
         outlineView.floatsGroupRows = false
         outlineView.autoresizesOutlineColumn = false
@@ -52,7 +55,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         scrollView.documentView = outlineView
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = .controlBackgroundColor
         view = scrollView
     }
 
@@ -201,6 +205,20 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         (item as? TreeItem)?.section != nil
     }
 
+    /// Section rows keep their group semantics but not the grey group-row band of the plain style.
+    func outlineView(_: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+        (item as? TreeItem)?.section != nil ? SectionRowView() : nil
+    }
+
+    /// The sections are the fixed root of the tree (PLAN.md): always open, no disclosure triangle.
+    func outlineView(_: NSOutlineView, shouldCollapseItem item: Any) -> Bool {
+        (item as? TreeItem)?.section == nil
+    }
+
+    func outlineView(_: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool {
+        (item as? TreeItem)?.section == nil
+    }
+
     func outlineView(_: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         (item as? TreeItem)?.node != nil
     }
@@ -214,7 +232,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView
             ?? Self.makeCell(identifier: identifier, withImage: !isSection)
         cell.textField?.stringValue = item.title
-        cell.textField?.textColor = item.isHidden ? .secondaryLabelColor : nil
+        cell.textField?.textColor = isSection || item.isHidden ? .secondaryLabelColor : .labelColor
+        cell.textField?.font = isSection ? Self.sectionFont : nil
         cell.imageView?.image = isSection ? nil : TreeIcons.icon(for: item.root?.kind)
         return cell
     }
@@ -239,6 +258,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         }
         workspace.perform(.selectTreeNode(side, node))
     }
+
+    private static let sectionFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
 
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier, withImage: Bool) -> NSTableCellView {
         let cell = NSTableCellView()
@@ -269,6 +290,14 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         }
         NSLayoutConstraint.activate(constraints)
         return cell
+    }
+}
+
+/// The row of a section header: drawn like any other row, without the group-row band.
+final class SectionRowView: NSTableRowView {
+    override var isGroupRowStyle: Bool {
+        get { false }
+        set { _ = newValue }
     }
 }
 
