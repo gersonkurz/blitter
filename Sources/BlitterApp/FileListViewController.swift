@@ -156,6 +156,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             workspace.perform(.togglePreview(side))
         }
         configureDragAndDrop()
+        configureContextMenu()
         tableView.onBecomeFirstResponder = { [weak self] in
             guard let self else {
                 return

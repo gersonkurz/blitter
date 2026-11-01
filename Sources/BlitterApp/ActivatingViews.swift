@@ -2,10 +2,28 @@ import AppKit
 
 /// A table view that reports when it gains keyboard focus, which makes its side the active side,
 /// and when Return is pressed, which opens the selected entry.
-final class ActivatingTableView: NSTableView {
+final class ActivatingTableView: NSTableView, @preconcurrency NSViewContentSelectionInfo {
     var onBecomeFirstResponder: (() -> Void)?
     var onReturn: (() -> Void)?
     var onSpace: (() -> Void)?
+    /// Set while the context menu is opened from the keyboard (⌃↩ by default). AppKit then fakes a
+    /// right-click at `selectionAnchorRect`, so `clickedRow` must not be taken as the user's choice.
+    private(set) var isShowingContextMenuFromKeyboard = false
+
+    override func showContextMenuForSelection(_ sender: Any?) {
+        isShowingContextMenuFromKeyboard = true
+        defer { isShowingContextMenuFromKeyboard = false }
+        super.showContextMenuForSelection(sender)
+    }
+
+    /// Where a keyboard-opened context menu appears: at the first selected row, or at the top of
+    /// what is visible when nothing is selected.
+    var selectionAnchorRect: NSRect {
+        if let row = selectedRowIndexes.first {
+            return rect(ofRow: row)
+        }
+        return NSRect(x: visibleRect.minX, y: visibleRect.minY, width: visibleRect.width, height: 1)
+    }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()

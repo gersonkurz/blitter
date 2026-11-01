@@ -10,6 +10,8 @@ public struct Settings: Equatable, Sendable {
     public var confirmDelete = true
     /// External apps to open items with (#18), in menu order.
     public var tools = Tool.defaults
+    /// The file list's context menus (#19).
+    public var contextMenus = ContextMenus.defaults
 
     public init() {}
 
@@ -42,6 +44,22 @@ public struct Settings: Equatable, Sendable {
     app = "TextEdit"
     on = "files"
 
+    # The file list's context menus: action names in order, "-" for a separator, and
+    # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
+    # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
+    # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
+    # delete-immediately-without-asking, new-folder, and the tools above.
+    [context_menu]
+    # For the clicked or selected items.
+    items = [
+        "open", "quick-look", "-",
+        "copy-path", "copy-name", "-",
+        "rename", "move-to-trash", "delete-immediately", "-",
+        "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
+    ]
+    # For the folder itself (a click on empty space).
+    folder = ["new-folder", "-", "open-in-terminal", "open-in-code"]
+
     """
 
     /// Parses a settings file. Never fails: problems (syntax errors, unknown entries, wrong types)
@@ -62,30 +80,68 @@ public struct Settings: Equatable, Sendable {
                 problems.append(unreadableKey(section))
                 continue
             }
-            if section == "tools", let table = value.table {
-                let reserved = Set(ActionRegistry.builtIn.all.map(\.id))
-                problems += Tool.apply(table, to: &settings.tools, reservedIDs: reserved, entries: entries)
-                continue
-            }
-            guard let table = value.table, let known = schema[section] else {
+            guard let table = value.table else {
                 problems.append("Unknown setting “\(section)”.")
                 continue
             }
-            for (key, value) in entries(of: table) {
-                guard let value else {
-                    problems.append(unreadableKey("\(section).\(key)"))
-                    continue
-                }
-                guard let apply = known[key] else {
-                    problems.append("Unknown setting “\(section).\(key)”.")
-                    continue
-                }
-                if let problem = apply(&settings, value) {
-                    problems.append("“\(section).\(key)”: \(problem)")
-                }
+            switch section {
+            case "context_menu":
+                problems += readContextMenus(table, into: &settings)
+            case "tools":
+                let reserved = Set(ActionRegistry.builtIn.all.map(\.id))
+                problems += Tool.apply(table, to: &settings.tools, reservedIDs: reserved, entries: entries)
+            default:
+                problems += readSection(section, table, into: &settings)
             }
         }
-        return (settings, problems)
+        // Menus may name tools defined anywhere in the file, so they are checked last.
+        let known = Set(ActionRegistry.builtIn.all.map(\.id) + settings.tools.map(\.id))
+        let checked = settings.contextMenus.keepingKnown(known)
+        settings.contextMenus = checked.menus
+        return (settings, problems + checked.problems)
+    }
+
+    /// A section of plain entries, each checked by its schema function.
+    private static func readSection(_ section: String, _ table: TOMLTable, into settings: inout Settings) -> [String] {
+        guard let known = schema[section] else {
+            return ["Unknown setting “\(section)”."]
+        }
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            guard let value else {
+                problems.append(unreadableKey("\(section).\(key)"))
+                continue
+            }
+            guard let apply = known[key] else {
+                problems.append("Unknown setting “\(section).\(key)”.")
+                continue
+            }
+            if let problem = apply(&settings, value) {
+                problems.append("“\(section).\(key)”: \(problem)")
+            }
+        }
+        return problems
+    }
+
+    private static func readContextMenus(_ table: TOMLTable, into settings: inout Settings) -> [String] {
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            let name = "context_menu.\(key)"
+            guard let value, key == "items" || key == "folder" else {
+                problems.append(value == nil ? unreadableKey(name) : "Unknown setting “\(name)”.")
+                continue
+            }
+            let read = ContextMenus.entries(value, at: name)
+            if read.problems.isEmpty {
+                if key == "items" {
+                    settings.contextMenus.items = read.entries
+                } else {
+                    settings.contextMenus.folder = read.entries
+                }
+            }
+            problems += read.problems
+        }
+        return problems
     }
 
     /// A table's entries in key order. TOMLKit's own iterator is not used: its keys go through C
