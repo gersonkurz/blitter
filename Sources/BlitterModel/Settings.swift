@@ -8,6 +8,8 @@ public struct Settings: Equatable, Sendable {
     public var dateFormat = "dd.MM.yyyy HH:mm"
     /// Whether Delete Immediately asks first (#17). Delete Immediately Without Asking never does.
     public var confirmDelete = true
+    /// Whether folders show their git state as a color (#22).
+    public var gitColors = true
     /// External apps to open items with (#18), in menu order.
     public var tools = Tool.defaults
     /// The file list's context menus (#19).
@@ -29,6 +31,8 @@ public struct Settings: Equatable, Sendable {
     date_format = "dd.MM.yyyy HH:mm"
     # Whether Delete Immediately (⌥⌘⌫) asks before deleting for good. ⇧⌥⌘⌫ never asks.
     confirm_delete = true
+    # Whether git working copies, and folders in them with changes, are colored by their state.
+    git_colors = true
 
     # External tools: [tools.<id>] opens items with an app (name, bundle identifier or path).
     # on = "folder" opens the side's folder, "selection" the selected items, "files" selected files.
@@ -106,6 +110,9 @@ public struct Settings: Equatable, Sendable {
     cloud = "base04"
     package = "base0E"
     error = "base08"
+    git_clean = "base0B"
+    git_modified = "base08"
+    git_ahead_behind = "base0A"
 
     """
 
@@ -253,6 +260,13 @@ public struct Settings: Equatable, Sendable {
                     return "expected a date pattern such as “dd.MM.yyyy HH:mm”."
                 }
                 settings.dateFormat = format
+                return nil
+            },
+            "git_colors": { settings, value in
+                guard let enabled = value.bool else {
+                    return "expected true or false."
+                }
+                settings.gitColors = enabled
                 return nil
             },
             "confirm_delete": { settings, value in

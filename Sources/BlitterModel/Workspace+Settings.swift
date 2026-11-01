@@ -11,6 +11,23 @@ public struct Notice: Identifiable, Equatable, Sendable {
 /// any shown folder). Problems in it become one notice, replaced on every read; the settings
 /// themselves never stop the app — whatever is invalid keeps its default.
 extension Workspace {
+    /// Whatever the settings feed: the actions (tools, #18) and the git colors (#22).
+    func settingsChanged(from old: Settings) {
+        if settings.tools != old.tools {
+            actionRegistry = ActionRegistry(tools: settings.tools)
+        }
+        if settings.gitColors != old.gitColors {
+            gitVersion += 1 // every git color appears or goes
+            if settings.gitColors {
+                for side in Side.allCases {
+                    updateGit(side)
+                }
+            } else {
+                stopGit()
+            }
+        }
+    }
+
     var settingsFolder: String? {
         settingsFile.map { ($0 as NSString).deletingLastPathComponent }
     }

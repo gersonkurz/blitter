@@ -16,7 +16,25 @@ extension FolderTreeViewController {
         return true
     }
 
-    func textColor(isSection: Bool, isHidden: Bool) -> NSColor {
+    /// Whether the git states changed since the cells were drawn (#22).
+    func gitColorsChanged() -> Bool {
+        defer { renderedGitVersion = workspace.gitVersion }
+        return workspace.gitVersion != renderedGitVersion
+    }
+
+    /// New colors for the cells; the rows, and what is expanded, stay.
+    func reloadCells() {
+        if outlineView.numberOfRows > 0 {
+            outlineView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< outlineView.numberOfRows),
+                                   columnIndexes: [0])
+        }
+    }
+
+    func textColor(isSection: Bool, isHidden: Bool, folder: String?) -> NSColor {
+        // A git state is information: it shows with and without a theme (#22).
+        if let folder, let git = workspace.gitState(ofFolder: folder) {
+            return palette?.color(git.role) ?? .labelColor
+        }
         guard let palette, palette.isThemed else {
             return isSection || isHidden ? .secondaryLabelColor : .labelColor // the system look
         }

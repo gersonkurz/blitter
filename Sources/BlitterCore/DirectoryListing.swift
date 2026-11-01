@@ -58,14 +58,17 @@ public func listDirectory(_ path: String) async throws -> [DirectoryEntry] {
     }
 }
 
-final class CancellationFlag: Sendable {
+/// A flag a task sets when it is cancelled, for work running outside Swift concurrency.
+public final class CancellationFlag: Sendable {
     private let flag = Atomic(false)
 
-    func set() {
+    public init() {}
+
+    public func set() {
         flag.store(true, ordering: .relaxed)
     }
 
-    var isSet: Bool {
+    public var isSet: Bool {
         flag.load(ordering: .relaxed)
     }
 }

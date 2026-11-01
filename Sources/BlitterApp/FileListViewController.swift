@@ -34,6 +34,9 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var renderedDateFormat = ""
     /// The colors the list was last drawn with (#21); nil before the first render.
     var palette: Palette?
+    /// The git state of each shown folder by name (#22), and what it was computed from.
+    var folderGitStates: [String: GitState] = [:]
+    var renderedGit: (version: Int, entries: Int) = (-1, -1)
     var dateFormatter = DateFormatter()
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
@@ -211,6 +214,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
                 tableView.reloadData()
             }
         }
+        renderGit() // after `entries` and `location` are the new listing's
         applySelection(state.selection)
         if folderChanged, !entries.isEmpty {
             // A new folder starts at the top, or at the folder we came up from.

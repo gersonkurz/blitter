@@ -16,11 +16,7 @@ public final class Workspace {
     let volumes: VolumeList
     /// The user's configuration; defaults until the settings file has been read.
     public internal(set) var settings = Settings() {
-        didSet {
-            if settings.tools != oldValue.tools {
-                actionRegistry = ActionRegistry(tools: settings.tools)
-            }
-        }
+        didSet { settingsChanged(from: oldValue) }
     }
 
     /// Messages for the user that stay until dismissed, e.g. problems in the settings file.
@@ -30,6 +26,15 @@ public final class Workspace {
     /// The settings file, or nil to use the defaults only (tests).
     let settingsFile: String?
     var settingsWork: Task<Void, Never>?
+    /// Git (#22): the working copies whose status is known, by root; reading them; and how.
+    var gitRepositories: [String: KnownRepository] = [:]
+    var gitWork: [Side: Task<Void, Never>] = [:]
+    var gitPolling: Task<Void, Never>?
+    /// How often visible working copies are read again (tests make it short).
+    var gitRefreshInterval: TimeInterval = 60
+    public var gitAccess = GitAccess.real
+    /// Increases whenever a git state changes, so views know when to look again.
+    public internal(set) var gitVersion = 0
     /// Opening, revealing, Quick Look and the clipboard, provided by the app.
     public var system = SystemServices()
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
@@ -65,7 +70,7 @@ public final class Workspace {
     var nextDeleteToken = 0
     /// Every action the user can run, by id (#15).
     /// Built from the settings' tools; replaced when they change.
-    public private(set) var actionRegistry = ActionRegistry(tools: Tool.defaults)
+    public internal(set) var actionRegistry = ActionRegistry(tools: Tool.defaults)
 
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
@@ -263,20 +268,13 @@ public final class Workspace {
             state.allEntries = []
             state.visibleEntries = []
             state.selection = []
-            state.status = .failed(Self.message(for: error, location: location))
+            state.status = .failed(Paths.listingMessage(for: error, location: location))
         }
         state.entriesVersion += 1
         sides[side] = state
         pendingWork[side] = nil
-        runPendingAction(on: side)
+        listingArrived(side)
         notifyChange()
-    }
-
-    private static func message(for error: Error, location: String) -> String {
-        if let posix = error as? POSIXError {
-            return "\(location): \(String(cString: strerror(posix.code.rawValue)))"
-        }
-        return "\(location): \(error.localizedDescription)"
     }
 }
 

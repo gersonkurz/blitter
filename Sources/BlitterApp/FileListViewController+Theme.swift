@@ -20,7 +20,34 @@ extension FileListViewController {
         tableView.reloadData()
     }
 
+    /// After a new listing or new git states: each shown folder's state, looked up once here so
+    /// a cell only reads a dictionary. Rows are redrawn only if a state changed.
+    func renderGit() {
+        let state = workspace.state(of: side)
+        guard renderedGit != (workspace.gitVersion, state.entriesVersion) else {
+            return
+        }
+        renderedGit = (workspace.gitVersion, state.entriesVersion)
+        var states: [String: GitState] = [:]
+        for listed in entries where listed.entry.kind == .directory {
+            let path = (location as NSString).appendingPathComponent(listed.entry.name)
+            states[listed.entry.name] = workspace.gitState(ofFolder: path)
+        }
+        guard states != folderGitStates else {
+            return
+        }
+        folderGitStates = states
+        if !entries.isEmpty {
+            tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< entries.count),
+                                 columnIndexes: IndexSet(integersIn: 0 ..< tableView.numberOfColumns))
+        }
+    }
+
     func textColor(for listed: ListedEntry) -> NSColor {
+        // A git state is information: it shows with and without a theme; a problem still wins.
+        if listed.entry.error == 0, let git = folderGitStates[listed.entry.name], listed.entry.kind == .directory {
+            return palette?.color(git.role) ?? .labelColor
+        }
         guard let palette, palette.isThemed else {
             return listed.entry.isHidden ? .secondaryLabelColor : .labelColor // the system look
         }

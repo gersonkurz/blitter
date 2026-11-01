@@ -88,12 +88,18 @@ public enum ThemeRole: String, CaseIterable, Sendable {
     case package
     /// An entry the file system could not read, and problems in the jobs strip.
     case error
+    /// Git (#22): a clean working copy; changes in it or below a folder; ahead of or behind its
+    /// upstream.
+    case gitClean = "git_clean"
+    case gitModified = "git_modified"
+    case gitAheadOrBehind = "git_ahead_behind"
 
     /// Base16's styling guidelines: 00 background, 01 lighter background, 02 selection,
     /// 03 comments, 04 dark foreground, 05 foreground; 08 red … 0D blue, 0E purple.
     static let defaultSlots: [ThemeRole: Int] = [
         .background: 0x0, .stripe: 0x1, .selection: 0x2, .text: 0x5, .dimText: 0x4,
         .folder: 0xD, .hidden: 0x3, .symlink: 0xC, .cloud: 0x4, .package: 0xE, .error: 0x8,
+        .gitClean: 0xB, .gitModified: 0x8, .gitAheadOrBehind: 0xA,
     ]
 }
 

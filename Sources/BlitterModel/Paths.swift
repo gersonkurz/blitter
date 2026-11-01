@@ -56,4 +56,12 @@ enum Paths {
         }
         return "/" + components.joined(separator: "/")
     }
+
+    /// Why a folder could not be read, as the list shows it.
+    static func listingMessage(for error: Error, location: String) -> String {
+        if let posix = error as? POSIXError {
+            return "\(location): \(String(cString: strerror(posix.code.rawValue)))"
+        }
+        return "\(location): \(error.localizedDescription)"
+    }
 }

@@ -22,6 +22,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     var menuFolder: String?
     /// The colors the tree was last drawn with (#21).
     var palette: Palette?
+    /// The git states the cells were drawn with (#22).
+    var renderedGitVersion = -1
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -74,10 +76,13 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         if renderPalette() {
             renderedVersion = -1 // rebuild: every row and cell in the new colors
         }
+        let gitChanged = gitColorsChanged()
         if tree.version != renderedVersion || workspace.treeRoots != renderedRoots {
             renderedVersion = tree.version
             renderedRoots = workspace.treeRoots
             rebuild(expanded: tree.expanded)
+        } else if gitChanged {
+            reloadCells()
         }
         select(tree.selection)
     }
@@ -235,7 +240,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView
             ?? Self.makeCell(identifier: identifier, withImage: !isSection)
         cell.textField?.stringValue = item.title
-        cell.textField?.textColor = textColor(isSection: isSection, isHidden: item.isHidden)
+        cell.textField?.textColor = textColor(isSection: isSection, isHidden: item.isHidden, folder: item.node?.path)
         cell.textField?.font = isSection ? Self.sectionFont : nil
         cell.imageView?.image = isSection ? nil : TreeIcons.icon(for: item.root?.kind)
         return cell

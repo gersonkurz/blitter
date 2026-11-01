@@ -74,6 +74,10 @@ struct Palette: Equatable {
         case .selection: .selectedContentBackgroundColor
         case .dimText, .hidden: .secondaryLabelColor
         case .text, .folder, .symlink, .cloud, .package, .error: .labelColor
+        // Git colors show without a theme too: they carry information.
+        case .gitClean: .systemGreen
+        case .gitModified: .systemRed
+        case .gitAheadOrBehind: .systemOrange
         }
     }
 }
