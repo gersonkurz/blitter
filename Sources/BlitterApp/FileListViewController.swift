@@ -30,10 +30,13 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     lazy var previewItemsChanged: () -> Void = { [weak self] in self?.quickLookSelectionChanged() }
     private var isRendering = false
     private let icons: FileIcons
+    /// The settings' date pattern the Date Modified column shows; "" until the first render.
+    var renderedDateFormat = ""
+    var dateFormatter = DateFormatter()
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
-    private static let modifiedColumn = NSUserInterfaceItemIdentifier(SortColumn.modified.rawValue)
+    static let modifiedColumn = NSUserInterfaceItemIdentifier(SortColumn.modified.rawValue)
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -180,6 +183,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             pathField.addItems(withObjectValues: state.recentLocations)
         }
 
+        renderDateFormat(workspace.settings.dateFormat)
+
         let sortDescriptor = NSSortDescriptor(key: state.sort.column.rawValue, ascending: state.sort.ascending)
         if tableView.sortDescriptors.first != sortDescriptor {
             tableView.sortDescriptors = [sortDescriptor]
@@ -223,7 +228,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
-        let text = NSTextField(labelWithString: "")
+        let isTabular = identifier == sizeColumn || identifier == modifiedColumn
+        let text = isTabular ? TabularTextField(labelWithString: "") : NSTextField(labelWithString: "")
         text.lineBreakMode = .byTruncatingMiddle
         text.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(text)
@@ -341,7 +347,7 @@ extension FileListViewController {
         case Self.sizeColumn:
             cell.textField?.stringValue = Formatting.size(of: listed.entry)
         case Self.modifiedColumn:
-            cell.textField?.stringValue = Formatting.date(listed.entry.modificationDate)
+            cell.textField?.stringValue = dateFormatter.string(from: listed.entry.modificationDate)
         default:
             cell.textField?.stringValue = listed.kindDescription
         }
