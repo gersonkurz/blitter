@@ -67,6 +67,17 @@ extension Workspace {
         }
     }
 
+    func openWithApp(_ app: String, _ paths: [String], title: String) -> Bool {
+        guard !paths.isEmpty else {
+            return false
+        }
+        system.openWithApp(app, paths) { [weak self] message in
+            self?.addNotice("\(title): \(message)")
+            self?.notifyChange()
+        }
+        return false
+    }
+
     @discardableResult
     func addNotice(_ text: String) -> Notice {
         nextNoticeID += 1

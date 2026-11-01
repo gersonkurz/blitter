@@ -9,12 +9,18 @@ public enum ActionScope: Equatable, Sendable {
     case selection
     /// Exactly one selected item.
     case single
+    /// One or more selected items, none of them a folder (files and symbolic links).
+    case files
 
     func fits(_ state: SideState) -> Bool {
         switch self {
         case .folder: state.status == .loaded
         case .selection: !state.selection.isEmpty
         case .single: state.selection.count == 1
+        case .files:
+            !state.selection.isEmpty && state.visibleEntries.allSatisfy { listed in
+                !state.selection.contains(listed.entry.name) || [.file, .symlink].contains(listed.entry.kind)
+            }
         }
     }
 }
@@ -53,6 +59,11 @@ public struct Action: Sendable {
 public struct ActionRegistry: Sendable {
     public let all: [Action]
     private let byID: [String: Action]
+
+    /// The built-in actions followed by the tools from the settings.
+    init(tools: [Tool]) {
+        self.init(Self.builtIn.all + tools.map(\.action))
+    }
 
     init(_ actions: [Action]) {
         all = actions

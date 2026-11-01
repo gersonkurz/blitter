@@ -44,6 +44,8 @@ public enum Command: Sendable {
     case dismissNotice(Int)
     /// Show the side's selection in Finder.
     case revealInFinder(Side)
+    /// Open items with an app (an external tool, #18); a failure becomes a notice naming `title`.
+    case openWithApp(String, paths: [String], title: String)
     /// Show or hide Quick Look for the side's selection.
     case togglePreview(Side)
     /// Put the side's selection on the clipboard, as Finder does with Copy.

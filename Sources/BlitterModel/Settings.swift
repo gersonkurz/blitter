@@ -8,6 +8,8 @@ public struct Settings: Equatable, Sendable {
     public var dateFormat = "dd.MM.yyyy HH:mm"
     /// Whether Delete Immediately asks first (#17). Delete Immediately Without Asking never does.
     public var confirmDelete = true
+    /// External apps to open items with (#18), in menu order.
+    public var tools = Tool.defaults
 
     public init() {}
 
@@ -21,6 +23,24 @@ public struct Settings: Equatable, Sendable {
     date_format = "dd.MM.yyyy HH:mm"
     # Whether Delete Immediately (⌥⌘⌫) asks before deleting for good. ⇧⌥⌘⌫ never asks.
     confirm_delete = true
+
+    # External tools: [tools.<id>] opens items with an app (name, bundle identifier or path).
+    # on = "folder" opens the side's folder, "selection" the selected items, "files" selected files.
+    # Change a default by giving only what differs, e.g. app = "Terminal" for open-in-terminal.
+    [tools.open-in-terminal]
+    title = "Open in Terminal"
+    app = "iTerm"
+    on = "folder"
+
+    [tools.open-in-code]
+    title = "Open in Code"
+    app = "Visual Studio Code"
+    on = "folder"
+
+    [tools.open-in-text-editor]
+    title = "Open in Text Editor"
+    app = "TextEdit"
+    on = "files"
 
     """
 
@@ -40,6 +60,11 @@ public struct Settings: Equatable, Sendable {
         for (section, value) in entries(of: root) {
             guard let value else {
                 problems.append(unreadableKey(section))
+                continue
+            }
+            if section == "tools", let table = value.table {
+                let reserved = Set(ActionRegistry.builtIn.all.map(\.id))
+                problems += Tool.apply(table, to: &settings.tools, reservedIDs: reserved, entries: entries)
                 continue
             }
             guard let table = value.table, let known = schema[section] else {

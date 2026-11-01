@@ -15,7 +15,14 @@ public final class Workspace {
     let directoryCheck: DirectoryCheck
     let volumes: VolumeList
     /// The user's configuration; defaults until the settings file has been read.
-    public internal(set) var settings = Settings()
+    public internal(set) var settings = Settings() {
+        didSet {
+            if settings.tools != oldValue.tools {
+                actionRegistry = ActionRegistry(tools: settings.tools)
+            }
+        }
+    }
+
     /// Messages for the user that stay until dismissed, e.g. problems in the settings file.
     public internal(set) var notices: [Notice] = []
     var nextNoticeID = 0
@@ -57,7 +64,8 @@ public final class Workspace {
     public internal(set) var deleteRequest: DeleteRequest?
     var nextDeleteToken = 0
     /// Every action the user can run, by id (#15).
-    public let actionRegistry = ActionRegistry.builtIn
+    /// Built from the settings' tools; replaced when they change.
+    public private(set) var actionRegistry = ActionRegistry(tools: Tool.defaults)
 
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
@@ -130,6 +138,7 @@ public final class Workspace {
         case let .deleteSelectionWithoutAsking(side): deleteSelection(side, ask: false)
         case let .answerDelete(token, delete): answerDelete(token, delete: delete)
         case let .revealInFinder(side): withSelection(side, system.reveal)
+        case let .openWithApp(app, paths, title): openWithApp(app, paths, title: title)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }

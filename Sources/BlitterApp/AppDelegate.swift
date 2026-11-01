@@ -3,7 +3,7 @@ import BlitterCore
 import BlitterModel
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate {
     private let stateStore = StateStore()
     /// Starts where the last session ended.
     private lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return
         }
         let controller = MainWindowController(workspace: workspace)
-        workspace.system = Self.systemServices(window: controller)
+        workspace.system = .appKit(window: controller)
         controller.afterRender = { [weak self] in
             guard let self else {
                 return
@@ -89,58 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         workspace.perform(.openSettingsFile)
     }
 
-    /// The settings file opens in whatever edits `.toml` files, or TextEdit if nothing does.
-    private static func editText(_ path: String) {
-        let url = URL(fileURLWithPath: path, isDirectory: false)
-        NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-            guard error != nil else {
-                return
-            }
-            DispatchQueue.main.async {
-                let textEdit = URL(fileURLWithPath: "/System/Applications/TextEdit.app", isDirectory: true)
-                NSWorkspace.shared.open(
-                    [url],
-                    withApplicationAt: textEdit,
-                    configuration: NSWorkspace.OpenConfiguration()
-                )
-            }
-        }
-    }
-
     @objc private func revealInFinder(_: Any?) {
         workspace.perform(.revealInFinder(workspace.activeSide))
-    }
-
-    /// The AppKit side of the Model's system services.
-    private static func systemServices(window: MainWindowController) -> SystemServices {
-        var services = SystemServices()
-        services.open = openWithDefaultApp
-        services.editText = editText
-        services.reveal = { items in
-            NSWorkspace.shared.activateFileViewerSelecting(items.map { $0.url as URL })
-        }
-        services.togglePreview = { [weak window] side in window?.togglePreview(on: side) }
-        services.copyToPasteboard = { items in
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.writeObjects(items.map(\.url))
-        }
-        services.copyText = { text in
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-        }
-        return services
-    }
-
-    /// Asynchronous, so a slow app launch or volume never holds up the window.
-    private static func openWithDefaultApp(_ path: String) {
-        NSWorkspace.shared.open(
-            URL(fileURLWithPath: path, isDirectory: false),
-            configuration: NSWorkspace.OpenConfiguration()
-        ) { _, error in
-            if error != nil {
-                DispatchQueue.main.async { NSSound.beep() }
-            }
-        }
     }
 
     /// A menu item whose `representedObject` is an action id runs that action on the active side.
@@ -253,6 +203,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 modifiers: [.command, .shift])
         mainMenu.addItem(submenu: goMenu)
 
+        // Filled from the settings' tools each time it opens, so a changed file shows at once.
+        let toolsMenu = NSMenu(title: "Tools")
+        toolsMenu.delegate = self
+        mainMenu.addItem(submenu: toolsMenu)
+
         return mainMenu
     }
 
@@ -278,6 +233,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                       modifiers: [.command, .option, .shift])
         fileMenu.items.last?.isAlternate = true
         return fileMenu
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu.title == "Tools" else {
+            return
+        }
+        menu.removeAllItems()
+        for tool in workspace.settings.tools {
+            addActionItem(to: menu, tool.id, key: "", modifiers: [])
+        }
+        if menu.items.isEmpty {
+            menu.addItem(withTitle: "No Tools in the Settings", action: nil, keyEquivalent: "")
+        }
     }
 
     /// An item that runs an action from the registry, with the action's title.

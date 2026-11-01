@@ -13,6 +13,10 @@ public struct SystemServices {
     public var editText: (String) -> Void = { _ in }
     /// Put items on the clipboard as files, as Finder does.
     public var copyToPasteboard: ([SelectedItem]) -> Void = { _ in }
+    /// Open items with an app (name, bundle identifier or path) without waiting for it; calls
+    /// back on the main actor with a message if the app cannot be found or refuses the items.
+    public var openWithApp: (_ app: String, _ paths: [String], _ failed: @escaping @MainActor (String) -> Void)
+        -> Void = { _, _, _ in }
     /// Put plain text on the clipboard (paths or names, #16).
     public var copyText: (String) -> Void = { _ in }
 
