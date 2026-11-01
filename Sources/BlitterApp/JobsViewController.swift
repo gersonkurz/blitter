@@ -285,6 +285,8 @@ enum JobText {
             "Moving \(items(paths)) to the Trash"
         case let .delete(paths):
             "Deleting \(items(paths))"
+        case let .command(arguments, _):
+            "Running “\(([name(arguments.first ?? "")] + arguments.dropFirst()).joined(separator: " "))”"
         case let .rename(path, newName):
             "Renaming “\(name(path))” to “\(newName)”"
         case let .newFolder(_, folderName):

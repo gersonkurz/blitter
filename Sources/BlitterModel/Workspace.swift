@@ -144,6 +144,7 @@ public final class Workspace {
         case let .answerDelete(token, delete): answerDelete(token, delete: delete)
         case let .revealInFinder(side): withSelection(side, system.reveal)
         case let .openWithApp(app, paths, title): openWithApp(app, paths, title: title)
+        case let .runCommand(arguments, folder): runCommand(arguments, in: folder)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }

@@ -69,6 +69,11 @@ struct FileOperations {
             trash(paths)
         case let .delete(paths):
             delete(paths)
+        case let .command(arguments, folder):
+            // Cancelled before it started: it never runs.
+            if !isCancelled, let problem = Self.runCommand(arguments, in: folder, cancelled: context.cancellation) {
+                fail(folder, problem)
+            }
         case let .rename(path, name):
             rename(path, to: name)
         case let .newFolder(folder, name):

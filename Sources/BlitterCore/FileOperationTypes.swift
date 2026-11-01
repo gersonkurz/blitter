@@ -11,6 +11,8 @@ public enum FileOperation: Equatable, Sendable {
     /// Delete items for good, folders with everything in them: the one operation that bypasses
     /// the Trash, run only on the user's explicit request (#17).
     case delete([String])
+    /// Run a command line in a folder (a tool, #30): the program first, then its arguments.
+    case command([String], folder: String)
     /// Give an item a new name in the same folder.
     case rename(String, newName: String)
     /// Create a folder.

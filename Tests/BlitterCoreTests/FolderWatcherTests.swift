@@ -20,6 +20,20 @@ final class Batches: Sendable {
         batches.withLock { $0.removeAll() }
     }
 
+    /// Waits until nothing has come in for `quiet` (at most about 6 s), then drops it all.
+    /// Setting up a test folder just before the watcher starts gets replayed, and FSEvents can
+    /// deliver that replayed event a second time some 400 ms later (seen with a bare stream).
+    func resetWhenQuiet(_ quiet: Duration = .seconds(1)) async throws {
+        for _ in 0 ..< 6 {
+            let before = all.count
+            try await Task.sleep(for: quiet)
+            if all.count == before {
+                break
+            }
+        }
+        reset()
+    }
+
     /// Waits up to five seconds for a batch that satisfies `condition`.
     func wait(for condition: ([[FolderChange]]) -> Bool) async throws -> Bool {
         for _ in 0 ..< 500 {
@@ -55,8 +69,7 @@ struct FolderWatcherTests {
         let batches = Batches()
         let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
         watcher.watch([folder.path])
-        try await Task.sleep(for: .milliseconds(600))
-        batches.reset() // creating "sub" itself changed the folder
+        try await batches.resetWhenQuiet() // creating "sub" itself changed the folder
 
         FileManager.default.createFile(atPath: folder.path + "/sub/deep.txt", contents: Data())
         try await Task.sleep(for: .milliseconds(600))

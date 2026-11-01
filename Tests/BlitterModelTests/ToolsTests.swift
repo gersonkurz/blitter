@@ -51,6 +51,49 @@ struct ToolSettingsTests {
         #expect(problems.contains { $0.contains("tools.extra.colour") })
     }
 
+    @Test func aToolCanRunACommandLine() {
+        let (settings, problems) = Settings.parse("""
+        [tools.git-fetch]
+        title = "Git Fetch"
+        command = ["git", "-C", "{folder}", "fetch"]
+        on = "folder"
+        [tools.open-in-terminal]
+        command = ["open", "-a", "Terminal", "{folder}"]
+        """)
+        #expect(problems.isEmpty)
+        let fetch = settings.tools.first { $0.id == "git-fetch" }
+        #expect(fetch?.command == ["git", "-C", "{folder}", "fetch"] && fetch?.app == "")
+        let terminal = settings.tools.first { $0.id == "open-in-terminal" }
+        #expect(terminal?.command.first == "open" && terminal?.app == "") // a command replaces the default app
+        #expect(terminal?.title == "Open in Terminal")
+    }
+
+    @Test func aBadCommandIsReported() {
+        let (settings, problems) = Settings.parse("""
+        [tools.both]
+        app = "TextEdit"
+        command = ["vi"]
+        [tools.glued]
+        command = ["echo", "--files={paths}"]
+        [tools.numbers]
+        command = ["echo", 3]
+        [tools.empty]
+        command = []
+        """)
+        #expect(settings.tools == Settings().tools)
+        #expect(problems.contains { $0.contains("tools.both") && $0.contains("not both") })
+        #expect(problems.contains { $0.contains("tools.glued") && $0.contains("of its own") })
+        #expect(problems.contains { $0.contains("tools.numbers") })
+        #expect(problems.contains { $0.contains("tools.empty") })
+    }
+
+    @Test func placeholdersAreFilledInAsArguments() {
+        let arguments = Tool.arguments(["sh", "-c", "x", "{folder}/log", "{paths}", "--in={folder}"],
+                                       folder: "/a b", paths: ["/a b/1.txt", "/a b/2 x.txt"])
+        #expect(arguments == ["sh", "-c", "x", "/a b/log", "/a b/1.txt", "/a b/2 x.txt", "--in=/a b"])
+        #expect(Tool.arguments(["ls", "{paths}"], folder: "/f", paths: []) == ["ls"])
+    }
+
     @Test func toolsMustBeSections() {
         let (settings, problems) = Settings.parse("tools = 3\n[tools2]\n")
         #expect(settings.tools == Settings().tools)
@@ -98,6 +141,27 @@ struct ToolActionsTests {
         sides.workspace.perform(.runAction("open-in-terminal", .left))
         #expect(sides.workspace.notices.map(\.text) == ["Open in Terminal: the app “iTerm” was not found."])
         #expect(changes == 1)
+    }
+
+    /// A command tool runs as a job in the side's folder, and the folder is read again after.
+    @Test func aCommandToolRunsAsAJobAndTheFolderIsReadAgain() async throws {
+        let sides = try SidesOnDisk()
+        sides.file("left/a b.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        sides.workspace.settings.tools = [
+            Tool(id: "mark", title: "Mark", app: "", scope: .folder, command: ["touch", "{folder}/marked"]),
+            Tool(id: "copies", title: "Copies", app: "", scope: .files,
+                 command: ["sh", "-c", "for f; do cp \"$f\" \"$f.copy\"; done", "sh", "{paths}"]),
+        ]
+        sides.workspace.perform(.runAction("mark", .left))
+        try await sides.settle()
+        #expect(sides.names(.left).contains("marked")) // read again after the job
+        sides.workspace.perform(.select(.left, ["a b.txt"]))
+        sides.workspace.perform(.runAction("copies", .left))
+        try await sides.settle()
+        #expect(sides.onDisk("left") == ["a b.txt", "a b.txt.copy", "marked"])
+        #expect(sides.workspace.jobs.isEmpty) // they went fine
     }
 
     @Test func changedToolsReplaceTheActions() async throws {

@@ -46,6 +46,8 @@ public enum Command: Sendable {
     case revealInFinder(Side)
     /// Open items with an app (an external tool, #18); a failure becomes a notice naming `title`.
     case openWithApp(String, paths: [String], title: String)
+    /// Run a command line in a folder as a job (a tool, #30): the program, then its arguments.
+    case runCommand([String], folder: String)
     /// Show or hide Quick Look for the side's selection.
     case togglePreview(Side)
     /// Put the side's selection on the clipboard, as Finder does with Copy.

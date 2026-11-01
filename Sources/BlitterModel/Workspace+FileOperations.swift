@@ -20,6 +20,14 @@ extension Workspace {
         return true
     }
 
+    func runCommand(_ arguments: [String], in folder: String) -> Bool {
+        guard !arguments.isEmpty else {
+            return false
+        }
+        startJob(.command(arguments, folder: folder))
+        return true
+    }
+
     func transfer(_ paths: [String], into folder: String, move: Bool) -> Bool {
         guard !paths.isEmpty else {
             return false
@@ -206,6 +214,7 @@ extension Workspace {
         case let .copy(_, folder): [folder]
         case let .move(sources, folder): Set(sources.map(parent)).union([folder])
         case let .trash(paths), let .delete(paths): Set(paths.map(parent))
+        case let .command(_, folder): [folder] // e.g. git pull changes the files in it
         case let .rename(path, _): [parent(path)]
         case let .newFolder(folder, _): [folder]
         }

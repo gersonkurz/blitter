@@ -167,6 +167,7 @@ struct FileOperationsSafetyTests {
             .move([file], into: fixture.destination),
             .trash([file]),
             .delete([file, fixture.source + "/tree"]),
+            .command(["touch", "made-by-a-cancelled-job"], folder: fixture.source),
         ]
         var ids: [Int] = []
         for operation in operations {
