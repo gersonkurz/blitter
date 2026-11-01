@@ -15,7 +15,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var pasteboard = NSPasteboard.general
     private let pathField = ActivatingComboBox()
     private(set) lazy var navigationButtons = NavigationButtons(side: side)
-    private let statusLabel = NSTextField(labelWithString: "")
+    let statusLabel = NSTextField(labelWithString: "")
     let tableView = ActivatingTableView()
     private var renderedVersion = -1
     private(set) var entries: [ListedEntry] = []
@@ -32,6 +32,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     private let icons: FileIcons
     /// The settings' date pattern the Date Modified column shows; "" until the first render.
     var renderedDateFormat = ""
+    /// The colors the list was last drawn with (#21); nil before the first render.
+    var palette: Palette?
     var dateFormatter = DateFormatter()
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
@@ -176,7 +178,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         if pathField.currentEditor() == nil {
             pathField.stringValue = state.location
         }
-        pathField.textColor = isActive ? .controlAccentColor : .secondaryLabelColor
+        renderPalette()
+        pathField.textColor = pathFieldColor(isActive: isActive)
         navigationButtons.render(state)
         if state.recentLocations != renderedRecentLocations {
             renderedRecentLocations = state.recentLocations
@@ -216,14 +219,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         startRequestedRename(state.renameRequest)
         followSelectionInPreview()
 
-        switch state.status {
-        case .loading:
-            statusLabel.stringValue = ""
-        case .loaded:
-            statusLabel.stringValue = entries.isEmpty ? "Empty folder" : ""
-        case let .failed(message):
-            statusLabel.stringValue = message
-        }
+        renderStatus(state.status)
     }
 
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
@@ -352,7 +348,7 @@ extension FileListViewController {
         default:
             cell.textField?.stringValue = listed.kindDescription
         }
-        cell.textField?.textColor = listed.entry.isHidden ? .secondaryLabelColor : .labelColor
+        cell.textField?.textColor = textColor(for: listed)
         return cell
     }
 

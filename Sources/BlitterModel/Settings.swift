@@ -12,6 +12,8 @@ public struct Settings: Equatable, Sendable {
     public var tools = Tool.defaults
     /// The file list's context menus (#19).
     public var contextMenus = ContextMenus.defaults
+    /// Colors (#21): Base16 schemes for light and dark mode, and the role of each color.
+    public var theme = ThemeSettings()
 
     public init() {}
 
@@ -60,6 +62,27 @@ public struct Settings: Equatable, Sendable {
     # For the folder itself (a click on empty space).
     folder = ["new-folder", "-", "open-in-terminal", "open-in-code"]
 
+    # Colors: a Base16 scheme for light mode and one for dark mode; "system" keeps macOS's colors.
+    # Built in: default-dark, default-light, solarized-dark, solarized-light. Add your own as
+    # [theme.schemes.<name>] with base00 = "#181818" … base0F = "#a16946".
+    [theme]
+    light = "system"
+    dark = "system"
+
+    # Which of the scheme's 16 colors each role takes.
+    [theme.roles]
+    background = "base00"
+    stripe = "base01"
+    selection = "base02"
+    text = "base05"
+    dim_text = "base04"
+    folder = "base0D"
+    hidden = "base03"
+    symlink = "base0C"
+    cloud = "base04"
+    package = "base0E"
+    error = "base08"
+
     """
 
     /// Parses a settings file. Never fails: problems (syntax errors, unknown entries, wrong types)
@@ -87,6 +110,8 @@ public struct Settings: Equatable, Sendable {
             switch section {
             case "context_menu":
                 problems += readContextMenus(table, into: &settings)
+            case "theme":
+                problems += settings.theme.apply(table, entries: entries)
             case "tools":
                 let reserved = Set(ActionRegistry.builtIn.all.map(\.id))
                 problems += Tool.apply(table, to: &settings.tools, reservedIDs: reserved, entries: entries)

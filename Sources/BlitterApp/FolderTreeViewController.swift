@@ -20,6 +20,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     private var topLevelCache: [TreeItem]?
     /// The folder the open context menu is for.
     var menuFolder: String?
+    /// The colors the tree was last drawn with (#21).
+    var palette: Palette?
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -69,6 +71,9 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         isRendering = true
         defer { isRendering = false }
         let tree = workspace.state(of: side).tree
+        if renderPalette() {
+            renderedVersion = -1 // rebuild: every row and cell in the new colors
+        }
         if tree.version != renderedVersion || workspace.treeRoots != renderedRoots {
             renderedVersion = tree.version
             renderedRoots = workspace.treeRoots
@@ -208,11 +213,6 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         (item as? TreeItem)?.section != nil
     }
 
-    /// Section rows keep their group semantics but not the grey group-row band of the plain style.
-    func outlineView(_: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
-        (item as? TreeItem)?.section != nil ? SectionRowView() : nil
-    }
-
     /// The sections are the fixed root of the tree (PLAN.md): always open, no disclosure triangle.
     func outlineView(_: NSOutlineView, shouldCollapseItem item: Any) -> Bool {
         (item as? TreeItem)?.section == nil
@@ -235,7 +235,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView
             ?? Self.makeCell(identifier: identifier, withImage: !isSection)
         cell.textField?.stringValue = item.title
-        cell.textField?.textColor = isSection || item.isHidden ? .secondaryLabelColor : .labelColor
+        cell.textField?.textColor = textColor(isSection: isSection, isHidden: item.isHidden)
         cell.textField?.font = isSection ? Self.sectionFont : nil
         cell.imageView?.image = isSection ? nil : TreeIcons.icon(for: item.root?.kind)
         return cell

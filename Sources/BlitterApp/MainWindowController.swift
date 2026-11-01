@@ -10,6 +10,8 @@ final class MainWindowController: NSWindowController {
     private let jobsController: JobsViewController
     /// The delete request the window has already asked about.
     private var askedDeleteToken: Int?
+    /// Light and dark mode take different theme schemes (#21).
+    private var appearanceObservation: NSKeyValueObservation?
     /// Runs after every render, e.g. to save the state for the next launch.
     var afterRender: (() -> Void)?
 
@@ -55,6 +57,9 @@ final class MainWindowController: NSWindowController {
         }
 
         workspace.onChange = { [weak self] in self?.render() }
+        appearanceObservation = window.observe(\.effectiveAppearance) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.render() }
+        }
         render()
     }
 

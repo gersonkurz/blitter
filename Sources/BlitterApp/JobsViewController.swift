@@ -11,6 +11,8 @@ final class JobsViewController: NSViewController {
     private let stack = NSStackView()
     private var rows: [Int: JobRowView] = [:]
     private var noticeRows: [Int: NoticeRowView] = [:]
+    /// The colors in use (#21); new rows take them, a new theme recolors all.
+    private var palette: Palette?
 
     init(workspace: Workspace) {
         self.workspace = workspace
@@ -32,6 +34,7 @@ final class JobsViewController: NSViewController {
     }
 
     func render() {
+        let paletteChanged = renderPalette()
         let jobs = workspace.jobs
         let ids = Set(jobs.map(\.id))
         for (id, row) in rows where !ids.contains(id) {
@@ -44,7 +47,32 @@ final class JobsViewController: NSViewController {
             row.configure(job)
         }
         renderNotices()
+        if paletteChanged {
+            for row in rows.values {
+                row.apply(palette)
+            }
+            for row in noticeRows.values {
+                row.text.textColor = noticeColor
+            }
+        }
         view.isHidden = jobs.isEmpty && workspace.notices.isEmpty
+    }
+
+    /// Returns true if the theme changed; the strip's own colors are set here, its rows' by
+    /// the caller.
+    private func renderPalette() -> Bool {
+        guard let new = Palette.changed(from: palette, workspace.settings.theme, for: view) else {
+            return false
+        }
+        palette = new
+        view.appearance = new.appearance
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = new.isThemed ? new.color(.background).cgColor : nil
+        return true
+    }
+
+    private var noticeColor: NSColor {
+        palette.map { $0.isThemed ? $0.color(.error) : .systemOrange } ?? .systemOrange
     }
 
     /// Notices (e.g. settings problems) sit above the jobs, each with Dismiss.
@@ -58,6 +86,7 @@ final class JobsViewController: NSViewController {
         }
         for notice in notices where noticeRows[notice.id] == nil {
             let row = NoticeRowView(notice) { [weak self] in self?.workspace.perform(.dismissNotice(notice.id)) }
+            row.text.textColor = noticeColor
             stack.insertArrangedSubview(row, at: 0)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
             noticeRows[notice.id] = row
@@ -66,6 +95,7 @@ final class JobsViewController: NSViewController {
 
     private func makeRow(for id: Int) -> JobRowView {
         let row = JobRowView(id: id)
+        row.apply(palette)
         row.onCommand = { [weak self] command in self?.workspace.perform(command) }
         stack.addArrangedSubview(row)
         row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
@@ -85,6 +115,18 @@ final class JobRowView: NSView {
     private let buttons = NSStackView()
     private let applyToAll = NSButton(checkboxWithTitle: "Apply to all", target: nil, action: nil)
     private var renderedState: Job.State?
+    private var palette: Palette?
+    /// The detail lists the problems of a job that is done.
+    private var showsProblems = false
+
+    /// The theme's colors for the text, or the system's.
+    func apply(_ palette: Palette?) {
+        self.palette = palette
+        let themed = palette?.isThemed == true ? palette : nil
+        title.textColor = themed?.color(.text) ?? .labelColor
+        detail.textColor = showsProblems ? themed?.color(.error) ?? .secondaryLabelColor
+            : themed?.color(.dimText) ?? .secondaryLabelColor
+    }
 
     init(id: Int) {
         self.id = id
@@ -127,6 +169,11 @@ final class JobRowView: NSView {
     func configure(_ job: Job) {
         title.stringValue = JobText.title(job.operation)
         detail.stringValue = JobText.detail(job)
+        let problems = job.isDone && !job.errors.isEmpty
+        if problems != showsProblems {
+            showsProblems = problems
+            apply(palette)
+        }
         if let fraction = JobText.fraction(job.progress), job.state == .running {
             progress.isHidden = false
             progress.doubleValue = fraction
