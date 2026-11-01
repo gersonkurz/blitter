@@ -81,18 +81,24 @@ public enum ShownMenuEntry: Equatable, Sendable {
     case submenu(String, [ShownMenuEntry])
 }
 
-extension Workspace {
+public extension Workspace {
     /// The context menu for the side as it is now: for its selection, or for its folder.
-    public func contextMenu(for side: Side, folder: Bool) -> [ShownMenuEntry] {
-        shown(folder ? settings.contextMenus.folder : settings.contextMenus.items, on: side)
+    func contextMenu(for side: Side, folder: Bool) -> [ShownMenuEntry] {
+        shown(folder ? settings.contextMenus.folder : settings.contextMenus.items) { canRun($0.id, on: side) }
     }
 
-    private func shown(_ entries: [MenuEntry], on side: Side) -> [ShownMenuEntry] {
+    /// The tree's menu for a folder (#20): the folder menu's folder actions. They fit any folder,
+    /// and run once the side shows it (`Command.runFolderAction`).
+    func treeContextMenu() -> [ShownMenuEntry] {
+        shown(settings.contextMenus.folder) { $0.scope == .folder }
+    }
+
+    private func shown(_ entries: [MenuEntry], where fits: (Action) -> Bool) -> [ShownMenuEntry] {
         var result: [ShownMenuEntry] = []
         for entry in entries {
             switch entry {
             case let .action(id):
-                if let action = actionRegistry.action(id), canRun(id, on: side) {
+                if let action = actionRegistry.action(id), fits(action) {
                     result.append(.action(id: id, title: action.title))
                 }
             case .separator:
@@ -100,7 +106,7 @@ extension Workspace {
                     result.append(.separator)
                 }
             case let .submenu(title, inner):
-                let items = shown(inner, on: side)
+                let items = shown(inner, where: fits)
                 if !items.isEmpty {
                     result.append(.submenu(title, items))
                 }

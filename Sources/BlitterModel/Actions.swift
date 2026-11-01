@@ -113,6 +113,33 @@ public extension Workspace {
         actionRegistry.action(id)?.scope.fits(state(of: side)) == true
     }
 
+    internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {
+        let state = state(of: side)
+        guard actionRegistry.action(id)?.scope == .folder, state.location == folder else {
+            return false // only folder actions, and only while the side still shows that folder
+        }
+        if state.entriesLocation == folder, state.status == .loaded {
+            return runAction(id, on: side)
+        }
+        // Only a folder still being read waits; one that could not be read gets nothing, so a
+        // later refresh never runs a choice the user made back then.
+        if state.status == .loading {
+            sides[side]?.pendingAction = PendingAction(folder: folder, id: id)
+        }
+        return false
+    }
+
+    /// After a listing: runs the folder action chosen while it was read, if it is for this folder.
+    internal func runPendingAction(on side: Side) {
+        guard let pending = sides[side]?.pendingAction, let state = sides[side] else {
+            return
+        }
+        sides[side]?.pendingAction = nil
+        if pending.folder == state.entriesLocation, state.status == .loaded {
+            _ = runAction(pending.id, on: side)
+        }
+    }
+
     internal func runAction(_ id: String, on side: Side) -> Bool {
         guard let action = actionRegistry.action(id), action.scope.fits(state(of: side)) else {
             return false

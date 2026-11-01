@@ -1,3 +1,4 @@
+import AppKit
 import BlitterCore
 import BlitterModel
 import Foundation
@@ -18,5 +19,25 @@ final class FakeWatcher: FolderWatching {
 
     static func factory(_: @escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching {
         FakeWatcher()
+    }
+}
+
+/// Reads an open menu's titles and closes it.
+@MainActor
+final class MenuReader {
+    let menu: NSMenu
+    var titles: [String]?
+    private(set) lazy var timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+        MainActor.assumeIsolated {
+            guard let self, self.titles == nil, !self.menu.items.isEmpty else {
+                return
+            }
+            self.titles = self.menu.items.map { $0.isSeparatorItem ? "-" : $0.title }
+            self.menu.cancelTracking()
+        }
+    }
+
+    init(_ menu: NSMenu) {
+        self.menu = menu
     }
 }

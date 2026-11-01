@@ -1,0 +1,113 @@
+import AppKit
+@testable import Blitter
+import BlitterCore
+@testable import BlitterModel
+import Testing
+
+private let folders: [String: [DirectoryEntry]] = [
+    "/home": [folder("Documents"), folder("Music")],
+    "/home/Documents": [],
+    "/home/Music": [],
+]
+
+/// The tree's context menu (#20), opened by real right-click and keyboard events in a window.
+@MainActor
+@Suite(.serialized)
+final class TreeContextMenuTests {
+    private let workspace: Workspace
+    private let tree: FolderTreeViewController
+    private let window: NSWindow
+    private var opened: [(String, [String])] = []
+
+    init() async throws {
+        workspace = Workspace(initialLocation: "/home", home: "/home", lister: { path in
+            guard let entries = folders[path] else {
+                throw POSIXError(.ENOENT)
+            }
+            return entries
+        }, directoryCheck: { folders[$0] != nil }, volumes: { [] }, watcher: FakeWatcher.factory)
+        tree = FolderTreeViewController(workspace: workspace, side: .left)
+        window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 300, height: 500),
+                          styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentViewController = tree
+        workspace.onChange = { [tree] in tree.render() }
+        window.makeKeyAndOrderFront(nil)
+        for _ in 0 ..< 200 where workspace.state(of: .left).status != .loaded || workspace.treeRoots.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        tree.render()
+        tree.view.layoutSubtreeIfNeeded()
+        workspace.system.openWithApp = { [weak self] app, paths, _ in self?.opened.append((app, paths)) }
+    }
+
+    isolated deinit {
+        window.close()
+    }
+
+    @Test func aRightClickOnAFolderGoesThereAndOffersItsFolderActions() async throws {
+        let shown = try open(rightClickOn: "Documents")
+        #expect(shown == ["New Folder", "-", "Open in Terminal", "Open in Code"])
+        #expect(workspace.state(of: .left).location == "/home/Documents")
+        try choose("Open in Terminal")
+        try await waitUntil { !self.opened.isEmpty }
+        #expect(opened.map(\.0) == ["iTerm"] && opened.map(\.1) == [["/home/Documents"]])
+    }
+
+    @Test func theKeyboardMenuIsForTheSelectedFolder() throws {
+        let shown = try whileOpen { tree.outlineView.showContextMenuForSelection(nil) }
+        #expect(shown.first == "New Folder")
+        #expect(workspace.state(of: .left).location == "/home") // the selected node: Home
+        #expect(tree.menuFolder == "/home")
+        #expect(tree.outlineView.selectionAnchorRect == tree.outlineView.rect(ofRow: tree.outlineView.selectedRow))
+    }
+
+    @Test func sectionHeadersAndEmptySpaceHaveNoMenu() throws {
+        let menu = NSMenu()
+        let section = try #require(row("Favorites"))
+        tree.prepareContextMenu(menu, clickedRow: section)
+        #expect(menu.items.isEmpty && tree.menuFolder == nil)
+        tree.prepareContextMenu(menu, clickedRow: -1)
+        #expect(menu.items.isEmpty)
+    }
+
+    // MARK: Helpers
+
+    private func row(_ title: String) -> Int? {
+        (0 ..< tree.outlineView.numberOfRows).first { (tree.outlineView.item(atRow: $0) as? TreeItem)?.title == title }
+    }
+
+    private func open(rightClickOn title: String) throws -> [String] {
+        let outline = tree.outlineView
+        let rect = try outline.rect(ofRow: #require(row(title)))
+        let location = outline.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
+        let event = try #require(NSEvent.mouseEvent(
+            with: .rightMouseDown, location: location, modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+        ))
+        return try whileOpen { outline.rightMouseDown(with: event) }
+    }
+
+    /// Runs `show`, which opens the outline view's menu; a timer reads it and closes it.
+    private func whileOpen(_ show: () -> Void) throws -> [String] {
+        let reader = try MenuReader(#require(tree.outlineView.menu))
+        RunLoop.main.add(reader.timer, forMode: .common)
+        show()
+        reader.timer.invalidate()
+        return try #require(reader.titles, "the menu did not open")
+    }
+
+    private func choose(_ title: String) throws {
+        let menu = try #require(tree.outlineView.menu)
+        let item = try #require(menu.items.first { $0.title == title })
+        _ = item.target?.perform(item.action, with: item)
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0 ..< 200 where !condition() {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(condition())
+    }
+}

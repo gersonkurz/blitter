@@ -27,8 +27,8 @@ extension FileListViewController: NSMenuDelegate {
         workspace.perform(.activate(side))
         let selection = workspace.state(of: side).selection
         guard let row = clickedRow else {
-            menu.removeAllItems()
-            add(workspace.contextMenu(for: side, folder: selection.isEmpty), to: menu)
+            menu.fill(with: workspace.contextMenu(for: side, folder: selection.isEmpty), target: self,
+                      action: #selector(runContextAction(_:)))
             return
         }
         let onFolder = row < 0 || row >= entries.count
@@ -37,26 +37,8 @@ extension FileListViewController: NSMenuDelegate {
         } else if !onFolder, !selection.contains(entries[row].entry.name) {
             workspace.perform(.select(side, [entries[row].entry.name]))
         }
-        menu.removeAllItems()
-        add(workspace.contextMenu(for: side, folder: onFolder), to: menu)
-    }
-
-    private func add(_ entries: [ShownMenuEntry], to menu: NSMenu) {
-        for entry in entries {
-            switch entry {
-            case let .action(id, title):
-                let item = menu.addItem(withTitle: title, action: #selector(runContextAction(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = id
-            case .separator:
-                menu.addItem(.separator())
-            case let .submenu(title, inner):
-                let submenu = NSMenu(title: title)
-                submenu.autoenablesItems = false
-                add(inner, to: submenu)
-                menu.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = submenu
-            }
-        }
+        menu.fill(with: workspace.contextMenu(for: side, folder: onFolder), target: self,
+                  action: #selector(runContextAction(_:)))
     }
 
     @objc private func runContextAction(_ sender: NSMenuItem) {
@@ -64,5 +46,28 @@ extension FileListViewController: NSMenuDelegate {
             return
         }
         workspace.perform(.runAction(id, side))
+    }
+}
+
+extension NSMenu {
+    /// Replaces the items with the entries; each action item runs `action` on `target` with the
+    /// action id as its `representedObject`.
+    func fill(with entries: [ShownMenuEntry], target: AnyObject, action: Selector) {
+        removeAllItems()
+        for entry in entries {
+            switch entry {
+            case let .action(id, title):
+                let item = addItem(withTitle: title, action: action, keyEquivalent: "")
+                item.target = target
+                item.representedObject = id
+            case .separator:
+                addItem(.separator())
+            case let .submenu(title, inner):
+                let submenu = NSMenu(title: title)
+                submenu.autoenablesItems = false
+                submenu.fill(with: inner, target: target, action: action)
+                addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = submenu
+            }
+        }
     }
 }

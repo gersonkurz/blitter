@@ -153,6 +153,7 @@ public final class Workspace {
         case let .cancelJob(job): cancelJob(job)
         case let .dismissJob(job): dismissJob(job)
         case let .runAction(id, side): runAction(id, on: side)
+        case let .runFolderAction(id, side, folder): runFolderAction(id, on: side, folder: folder)
         }
     }
 
@@ -267,6 +268,7 @@ public final class Workspace {
         state.entriesVersion += 1
         sides[side] = state
         pendingWork[side] = nil
+        runPendingAction(on: side)
         notifyChange()
     }
 
@@ -347,6 +349,7 @@ extension Workspace {
         state.fallsBackToHome = false
         state.pendingSelection = Paths.parent(of: previous) == location
             ? PendingSelection(folder: location, name: Paths.lastComponent(of: previous)) : nil
+        state.pendingAction = nil
         sides[side] = state
         cancelPendingOpen(side)
         load(side)

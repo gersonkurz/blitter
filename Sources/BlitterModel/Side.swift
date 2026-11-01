@@ -50,6 +50,9 @@ public struct SideState: Sendable {
     /// or one a job created or renamed. Bound to its folder, so it never selects a same-named
     /// entry elsewhere; navigation drops it.
     var pendingSelection: PendingSelection?
+    /// A folder action chosen in the tree's menu while that folder was still being read; it runs
+    /// when the listing arrives. Navigation drops it, so it never runs anywhere else.
+    var pendingAction: PendingAction?
     /// The entry whose name the view should edit in place, in the folder it belongs to. The token
     /// changes with every request, so the view can tell a new request from one it already started.
     public internal(set) var renameRequest: RenameRequest?
@@ -93,4 +96,9 @@ public struct RenameRequest: Equatable, Sendable {
 struct PendingSelection: Equatable {
     let folder: String
     let name: String
+}
+
+struct PendingAction: Equatable {
+    let folder: String
+    let id: String
 }

@@ -58,3 +58,28 @@ final class ActivatingComboBox: NSComboBox {
         return accepted
     }
 }
+
+/// The folder tree's outline view: reports when it gains keyboard focus, and opens its context
+/// menu from the keyboard (#20) at the selected node, like ActivatingTableView.
+final class ActivatingOutlineView: NSOutlineView, @preconcurrency NSViewContentSelectionInfo {
+    var onBecomeFirstResponder: (() -> Void)?
+    private(set) var isShowingContextMenuFromKeyboard = false
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted {
+            onBecomeFirstResponder?()
+        }
+        return accepted
+    }
+
+    override func showContextMenuForSelection(_ sender: Any?) {
+        isShowingContextMenuFromKeyboard = true
+        defer { isShowingContextMenuFromKeyboard = false }
+        super.showContextMenuForSelection(sender)
+    }
+
+    var selectionAnchorRect: NSRect {
+        selectedRow >= 0 ? rect(ofRow: selectedRow) : .null
+    }
+}

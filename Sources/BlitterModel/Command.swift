@@ -78,4 +78,7 @@ public enum Command: Sendable {
     /// Run an action from the registry on a side, if its scope fits the side as it is now.
     /// Menus, shortcuts and the MCP server all run actions this way.
     case runAction(String, Side)
+    /// Run a folder action (#20, the tree's menu) on the side's folder once the side shows
+    /// `folder`: now if its listing is there, else when it arrives.
+    case runFolderAction(String, Side, folder: String)
 }

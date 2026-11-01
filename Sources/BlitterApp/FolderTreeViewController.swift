@@ -7,9 +7,9 @@ import UniformTypeIdentifiers
 /// collapsing and selecting into workspace commands.
 @MainActor
 final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
-    private let workspace: Workspace
+    let workspace: Workspace
     let side: Side
-    private let outlineView = ActivatingOutlineView()
+    let outlineView = ActivatingOutlineView()
     private var renderedVersion = -1
     private var renderedRoots: [TreeRoot] = []
     private var isRendering = false
@@ -18,6 +18,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     /// Children per item, computed once per rebuild: the outline view asks for every child by index.
     private var childCache: [ObjectIdentifier: [TreeItem]] = [:]
     private var topLevelCache: [TreeItem]?
+    /// The folder the open context menu is for.
+    var menuFolder: String?
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -44,6 +46,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         outlineView.autoresizesOutlineColumn = false
         outlineView.dataSource = self
         outlineView.delegate = self
+        configureContextMenu()
         outlineView.onBecomeFirstResponder = { [weak self] in
             guard let self else {
                 return
@@ -342,18 +345,5 @@ enum TreeIcons {
             : NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSWorkspace.shared.icon(for: .folder)
         cache[symbol] = image
         return image
-    }
-}
-
-/// An outline view that reports when it gains keyboard focus, which makes its side the active side.
-final class ActivatingOutlineView: NSOutlineView {
-    var onBecomeFirstResponder: (() -> Void)?
-
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
-        if accepted {
-            onBecomeFirstResponder?()
-        }
-        return accepted
     }
 }
