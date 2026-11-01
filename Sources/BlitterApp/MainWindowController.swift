@@ -30,7 +30,14 @@ final class MainWindowController: NSWindowController {
         splitViewController.splitView.isVertical = true
         splitViewController.splitView.dividerStyle = .thin
         for controller in sideControllers {
-            splitViewController.addSplitViewItem(NSSplitViewItem(viewController: controller))
+            let item = NSSplitViewItem(viewController: controller)
+            // Above everything inside a side (tree and list hold at about .defaultLow): a side keeps
+            // its width while the splitter between its tree and list moves, so that splitter only
+            // trades width between the two. At the same priority, the right side's tree could not
+            // be widened, and moving it pushed the splitter between the sides (owner's report,
+            // 2026-11-01).
+            item.holdingPriority = .defaultLow + 10
+            splitViewController.addSplitViewItem(item)
         }
         // Set after the items exist, so the saved divider position applies to them.
         splitViewController.splitView.autosaveName = AppEnvironment.autosaveName("MainSplit")
