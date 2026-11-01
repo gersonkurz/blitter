@@ -105,6 +105,14 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
+    static let hiddenByDefault: Set<SortColumn> = [.kind]
+
+    /// "v2" since #13: the v0.1 layouts showed Kind, and AppKit would restore it; everyone starts
+    /// once with the new default.
+    static func columnsAutosaveName(_ side: Side) -> String {
+        "FileList-v2-\(side)"
+    }
+
     private func configureTable() {
         // Column identifiers are the SortColumn raw values, so a header click maps straight to a sort.
         for sortColumn in SortColumn.allCases {
@@ -115,6 +123,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             case .modified: (column.title, column.width) = ("Date Modified", 150)
             case .kind: (column.title, column.width) = ("Kind", 140)
             }
+            // Kind is not shown by default (#13); configurable columns (#25) can show it again.
+            column.isHidden = Self.hiddenByDefault.contains(sortColumn)
             column.minWidth = 40
             column.sortDescriptorPrototype = NSSortDescriptor(key: sortColumn.rawValue, ascending: true)
             if sortColumn == .size {
@@ -122,14 +132,15 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             }
             tableView.addTableColumn(column)
         }
-        tableView.autosaveName = AppEnvironment.autosaveName("FileList-\(side)")
+        tableView.autosaveName = AppEnvironment.autosaveName(Self.columnsAutosaveName(side))
         tableView.autosaveTableColumns = !AppEnvironment.isHostedTest
         tableView.style = .fullWidth
         tableView.rowSizeStyle = .small
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsMultipleSelection = true
         tableView.allowsColumnReordering = true
-        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        // A wider list gives the room to the names.
+        tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self

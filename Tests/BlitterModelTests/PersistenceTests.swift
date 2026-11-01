@@ -96,6 +96,14 @@ struct PersistenceTests {
         #expect(workspace.state(of: .left).status == .failed("/nowhere: No such file or directory"))
     }
 
+    /// The Kind column is gone (#13): a sort by Kind saved by v0.1 comes back as the default sort.
+    @Test func aSavedSortByKindBecomesTheDefault() async {
+        let workspace = await makeWorkspace(FakeFolders(tree), restoring: saved(
+            left: "/Users/me", right: "/Users/me", sort: ListSort(column: .kind, ascending: false)
+        ))
+        #expect(workspace.state(of: .left).sort == ListSort())
+    }
+
     @Test func theStateSurvivesJSON() throws {
         let state = saved(left: "/a", right: "/b", sort: ListSort(column: .kind, ascending: false), hidden: true)
         let decoded = try JSONDecoder().decode(WorkspaceState.self, from: JSONEncoder().encode(state))

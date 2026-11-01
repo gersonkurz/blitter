@@ -36,7 +36,9 @@ public extension Workspace {
 extension SideState {
     init(restoring settings: WorkspaceState.SideSettings) {
         self.init(location: settings.location)
-        sort = settings.sort
+        // The Kind column is no longer shown (#13): a saved sort by it would sort by something
+        // invisible, so it becomes the default sort.
+        sort = settings.sort.column == .kind ? ListSort() : settings.sort
         fallsBackToHome = true
     }
 }
