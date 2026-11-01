@@ -62,4 +62,7 @@ public enum Command: Sendable {
     case cancelJob(Int)
     /// Remove a finished job (one that reported problems) from the list.
     case dismissJob(Int)
+    /// Run an action from the registry on a side, if its scope fits the side as it is now.
+    /// Menus, shortcuts and the MCP server all run actions this way.
+    case runAction(String, Side)
 }

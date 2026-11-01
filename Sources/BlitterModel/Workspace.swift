@@ -53,6 +53,8 @@ public final class Workspace {
 
     /// Called after every state change.
     public var onChange: (() -> Void)?
+    /// Every action the user can run, by id (#15).
+    public let actionRegistry = ActionRegistry.builtIn
 
     public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
                 lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
@@ -99,7 +101,7 @@ public final class Workspace {
     }
 
     /// Carries out the command. Returns false if it changed nothing, so nobody is notified.
-    private func apply(_ command: Command) -> Bool {
+    func apply(_ command: Command) -> Bool {
         switch command {
         case let .navigate(side, path): navigate(side, path)
         case let .open(side, name): open(side, name)
@@ -133,6 +135,7 @@ public final class Workspace {
         case let .answerConflict(job, answer): answerConflict(job, answer)
         case let .cancelJob(job): cancelJob(job)
         case let .dismissJob(job): dismissJob(job)
+        case let .runAction(id, side): runAction(id, on: side)
         }
     }
 
