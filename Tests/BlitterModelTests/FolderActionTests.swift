@@ -89,6 +89,48 @@ struct FolderActionTests {
         #expect(sides.workspace.jobs.isEmpty)
     }
 
+    /// #37: from the tree, a selection-or-folder tool is for the node's folder, even if items are
+    /// selected in the side showing it.
+    @Test func fromTheTreeASelectionOrFolderToolActsOnTheFolder() async throws {
+        let sides = try SidesOnDisk()
+        sides.file("left/a.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        var opened: [[String]] = []
+        sides.workspace.system.openWithApp = { _, paths, _ in opened.append(paths) }
+        sides.workspace.perform(.select(.left, ["a.txt"]))
+        #expect(ids(sides.workspace.treeContextMenu()).contains("open-in-code"))
+        var changes = 0
+        sides.workspace.onChange = { changes += 1 }
+        sides.workspace.perform(.runFolderAction("open-in-code", .left, folder: sides.left))
+        #expect(opened == [[sides.left]])
+        #expect(sides.workspace.state(of: .left).selection.isEmpty)
+        #expect(changes == 1) // the views hear of the cleared selection (#37 review)
+    }
+
+    /// #37 review: chosen while the folder is read again (its selection kept), the tool still
+    /// runs for the folder once the listing arrives.
+    @Test func aQueuedSelectionOrFolderToolActsOnTheFolderToo() async throws {
+        let gated = GatedLister(holding: "left")
+        let sides = try SidesOnDisk(lister: gated.list)
+        sides.file("left/a.txt")
+        gated.release()
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        gated.close()
+        var opened: [[String]] = []
+        sides.workspace.system.openWithApp = { _, paths, _ in opened.append(paths) }
+        sides.workspace.perform(.select(.left, ["a.txt"]))
+        sides.workspace.perform(.refresh(.left)) // reading again: loading, selection kept
+        #expect(sides.workspace.state(of: .left).status == .loading)
+        sides.workspace.perform(.runFolderAction("open-in-code", .left, folder: sides.left))
+        #expect(opened.isEmpty) // queued until the listing arrives
+        gated.release()
+        try await sides.settle()
+        #expect(opened == [[sides.left]])
+        #expect(sides.workspace.state(of: .left).selection.isEmpty)
+    }
+
     @Test func otherFoldersAndOtherActionsDoNothing() async throws {
         let sides = try SidesOnDisk()
         sides.file("left/a.txt")
@@ -119,28 +161,25 @@ struct FolderActionTests {
 /// Lists folders from disk, but holds back any folder named `held` until released.
 private final class GatedLister: Sendable {
     private let held: String
-    private let gate = DispatchSemaphore(value: 0)
-    private let released = Atomic(false)
+    private let closed = Atomic(true)
 
     init(holding name: String) {
         held = name
     }
 
     func release() {
-        released.store(true, ordering: .relaxed)
-        gate.signal()
+        closed.store(false, ordering: .relaxed)
+    }
+
+    /// Holds the folder's reads again.
+    func close() {
+        closed.store(true, ordering: .relaxed)
     }
 
     var list: Workspace.Lister {
         { [self] path in
-            if (path as NSString).lastPathComponent == held, !released.load(ordering: .relaxed) {
-                await withCheckedContinuation { continuation in
-                    DispatchQueue.global().async {
-                        self.gate.wait()
-                        self.gate.signal() // let later reads through too
-                        continuation.resume()
-                    }
-                }
+            while (path as NSString).lastPathComponent == held, closed.load(ordering: .relaxed) {
+                try await Task.sleep(nanoseconds: 5_000_000)
             }
             return try await listDirectory(path)
         }

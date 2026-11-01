@@ -13,7 +13,8 @@ public extension Settings {
     git_colors = true
 
     # External tools: [tools.<id>] opens items with an app (name, bundle identifier or path).
-    # on = "folder" opens the side's folder, "selection" the selected items, "files" selected files.
+    # on = "folder" opens the side's folder, "selection" the selected items, "files" selected files,
+    # "selection-or-folder" the selected items or, with nothing selected, the folder.
     # Change a default by giving only what differs, e.g. app = "Terminal" for open-in-terminal.
     # A tool can run a command line instead, as a job, in the side's folder (never in a shell):
     #   [tools.git-fetch]
@@ -29,7 +30,7 @@ public extension Settings {
     [tools.open-in-code]
     title = "Open in Code"
     app = "Visual Studio Code"
-    on = "folder"
+    on = "selection-or-folder"
 
     [tools.open-in-text-editor]
     title = "Open in Text Editor"

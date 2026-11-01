@@ -8,7 +8,7 @@ struct ToolSettingsTests {
         let tools = Settings().tools
         #expect(tools.map(\.id) == ["open-in-terminal", "open-in-code", "open-in-text-editor"])
         #expect(tools.map(\.app) == ["iTerm", "Visual Studio Code", "TextEdit"])
-        #expect(tools.map(\.scope) == [.folder, .folder, .files])
+        #expect(tools.map(\.scope) == [.folder, .selectionOrFolder, .files])
         // The commented default file spells out exactly the defaults.
         #expect(Settings.parse(Settings.defaultFile) == (Settings(), []))
     }
@@ -162,6 +162,26 @@ struct ToolActionsTests {
         try await sides.settle()
         #expect(sides.onDisk("left") == ["a b.txt", "a b.txt.copy", "marked"])
         #expect(sides.workspace.jobs.isEmpty) // they went fine
+    }
+
+    /// #37: Open in Code opens what is selected, or the folder when nothing is.
+    @Test func openInCodeOpensTheSelectionOrTheFolder() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.left + "/sub", withIntermediateDirectories: false)
+        sides.file("left/a.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        var opened: [[String]] = []
+        sides.workspace.system.openWithApp = { _, paths, _ in opened.append(paths) }
+
+        sides.workspace.perform(.runAction("open-in-code", .left))
+        sides.workspace.perform(.select(.left, ["a.txt"]))
+        sides.workspace.perform(.runAction("open-in-code", .left))
+        sides.workspace.perform(.select(.left, ["a.txt", "sub"]))
+        sides.workspace.perform(.runAction("open-in-code", .left))
+        #expect(opened == [[sides.left], [sides.left + "/a.txt"], [sides.left + "/sub", sides.left + "/a.txt"]])
+        #expect(Settings.parse("[tools.x]\napp = \"X\"\non = \"selection-or-folder\"\n").settings.tools.last?.scope
+            == .selectionOrFolder)
     }
 
     @Test func changedToolsReplaceTheActions() async throws {

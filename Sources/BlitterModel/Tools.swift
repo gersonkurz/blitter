@@ -27,14 +27,16 @@ public struct Tool: Equatable, Sendable {
     /// iTerm is the owner's choice of terminal (#18); each can be changed in the settings file.
     static let defaults = [
         Tool(id: "open-in-terminal", title: "Open in Terminal", app: "iTerm", scope: .folder),
-        Tool(id: "open-in-code", title: "Open in Code", app: "Visual Studio Code", scope: .folder),
+        Tool(id: "open-in-code", title: "Open in Code", app: "Visual Studio Code", scope: .selectionOrFolder),
         Tool(id: "open-in-text-editor", title: "Open in Text Editor", app: "TextEdit", scope: .files),
     ]
 
     var action: Action {
         Action(id, title, scope: scope) { [app, scope, title, command] workspace, side in
             let folder = workspace.state(of: side).entriesLocation
-            let paths = scope == .folder ? [folder] : workspace.selectedItems(on: side).map(\.path)
+            let selected = workspace.selectedItems(on: side).map(\.path)
+            let usesFolder = scope == .folder || (scope == .selectionOrFolder && selected.isEmpty)
+            let paths = usesFolder ? [folder] : selected
             if !command.isEmpty {
                 return .runCommand(Self.arguments(command, folder: folder, paths: paths), folder: folder)
             }
@@ -50,7 +52,9 @@ public struct Tool: Equatable, Sendable {
     }
 
     /// The words for `on` in the settings file.
-    private static let scopes: [String: ActionScope] = ["folder": .folder, "selection": .selection, "files": .files]
+    private static let scopes: [String: ActionScope] = [
+        "folder": .folder, "selection": .selection, "files": .files, "selection-or-folder": .selectionOrFolder,
+    ]
 
     /// Applies `[tools.<id>]` to the tools: a known id changes only the entries given, a new id
     /// needs at least `app`. Problems are listed; a tool with one keeps its previous definition.
@@ -127,7 +131,7 @@ public struct Tool: Equatable, Sendable {
             tool.app = "" // a command replaces an app
         case "on":
             guard let word = value?.string, let scope = scopes[word] else {
-                return "expected \"folder\", \"selection\" or \"files\"."
+                return "expected \"folder\", \"selection\", \"files\" or \"selection-or-folder\"."
             }
             tool.scope = scope
         default:

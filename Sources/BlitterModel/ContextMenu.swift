@@ -90,7 +90,7 @@ public extension Workspace {
     /// The tree's menu for a folder (#20): the folder menu's folder actions. They fit any folder,
     /// and run once the side shows it (`Command.runFolderAction`).
     func treeContextMenu() -> [ShownMenuEntry] {
-        shown(settings.contextMenus.folder) { $0.scope == .folder }
+        shown(settings.contextMenus.folder) { $0.scope.worksOnFolder }
     }
 
     private func shown(_ entries: [MenuEntry], where fits: (Action) -> Bool) -> [ShownMenuEntry] {

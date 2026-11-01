@@ -11,10 +11,18 @@ public enum ActionScope: Equatable, Sendable {
     case single
     /// One or more selected items, none of them a folder (files and symbolic links).
     case files
+    /// The selected items, or the side's folder when nothing is selected (#37).
+    case selectionOrFolder
+
+    /// Whether the action can work on the side's folder: such actions are offered in the tree's
+    /// menu (#20), where they act on the node's folder.
+    var worksOnFolder: Bool {
+        self == .folder || self == .selectionOrFolder
+    }
 
     func fits(_ state: SideState) -> Bool {
         switch self {
-        case .folder: state.status == .loaded
+        case .folder, .selectionOrFolder: state.status == .loaded
         case .selection: !state.selection.isEmpty
         case .single: state.selection.count == 1
         case .files:
@@ -118,11 +126,11 @@ public extension Workspace {
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {
         let state = state(of: side)
-        guard actionRegistry.action(id)?.scope == .folder, state.location == folder else {
+        guard actionRegistry.action(id)?.scope.worksOnFolder == true, state.location == folder else {
             return false // only folder actions, and only while the side still shows that folder
         }
         if state.entriesLocation == folder, state.status == .loaded {
-            return runAction(id, on: side)
+            return runOnFolder(id, on: side)
         }
         // Only a folder still being read waits; one that could not be read gets nothing, so a
         // later refresh never runs a choice the user made back then.
@@ -139,8 +147,20 @@ public extension Workspace {
         }
         sides[side]?.pendingAction = nil
         if pending.folder == state.entriesLocation, state.status == .loaded {
-            _ = runAction(pending.id, on: side)
+            _ = runOnFolder(pending.id, on: side) // the listing's notification reports it
         }
+    }
+
+    /// A folder action from the tree's menu is for the folder, not for whatever is selected in
+    /// it (selection-or-folder tools, #37): the selection goes first. Returns whether anything
+    /// changed, the cleared selection included, so the views hear of it.
+    private func runOnFolder(_ id: String, on side: Side) -> Bool {
+        let hadSelection = sides[side]?.selection.isEmpty == false
+        if hadSelection {
+            sides[side]?.selection = []
+        }
+        let changed = runAction(id, on: side)
+        return changed || hadSelection
     }
 
     internal func runAction(_ id: String, on side: Side) -> Bool {
