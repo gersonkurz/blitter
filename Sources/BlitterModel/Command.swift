@@ -48,6 +48,10 @@ public enum Command: Sendable {
     case togglePreview(Side)
     /// Put the side's selection on the clipboard, as Finder does with Copy.
     case copyToPasteboard(Side)
+    /// Put the full paths of the side's selection on the clipboard as text, one per line.
+    case copyPaths(Side)
+    /// Put the names of the side's selection on the clipboard as text, one per line.
+    case copyNames(Side)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a

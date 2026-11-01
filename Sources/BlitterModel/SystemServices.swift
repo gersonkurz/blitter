@@ -13,6 +13,8 @@ public struct SystemServices {
     public var editText: (String) -> Void = { _ in }
     /// Put items on the clipboard as files, as Finder does.
     public var copyToPasteboard: ([SelectedItem]) -> Void = { _ in }
+    /// Put plain text on the clipboard (paths or names, #16).
+    public var copyText: (String) -> Void = { _ in }
 
     public init() {}
 }

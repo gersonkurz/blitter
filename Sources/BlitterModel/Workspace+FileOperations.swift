@@ -193,4 +193,8 @@ public struct SelectedItem: Equatable, Sendable {
         self.path = path
         self.isDirectory = isDirectory
     }
+
+    public var name: String {
+        Paths.lastComponent(of: path)
+    }
 }

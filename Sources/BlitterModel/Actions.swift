@@ -70,6 +70,8 @@ public struct ActionRegistry: Sendable {
         },
         Action("quick-look", "Quick Look", scope: .selection) { _, side in .togglePreview(side) },
         Action("copy", "Copy", scope: .selection, output: .clipboard) { _, side in .copyToPasteboard(side) },
+        Action("copy-path", "Copy Path", scope: .selection, output: .clipboard) { _, side in .copyPaths(side) },
+        Action("copy-name", "Copy Name", scope: .selection, output: .clipboard) { _, side in .copyNames(side) },
         Action("rename", "Rename", scope: .single) { _, side in .requestRename(side) },
         Action("copy-to-other-side", "Copy to Other Side", scope: .selection) { workspace, side in
             .copyItems(workspace.selectedItems(on: side).map(\.path),

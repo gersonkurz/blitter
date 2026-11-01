@@ -163,6 +163,20 @@ final class FileOperationsInteractionTests {
         #expect(item.target is AppDelegate)
     }
 
+    /// #16: Copy Path and Copy Name run their actions from the registry on the active side.
+    @Test func theEditMenuCopiesPathsAndNames() throws {
+        let editMenu = try #require(NSApp.mainMenu?.items.compactMap(\.submenu).first { $0.title == "Edit" })
+        let path = try #require(editMenu.items.first { $0.title == "Copy Path" })
+        let name = try #require(editMenu.items.first { $0.title == "Copy Name" })
+        #expect(path.keyEquivalent == "c" && path.keyEquivalentModifierMask == [.command, .option])
+        #expect(name.keyEquivalent == "c" && name.keyEquivalentModifierMask == [.command, .option, .shift])
+        #expect(path.representedObject as? String == "copy-path" && name.representedObject as? String == "copy-name")
+        #expect(path.target is AppDelegate && name.target is AppDelegate)
+        // Validation asks the registry: the test host's workspace has nothing selected.
+        let delegate = try #require(NSApp.delegate as? AppDelegate)
+        #expect(!delegate.validateMenuItem(path) && !delegate.validateMenuItem(name))
+    }
+
     @Test func aNoticeShowsInTheStripUntilDismissed() throws {
         workspace.addNotice("Settings file: something is off.")
         workspace.onChange?()

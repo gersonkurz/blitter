@@ -142,6 +142,37 @@ struct ActionsTests {
         #expect(sides.onDisk("left/folder") == ["New Folder"])
     }
 
+    /// #16: paths or names as plain text, one per line, in list order; nothing selected, nothing copied.
+    @Test func copyPathAndCopyNamePutTheSelectionAsText() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.left + "/folder", withIntermediateDirectories: false)
+        sides.file("left/a b.txt")
+        sides.file("left/c.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        var copied: [String] = []
+        sides.workspace.system.copyText = { copied.append($0) }
+
+        sides.workspace.perform(.copyPaths(.left))
+        sides.workspace.perform(.runAction("copy-name", .left))
+        #expect(copied.isEmpty)
+
+        sides.workspace.perform(.select(.left, ["c.txt", "folder", "a b.txt"]))
+        sides.workspace.perform(.runAction("copy-path", .left))
+        sides.workspace.perform(.runAction("copy-name", .left))
+        sides.workspace.perform(.select(.left, ["c.txt"]))
+        sides.workspace.perform(.copyPaths(.left))
+        sides.workspace.perform(.copyNames(.left))
+        #expect(copied == [
+            [sides.left + "/folder", sides.left + "/a b.txt", sides.left + "/c.txt"].joined(separator: "\n"),
+            "folder\na b.txt\nc.txt",
+            sides.left + "/c.txt",
+            "c.txt",
+        ])
+        #expect(ActionRegistry.builtIn.action("copy-path")?.output == .clipboard)
+        #expect(ActionRegistry.builtIn.action("copy-name")?.title == "Copy Name")
+    }
+
     private func ids(_ actions: [Action]) -> [String] {
         actions.map(\.id)
     }

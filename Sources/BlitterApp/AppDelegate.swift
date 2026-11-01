@@ -124,6 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects(items.map(\.url))
         }
+        services.copyText = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
         return services
     }
 
@@ -137,6 +141,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 DispatchQueue.main.async { NSSound.beep() }
             }
         }
+    }
+
+    /// A menu item whose `representedObject` is an action id runs that action on the active side.
+    @objc private func runAction(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else {
+            return
+        }
+        workspace.perform(.runAction(id, workspace.activeSide))
     }
 
     @objc private func moveToTrash(_: Any?) {
@@ -160,6 +172,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // While text is edited (path field, a name), keys such as ⌘⌫ belong to the text.
         let isEditingText = NSApp.keyWindow?.firstResponder is NSText
         switch menuItem.action {
+        case #selector(runAction(_:)):
+            guard let id = menuItem.representedObject as? String else {
+                return false
+            }
+            return !isEditingText && workspace.canRun(id, on: workspace.activeSide)
         case #selector(copyToOtherSide(_:)), #selector(moveToOtherSide(_:)), #selector(moveToTrash(_:)):
             return !isEditingText && !active.selection.isEmpty
         case #selector(revealInFinder(_:)):
@@ -207,6 +224,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let moveHere = editMenu.addItem(withTitle: "Move Item Here", action: Selector(("moveItemsHere:")),
                                         keyEquivalent: "v")
         moveHere.keyEquivalentModifierMask = [.command, .option]
+        addActionItem(to: editMenu, "copy-path", key: "c", modifiers: [.command, .option])
+        addActionItem(to: editMenu, "copy-name", key: "c", modifiers: [.command, .option, .shift])
         editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
         mainMenu.addItem(submenu: editMenu)
 
@@ -254,6 +273,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         addItem(to: fileMenu, title: "Move to Trash", action: #selector(moveToTrash(_:)), key: "\u{8}",
                 modifiers: [.command])
         return fileMenu
+    }
+
+    /// An item that runs an action from the registry, with the action's title.
+    private func addActionItem(to menu: NSMenu, _ id: String, key: String, modifiers: NSEvent.ModifierFlags) {
+        guard let action = workspace.actionRegistry.action(id) else {
+            return
+        }
+        addItem(to: menu, title: action.title, action: #selector(runAction(_:)), key: key, modifiers: modifiers)
+        menu.items.last?.representedObject = id
     }
 
     private static func functionKey(_ key: Int) -> String {
