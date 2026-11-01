@@ -1,11 +1,11 @@
 import BlitterCore
 import Foundation
 
-/// A folder's git state (#22), shown as its color.
+/// An item's git state (#22, #35), shown as its color. Untracked and ignored items have none.
 public enum GitState: Equatable, Sendable {
-    /// A working copy with nothing to commit and in step with its upstream.
+    /// Tracked and unchanged; for a working copy's root: no tracked changes, in step upstream.
     case clean
-    /// Changed or untracked files: in the working copy, or below this folder inside one.
+    /// A tracked file that changed, or a folder with such a file below it.
     case modified
     /// Nothing to commit, but commits ahead of or behind the upstream.
     case aheadOrBehind
@@ -49,45 +49,81 @@ public struct GitAccess: Sendable {
 struct KnownRepository: Sendable {
     let status: GitRepoStatus
     let checked: Date
-    /// Every folder (relative to the root, "" for the root) with a change at or below it.
+    /// Tracked files that changed, relative to the root.
+    let changedFiles: Set<String>
+    /// Every folder (relative, "" for the root) with a tracked change at or below it.
     let changedFolders: Set<String>
+    /// Untracked and ignored items as git lists them: files, and folders ending in "/".
+    let untrackedOrIgnored: Set<String>
 
     init(_ status: GitRepoStatus, checked: Date) {
         self.status = status
         self.checked = checked
+        changedFiles = Set(status.changed)
         var folders: Set<String> = []
         for path in status.changed {
-            var folder = path.hasSuffix("/") ? String(path.dropLast()) : path
-            // An untracked folder ("dir/") contains changes itself; a file's folder does.
-            if !path.hasSuffix("/"), let slash = folder.lastIndex(of: "/") {
+            var folder = path
+            while let slash = folder.lastIndex(of: "/") {
                 folder = String(folder[..<slash])
-            } else if !path.hasSuffix("/") {
-                folder = ""
-            }
-            while !folders.contains(folder) {
-                folders.insert(folder)
-                guard let slash = folder.lastIndex(of: "/") else {
-                    folders.insert("")
-                    break
+                guard folders.insert(folder).inserted else {
+                    break // its ancestors are in already
                 }
-                folder = String(folder[..<slash])
             }
+            folders.insert("")
         }
         changedFolders = folders
+        untrackedOrIgnored = Set(status.untracked + status.ignored)
     }
 
+    /// The root: red only for tracked changes (untracked files do not count, #35).
     var rootState: GitState {
         if !status.changed.isEmpty {
             return .modified
         }
         return status.ahead + status.behind > 0 ? .aheadOrBehind : .clean
     }
+
+    /// An item inside the working copy, by its path relative to the root.
+    func state(of relative: String, isFolder: Bool) -> GitState? {
+        if relative == ".git" || relative.hasPrefix(".git/") {
+            return nil
+        }
+        if isFolder {
+            // A submodule with a tracked change is listed as a changed path itself.
+            if changedFolders.contains(relative) || changedFiles.contains(relative) {
+                return .modified
+            }
+            // Green only with something tracked in it: not for a folder holding just ignored
+            // files, an empty one, or an untracked one.
+            return status.trackedFolders.contains(relative) ? .clean : nil
+        }
+        if changedFiles.contains(relative) {
+            return .modified
+        }
+        // A file: untracked or ignored itself, or inside a folder that is.
+        if untrackedOrIgnored.contains(relative) {
+            return nil
+        }
+        var folder = relative
+        while let slash = folder.lastIndex(of: "/") {
+            folder = String(folder[..<slash])
+            if untrackedOrIgnored.contains(folder + "/") {
+                return nil
+            }
+        }
+        return .clean
+    }
 }
 
 extension Workspace {
-    /// The git state of a folder: a working copy's root shows the repository's state, a folder
-    /// inside one shows "modified" if it contains changes; anything else has none.
     public func gitState(ofFolder path: String) -> GitState? {
+        gitState(of: path, isFolder: true)
+    }
+
+    /// The git state of a file or folder: a working copy's root shows the repository's state;
+    /// inside one, tracked changes are modified, other tracked items clean, untracked and
+    /// ignored ones have none (#35). Outside working copies: none.
+    public func gitState(of path: String, isFolder: Bool) -> GitState? {
         guard settings.gitColors else {
             return nil
         }
@@ -98,7 +134,7 @@ extension Workspace {
                     return repository.rootState
                 }
                 let relative = String(path.dropFirst(root == "/" ? 1 : root.count + 1))
-                return repository.changedFolders.contains(relative) ? .modified : nil
+                return repository.state(of: relative, isFolder: isFolder)
             }
             guard root != "/", let parent = Paths.parent(of: root) else {
                 return nil

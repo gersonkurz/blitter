@@ -5,15 +5,27 @@ public struct GitRepoStatus: Equatable, Sendable {
     /// Commits the branch is ahead of and behind its upstream (0 without one).
     public var ahead = 0
     public var behind = 0
-    /// Changed, staged, unmerged and untracked files, relative to the repository root. Untracked
-    /// files are listed one by one, also inside untracked folders, so every folder that contains
-    /// changes is known; empty and ignored folders are not listed.
+    /// Tracked files that changed: modified, staged, renamed (both names), unmerged. Relative
+    /// to the repository root.
     public var changed: [String] = []
+    /// Untracked items; a folder with nothing tracked in it is one entry ending in "/".
+    public var untracked: [String] = []
+    /// Ignored items, the same way.
+    public var ignored: [String] = []
+    /// Every folder (relative, "" for the root) with something tracked in it, submodules
+    /// included: from the index, since a folder holding only ignored or no files at all is
+    /// listed neither as untracked nor as ignored (#35).
+    public var trackedFolders: Set<String> = []
 
-    public init(ahead: Int = 0, behind: Int = 0, changed: [String] = []) {
+    public init(ahead: Int = 0, behind: Int = 0, changed: [String] = [], untracked: [String] = [],
+                ignored: [String] = [], trackedFolders: Set<String> = [])
+    {
         self.ahead = ahead
         self.behind = behind
         self.changed = changed
+        self.untracked = untracked
+        self.ignored = ignored
+        self.trackedFolders = trackedFolders
     }
 }
 
@@ -58,18 +70,35 @@ public enum Git {
         return statfs(path, &info) == 0 && info.f_flags & UInt32(MNT_LOCAL) != 0
     }
 
-    /// Runs `git status` in the working copy; nil if git is missing, fails, takes longer than
-    /// `timeout` or is cancelled (git is stopped then). Takes no locks (`GIT_OPTIONAL_LOCKS=0`), so
-    /// it never gets in the way of git commands the user runs at the same time.
+    /// Runs `git status` and `git ls-files` in the working copy; nil if git is missing, fails,
+    /// takes longer than `timeout` in all or is cancelled (git is stopped then). Takes no locks
+    /// (`GIT_OPTIONAL_LOCKS=0`), so it never gets in the way of git commands the user runs.
     public static func status(of root: String, git: String? = executable, timeout: TimeInterval = 10,
                               cancelled: CancellationFlag = CancellationFlag()) -> GitRepoStatus?
     {
         guard let git else {
             return nil
         }
+        let deadline = Date().addingTimeInterval(timeout)
+        let statusArguments = ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=normal",
+                               "--ignored=matching"]
+        guard let statusOutput = run(git, statusArguments, in: root, until: deadline, cancelled: cancelled),
+              let index = run(git, ["ls-files", "-z", "--stage"], in: root, until: deadline, cancelled: cancelled)
+        else {
+            return nil
+        }
+        var status = parse(statusOutput)
+        status.trackedFolders = trackedFolders(fromIndex: index)
+        return status
+    }
+
+    /// Runs git and returns its output; nil if it fails, passes `deadline` or is cancelled.
+    private static func run(_ git: String, _ arguments: [String], in root: String, until deadline: Date,
+                            cancelled: CancellationFlag) -> Data?
+    {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
-        process.arguments = ["-C", root, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"]
+        process.arguments = ["-C", root] + arguments
         var environment = ProcessInfo.processInfo.environment
         environment["GIT_OPTIONAL_LOCKS"] = "0"
         process.environment = environment
@@ -84,8 +113,8 @@ public enum Git {
         } catch {
             return nil
         }
-        // Read on another thread while it runs: a large status would otherwise fill the pipe and
-        // block git, and a git that hangs must not block this thread past the timeout.
+        // Read on another thread while it runs: a large output would otherwise fill the pipe and
+        // block git, and a git that hangs must not block this thread past the deadline.
         let reader = OutputReader()
         let read = DispatchSemaphore(value: 0)
         let handle = output.fileHandleForReading
@@ -93,18 +122,41 @@ public enum Git {
             reader.data = handle.readDataToEndOfFile()
             read.signal()
         }
-        let deadline = Date().addingTimeInterval(timeout)
         while finished.wait(timeout: .now() + 0.05) == .timedOut {
             guard !cancelled.isSet, Date() < deadline else {
                 process.terminate() // closes its end of the pipe, so the reader finishes too
                 return nil
             }
         }
-        read.wait()
-        guard process.terminationStatus == 0 else {
+        // Something git started may still hold the pipe: never wait past the deadline for it.
+        guard read.wait(timeout: .now() + max(0, deadline.timeIntervalSinceNow)) == .success,
+              process.terminationStatus == 0
+        else {
             return nil
         }
-        return parse(reader.data)
+        return reader.data
+    }
+
+    /// The folders with something tracked in them, from `git ls-files -z --stage` ("mode hash
+    /// stage<TAB>path"): every file's folders, and a submodule (mode 160000) itself.
+    static func trackedFolders(fromIndex data: Data) -> Set<String> {
+        var folders: Set = [""]
+        for record in data.split(separator: 0, omittingEmptySubsequences: true) {
+            guard let line = String(bytes: record, encoding: .utf8), let tab = line.firstIndex(of: "\t") else {
+                continue
+            }
+            var folder = String(line[line.index(after: tab)...])
+            if line.hasPrefix("160000 ") {
+                folders.insert(folder) // a submodule: tracked, and a folder
+            }
+            while let slash = folder.lastIndex(of: "/") {
+                folder = String(folder[..<slash])
+                guard folders.insert(folder).inserted else {
+                    break // its ancestors are in already
+                }
+            }
+        }
+        return folders
     }
 
     /// Hands git's output from the reading thread over; the semaphore orders the access.
@@ -129,21 +181,33 @@ public enum Git {
                 }
                 continue
             }
-            // Ordinary (1), renamed or copied (2), unmerged (u), untracked (?); the path is the
-            // last field. A rename is followed by a record with the original path.
+            // Ordinary (1), renamed or copied (2), unmerged (u), untracked (?), ignored (!); the
+            // path is the last field. A rename is followed by a record with the original path.
             let fieldsBeforePath = switch record.first {
             case "1": 8
             case "2": 9
             case "u": 10
-            case "?": 1
+            case "?", "!": 1
             default: -1
             }
             guard fieldsBeforePath >= 0 else {
                 continue
             }
             let fields = record.split(separator: " ", maxSplits: fieldsBeforePath, omittingEmptySubsequences: false)
+            // A submodule whose only change is untracked files in it (".M" with "S..U": no new
+            // commit, no tracked modification) is not a tracked change.
+            if record.first == "1", fields.count > 2, fields[1] == ".M", fields[2].hasPrefix("S"),
+               fields[2].dropFirst().prefix(2) == ".."
+            {
+                continue
+            }
             if fields.count == fieldsBeforePath + 1 {
-                status.changed.append(String(fields[fieldsBeforePath]))
+                let path = String(fields[fieldsBeforePath])
+                switch record.first {
+                case "?": status.untracked.append(path)
+                case "!": status.ignored.append(path)
+                default: status.changed.append(path)
+                }
             }
             if record.first == "2", index < records.count {
                 status.changed.append(records[index]) // the original path: it changed too

@@ -36,14 +36,20 @@ final class GitRealRepoTests {
         window.close()
     }
 
-    @Test func everyFolderWithChangesIsRed() throws {
+    /// #35, TortoiseGit style: tracked changes red, tracked and unchanged green, untracked and
+    /// ignored uncolored - files as well as folders.
+    @Test func trackedChangesRedTrackedCleanGreenUntrackedUncolored() throws {
         #expect(workspace.gitState(ofFolder: folder.root) == .modified)
-        for name in ["modified", "untracked", "deep"] {
-            #expect(workspace.gitState(ofFolder: folder.root + "/" + name) == .modified, "\(name)")
+        for name in ["modified", "deep", "changed.txt"] {
             #expect(try color(name) == .systemRed, "\(name)")
         }
-        #expect(workspace.gitState(ofFolder: folder.root + "/clean") == nil)
-        #expect(try color("clean") == .labelColor)
+        for name in ["clean", "README.md"] {
+            #expect(try color(name) == .systemGreen, "\(name)")
+        }
+        for name in ["untracked", "new.txt", "build", "conf", "empty"] {
+            let shown = try color(name)
+            #expect(shown != .systemGreen && shown != .systemRed, "\(name)")
+        }
     }
 
     private func color(_ name: String) throws -> NSColor {
@@ -61,7 +67,7 @@ final class TemporaryRepo {
     init() throws {
         let git = try #require(Git.executable, "no git on this Mac")
         root = FolderWatcher.realPath(NSTemporaryDirectory()) + "/BlitterGit-" + UUID().uuidString
-        let files = ["modified/m.txt", "clean/c.txt", "deep/a/b/d.txt"]
+        let files = ["modified/m.txt", "clean/c.txt", "deep/a/b/d.txt", "changed.txt", "README.md"]
         for file in files {
             let path = root + "/" + file
             try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
@@ -74,6 +80,14 @@ final class TemporaryRepo {
                      in: root)
         try "changed".write(toFile: root + "/modified/m.txt", atomically: true, encoding: .utf8)
         try "changed".write(toFile: root + "/deep/a/b/d.txt", atomically: true, encoding: .utf8)
+        try "changed".write(toFile: root + "/changed.txt", atomically: true, encoding: .utf8)
+        try "new".write(toFile: root + "/new.txt", atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(atPath: root + "/build", withIntermediateDirectories: false)
+        try "o".write(toFile: root + "/build/out.o", atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(atPath: root + "/conf", withIntermediateDirectories: false)
+        try "secret".write(toFile: root + "/conf/local.json", atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(atPath: root + "/empty", withIntermediateDirectories: false)
+        try "build/\nconf/local.json\n".write(toFile: root + "/.git/info/exclude", atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(atPath: root + "/untracked", withIntermediateDirectories: false)
         try "u".write(toFile: root + "/untracked/u.txt", atomically: true, encoding: .utf8)
     }

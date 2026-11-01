@@ -19,7 +19,10 @@ final class GitColorTests {
                               directoryCheck: { listings[$0] != nil }, volumes: { [] }, watcher: FakeWatcher.factory)
         workspace.gitAccess = GitAccess(repositoryRoot: { $0.hasPrefix("/fake/repo") ? "/fake/repo" : nil },
                                         isRepositoryRoot: { $0 == "/fake/repo" },
-                                        status: { _, _ in GitRepoStatus(behind: 1, changed: ["src/main.swift"]) })
+                                        status: { _, _ in
+                                            GitRepoStatus(behind: 1, changed: ["src/main.swift"],
+                                                          trackedFolders: ["", "src", "docs"])
+                                        })
         controller = FileListViewController(workspace: workspace, side: .left)
         window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 600, height: 300),
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
@@ -66,7 +69,7 @@ final class GitColorTests {
         #expect(workspace.gitVersion == version)
         controller.view.layoutSubtreeIfNeeded()
         #expect(try color("src") == .systemRed)
-        #expect(try color("docs") == .labelColor)
+        #expect(try color("docs") == .systemGreen) // tracked and unchanged (#35)
     }
 
     private func color(_ name: String) throws -> NSColor {

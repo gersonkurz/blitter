@@ -44,7 +44,7 @@ private final class FakeGit: Sendable {
 struct GitTests {
     @Test func statesFollowTheOwnersRules() async throws {
         let sides = try SidesOnDisk()
-        for folder in ["clean", "dirty", "ahead", "plain"] {
+        for folder in ["clean", "dirty", "ahead", "plain", "untrackedOnly"] {
             try FileManager.default.createDirectory(
                 atPath: sides.left + "/" + folder,
                 withIntermediateDirectories: false
@@ -52,8 +52,11 @@ struct GitTests {
         }
         let left = sides.left
         let git = FakeGit([
-            left + "/clean": GitRepoStatus(),
-            left + "/dirty": GitRepoStatus(changed: ["src/app/main.swift", "notes/", "top.txt"]),
+            left + "/clean": GitRepoStatus(trackedFolders: ["", "src"]),
+            left + "/dirty": GitRepoStatus(changed: ["src/app/main.swift", "top.txt"], untracked: ["notes/", "new.txt"],
+                                           ignored: ["build/", "conf/local.json"],
+                                           trackedFolders: ["", "src", "src/app", "docs"]),
+            left + "/untrackedOnly": GitRepoStatus(untracked: ["scratch.txt"]),
             left + "/ahead": GitRepoStatus(ahead: 2),
         ])
         sides.workspace.gitAccess = git.access
@@ -65,11 +68,20 @@ struct GitTests {
         #expect(state("/dirty") == .modified)
         #expect(state("/ahead") == .aheadOrBehind)
         #expect(state("/plain") == nil) // not a working copy
-        // Inside a working copy: folders that contain changes; clean ones stay uncolored.
+        // Inside a working copy (#35): tracked changes red, other tracked items green, untracked
+        // and ignored ones (and what is in them) uncolored; .git too.
         #expect(state("/dirty/src") == .modified && state("/dirty/src/app") == .modified)
-        #expect(state("/dirty/notes") == .modified) // an untracked folder
-        #expect(state("/dirty/docs") == nil)
-        #expect(state("/clean/src") == nil)
+        #expect(state("/dirty/docs") == .clean && state("/clean/src") == .clean)
+        #expect(state("/dirty/notes") == nil && state("/dirty/build") == nil && state("/dirty/.git") == nil)
+        // Nothing tracked in it: a folder with only an ignored file, an empty one (#35 review).
+        #expect(state("/dirty/conf") == nil && state("/dirty/empty") == nil)
+        let file = { sides.workspace.gitState(of: left + $0, isFolder: false) }
+        #expect(file("/dirty/top.txt") == .modified && file("/dirty/src/app/main.swift") == .modified)
+        #expect(file("/dirty/README.md") == .clean && file("/dirty/src/other.swift") == .clean)
+        #expect(file("/dirty/new.txt") == nil && file("/dirty/notes/idea.txt") == nil)
+        #expect(file("/dirty/build/out.o") == nil)
+        // Only untracked files: nothing tracked changed, so the root is green (#35).
+        #expect(state("/untrackedOnly") == .clean)
         #expect(GitState.modified.role == .gitModified)
 
         sides.workspace.settings.gitColors = false
