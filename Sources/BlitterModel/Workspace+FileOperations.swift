@@ -45,6 +45,13 @@ extension Workspace {
         return false
     }
 
+    func copyFolderPath(_ side: Side) -> Bool {
+        if let folder = sides[side]?.entriesLocation {
+            system.copyText(folder)
+        }
+        return false
+    }
+
     func togglePreview(_ side: Side) -> Bool {
         system.togglePreview(side)
         return false

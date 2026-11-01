@@ -40,7 +40,7 @@ public extension Settings {
     # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
     # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
     # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
-    # delete-immediately-without-asking, new-folder, and the tools above.
+    # delete-immediately-without-asking, new-folder, copy-folder-path, and the tools above.
     [context_menu]
     # For the clicked or selected items.
     items = [
@@ -50,7 +50,7 @@ public extension Settings {
         "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
     ]
     # For the folder itself (a click on empty space).
-    folder = ["new-folder", "-", "open-in-terminal", "open-in-code"]
+    folder = ["new-folder", "-", "copy-folder-path", "-", "open-in-terminal", "open-in-code"]
 
     # The menu bar's action items: the File menu, and the Edit menu after its own items. An entry
     # is an action name, "-" for a separator, or { action = "…", key = "…" } with a shortcut such

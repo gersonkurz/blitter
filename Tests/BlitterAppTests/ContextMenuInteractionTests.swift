@@ -61,7 +61,7 @@ final class ContextMenuInteractionTests {
         let below = controller.tableView.rect(ofRow: 2).maxY + 40
         let shown = try open(mouse: .rightMouseDown, at: NSPoint(x: 50, y: below))
         #expect(workspace.state(of: .right).selection.isEmpty)
-        #expect(shown == ["New Folder", "-", "Open in Terminal", "Open in Code"])
+        #expect(shown == ["New Folder", "-", "Copy Path", "-", "Open in Terminal", "Open in Code"])
     }
 
     /// The keyboard menu (⌃↩) is for the selection as it is. AppKit fakes a click for it; with
@@ -75,7 +75,7 @@ final class ContextMenuInteractionTests {
         #expect(try deleteTargets() == ["/fake/b.txt"])
 
         workspace.perform(.select(.right, []))
-        #expect(try openFromKeyboard() == ["New Folder", "-", "Open in Terminal", "Open in Code"])
+        #expect(try openFromKeyboard() == ["New Folder", "-", "Copy Path", "-", "Open in Terminal", "Open in Code"])
     }
 
     @Test func theKeyboardMenuAppearsAtTheSelectedRow() throws {

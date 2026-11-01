@@ -98,6 +98,9 @@ public struct ActionRegistry: Sendable {
         Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
                scope: .selection) { _, side in .deleteSelectionWithoutAsking(side) },
         Action("new-folder", "New Folder", scope: .folder) { _, side in .newFolder(side) },
+        Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard) { _, side in
+            .copyFolderPath(side)
+        },
     ])
 }
 

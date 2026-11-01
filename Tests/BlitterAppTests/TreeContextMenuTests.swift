@@ -47,11 +47,21 @@ final class TreeContextMenuTests {
 
     @Test func aRightClickOnAFolderGoesThereAndOffersItsFolderActions() async throws {
         let shown = try open(rightClickOn: "Documents")
-        #expect(shown == ["New Folder", "-", "Open in Terminal", "Open in Code"])
+        #expect(shown == ["New Folder", "-", "Copy Path", "-", "Open in Terminal", "Open in Code"])
         #expect(workspace.state(of: .left).location == "/home/Documents")
         try choose("Open in Terminal")
         try await waitUntil { !self.opened.isEmpty }
         #expect(opened.map(\.0) == ["iTerm"] && opened.map(\.1) == [["/home/Documents"]])
+    }
+
+    /// #33: Copy Path from the tree's menu copies that folder's path.
+    @Test func copyPathInTheTreeCopiesTheFoldersPath() async throws {
+        var copied: [String] = []
+        workspace.system.copyText = { copied.append($0) }
+        _ = try open(rightClickOn: "Documents")
+        try choose("Copy Path")
+        try await waitUntil { !copied.isEmpty }
+        #expect(copied == ["/home/Documents"])
     }
 
     @Test func theKeyboardMenuIsForTheSelectedFolder() throws {

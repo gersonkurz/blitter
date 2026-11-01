@@ -19,6 +19,8 @@ struct ContextMenuSettingsTests {
         #expect(menus.folder == [
             .action("new-folder"),
             .separator,
+            .action("copy-folder-path"),
+            .separator,
             .action("open-in-terminal"),
             .action("open-in-code"),
         ])
@@ -96,6 +98,6 @@ struct ContextMenuTests {
             } else {
                 "-"
             }
-        } == ["new-folder", "-", "open-in-terminal", "open-in-code"])
+        } == ["new-folder", "-", "copy-folder-path", "-", "open-in-terminal", "open-in-code"])
     }
 }

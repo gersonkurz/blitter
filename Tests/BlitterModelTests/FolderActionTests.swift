@@ -12,7 +12,14 @@ struct FolderActionTests {
     @Test func theTreeMenuHasTheFolderMenusFolderActions() async throws {
         let sides = try SidesOnDisk()
         try await sides.settle()
-        #expect(ids(sides.workspace.treeContextMenu()) == ["new-folder", "-", "open-in-terminal", "open-in-code"])
+        #expect(ids(sides.workspace.treeContextMenu()) == [
+            "new-folder",
+            "-",
+            "copy-folder-path",
+            "-",
+            "open-in-terminal",
+            "open-in-code",
+        ])
         // A selection action in the folder menu does not fit a tree folder.
         sides.workspace.settings.contextMenus.folder = [.action("move-to-trash"), .action("open-in-code")]
         #expect(ids(sides.workspace.treeContextMenu()) == ["open-in-code"])

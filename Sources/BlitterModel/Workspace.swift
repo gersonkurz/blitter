@@ -149,6 +149,7 @@ public final class Workspace {
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }
         case let .copyNames(side): withSelection(side) { system.copyText($0.map(\.name).joined(separator: "\n")) }
+        case let .copyFolderPath(side): copyFolderPath(side)
         case .openSettingsFile: openSettingsFile()
         case let .dismissNotice(id): dismissNotice(id)
         case let .rename(side, path, newName): rename(side, path, to: newName)

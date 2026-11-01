@@ -22,7 +22,7 @@ public struct ContextMenus: Equatable, Sendable {
             .action("open-in-text-editor"),
         ],
         folder: [
-            .action("new-folder"), .separator,
+            .action("new-folder"), .separator, .action("copy-folder-path"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]
     )

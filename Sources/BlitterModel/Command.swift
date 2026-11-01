@@ -56,6 +56,8 @@ public enum Command: Sendable {
     case copyPaths(Side)
     /// Put the names of the side's selection on the clipboard as text, one per line.
     case copyNames(Side)
+    /// Put the side's folder path on the clipboard as text (#33, e.g. from the tree's menu).
+    case copyFolderPath(Side)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
     /// Delete the side's selection for good, bypassing the Trash. Asks first (`deleteRequest`)
