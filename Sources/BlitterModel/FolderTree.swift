@@ -26,6 +26,8 @@ public struct TreeRoot: Equatable, Sendable, Identifiable {
         case applications
         case volume(isRoot: Bool, isLocal: Bool)
         case cloud
+        /// A favorite the user added: any folder.
+        case folder
     }
 
     public let section: TreeSection
@@ -79,14 +81,26 @@ public struct FolderTreeState: Sendable {
 }
 
 enum TreeRoots {
-    static func favorites(home: String) -> [TreeRoot] {
-        [
-            TreeRoot(section: .favorites, title: "Home", path: home, kind: .home),
-            TreeRoot(section: .favorites, title: "Desktop", path: home + "/Desktop", kind: .desktop),
-            TreeRoot(section: .favorites, title: "Documents", path: home + "/Documents", kind: .documents),
-            TreeRoot(section: .favorites, title: "Downloads", path: home + "/Downloads", kind: .downloads),
-            TreeRoot(section: .favorites, title: "Applications", path: "/Applications", kind: .applications),
-        ]
+    /// The favorites until the user changes them.
+    static func defaultFavorites(home: String) -> [String] {
+        [home, home + "/Desktop", home + "/Documents", home + "/Downloads", "/Applications"]
+    }
+
+    /// The well-known folders keep their names and icons wherever they are in the list; any other
+    /// folder is shown by its name.
+    static func favorites(_ paths: [String], home: String) -> [TreeRoot] {
+        paths.map { path in
+            let kind: TreeRoot.Kind = switch path {
+            case home: .home
+            case home + "/Desktop": .desktop
+            case home + "/Documents": .documents
+            case home + "/Downloads": .downloads
+            case "/Applications": .applications
+            default: .folder
+            }
+            let title = kind == .home ? "Home" : Paths.lastComponent(of: path)
+            return TreeRoot(section: .favorites, title: title, path: path, kind: kind)
+        }
     }
 
     static func volumes(_ volumes: [MountedVolume]) -> [TreeRoot] {
@@ -228,11 +242,7 @@ extension Workspace {
                 return
             }
             rootParts[part] = roots
-            treeRoots = TreeRoots.favorites(home: home) + TreeRoots.Part.allCases.flatMap { rootParts[$0] ?? [] }
-            for side in Side.allCases {
-                revealInTree(side, preferredRoot: nil)
-            }
-            notifyChange()
+            rebuildTreeRoots()
         }
     }
 

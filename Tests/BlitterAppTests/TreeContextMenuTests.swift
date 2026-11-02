@@ -49,8 +49,8 @@ final class TreeContextMenuTests {
         let shown = try open(rightClickOn: "Documents")
         #expect(shown == [
             "New Folder", "Calculate Folder Sizes", "-", "Copy Path", "Compare Folders", "-", "Open in Terminal",
-            "Open in Code",
-        ])
+            "Open in Code", "-", "Move Up in Favorites", "Move Down in Favorites", "Remove from Favorites",
+        ]) // Documents is one of the default favorites
         #expect(workspace.state(of: .left).location == "/home/Documents")
         try choose("Open in Terminal")
         try await waitUntil { !self.opened.isEmpty }
@@ -85,6 +85,25 @@ final class TreeContextMenuTests {
     }
 
     // MARK: Helpers
+
+    @Test func favoritesAreAddedAndRemovedFromTheMenu() async throws {
+        workspace.perform(.expandTreeNode(.left, TreeNodeID(root: "favorites:/home", path: "/home")))
+        try await waitUntil { self.row("Music") != nil }
+        var shown = try open(rightClickOn: "Music") // under Home: not a favorite
+        #expect(shown.suffix(2) == ["-", "Add to Favorites"])
+        try choose("Add to Favorites")
+        #expect(workspace.favorites.last == "/home/Music")
+        tree.render()
+        let musicRows = (0 ..< tree.outlineView.numberOfRows).filter {
+            (tree.outlineView.item(atRow: $0) as? TreeItem)?.title == "Music"
+        }
+        #expect(musicRows.count == 2) // a favorite now, and still under Home
+
+        shown = try open(rightClickOn: "Music") // the first row: the favorite
+        #expect(shown.suffix(3) == ["-", "Move Up in Favorites", "Remove from Favorites"])
+        try choose("Remove from Favorites")
+        #expect(!workspace.favorites.contains("/home/Music"))
+    }
 
     private func row(_ title: String) -> Int? {
         (0 ..< tree.outlineView.numberOfRows).first { (tree.outlineView.item(atRow: $0) as? TreeItem)?.title == title }

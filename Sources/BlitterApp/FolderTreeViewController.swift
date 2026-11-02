@@ -320,12 +320,12 @@ enum TreeIcons {
         case .applications?: "square.grid.3x3"
         case let .volume(isRoot, isLocal)?: isRoot ? "internaldrive" : isLocal ? "externaldrive" : "network"
         case .cloud?: "icloud"
-        case nil: "folder"
+        case .folder?, nil: "folder"
         }
         if let cached = cache[symbol] {
             return cached
         }
-        let image = kind == nil ? NSWorkspace.shared.icon(for: .folder)
+        let image = kind == nil || kind == .folder ? NSWorkspace.shared.icon(for: .folder)
             : NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSWorkspace.shared.icon(for: .folder)
         cache[symbol] = image
         return image

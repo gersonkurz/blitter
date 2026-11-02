@@ -92,6 +92,12 @@ public enum Command: Sendable {
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a
     /// rename always hits the item it was started for. `side` selects the result.
     case rename(Side, path: String, newName: String)
+    /// Add a folder to the end of the tree's Favorites; one already there stays where it is.
+    case addFavorite(String)
+    case removeFavorite(String)
+    /// Move a favorite up (negative) or down (positive) by that many places; the others close
+    /// up behind it. Nothing happens if it would leave the list.
+    case moveFavorite(String, offset: Int)
     /// Ask the window to show Batch Rename for the side's selection (`batchRenameRequest`).
     case requestBatchRename(Side)
     /// Carry out the renames a Batch Rename preview shows (`Workspace.batchRenamePreview`), all

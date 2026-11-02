@@ -37,6 +37,9 @@ public final class Workspace {
     public internal(set) var gitVersion = 0
     /// Opening, revealing, Quick Look and the clipboard, provided by the app.
     public var system = SystemServices()
+    /// The folders of the tree's Favorites section, in order; the user adds, removes and moves
+    /// them. Saved for the next launch.
+    public internal(set) var favorites: [String]
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
     public internal(set) var treeRoots: [TreeRoot]
     /// Volumes, iCloud Drive and the CloudStorage providers, each read and published on its own,
@@ -113,6 +116,7 @@ public final class Workspace {
         jobQueue = jobs
         self.settingsFile = settingsFile
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
+        favorites = saved?.favorites ?? TreeRoots.defaultFavorites(home: home)
         if let saved {
             sides = [.left: SideState(restoring: saved.left), .right: SideState(restoring: saved.right)]
             showsHiddenFiles = saved.showsHiddenFiles
@@ -121,7 +125,7 @@ public final class Workspace {
         self.lister = lister
         self.directoryCheck = directoryCheck
         self.volumes = volumes
-        treeRoots = TreeRoots.favorites(home: home)
+        treeRoots = TreeRoots.favorites(favorites, home: home)
         if settingsFile == nil { // the default settings are final: a saved sort must be on a shown column
             for side in Side.allCases where sortsByHiddenColumn(side) {
                 sides[side]?.sort = ListSort()
@@ -184,6 +188,9 @@ public final class Workspace {
         case let .requestBatchRename(side): requestBatchRename(side)
         case let .batchRename(side, preview): batchRename(side, preview)
         case .cancelBatchRename: cancelBatchRename()
+        case let .addFavorite(path): addFavorite(path)
+        case let .removeFavorite(path): removeFavorite(path)
+        case let .moveFavorite(path, offset): moveFavorite(path, by: offset)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)

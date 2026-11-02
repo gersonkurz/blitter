@@ -1,5 +1,5 @@
-/// What a later launch restores: each side's folder and sort order, and whether hidden files are
-/// shown. (Window frame, splitters and columns are saved by AppKit's autosave.)
+/// What a later launch restores: each side's folder and sort order, whether hidden files are
+/// shown, and the tree's favorites. (Window frame, splitters and columns are saved by AppKit's autosave.)
 public struct WorkspaceState: Codable, Equatable, Sendable {
     public struct SideSettings: Codable, Equatable, Sendable {
         public var location: String
@@ -18,11 +18,14 @@ public struct WorkspaceState: Codable, Equatable, Sendable {
     public var left: SideSettings
     public var right: SideSettings
     public var showsHiddenFiles: Bool
+    /// The tree's favorites; nil (a state saved before they could change) means the defaults.
+    public var favorites: [String]?
 
-    public init(left: SideSettings, right: SideSettings, showsHiddenFiles: Bool) {
+    public init(left: SideSettings, right: SideSettings, showsHiddenFiles: Bool, favorites: [String]? = nil) {
         self.left = left
         self.right = right
         self.showsHiddenFiles = showsHiddenFiles
+        self.favorites = favorites
     }
 }
 
@@ -34,7 +37,11 @@ public extension Workspace {
             return WorkspaceState.SideSettings(location: state.location, sort: state.sort,
                                                columns: state.columns.map(ListColumn.names(of:)))
         }
-        return WorkspaceState(left: settings(.left), right: settings(.right), showsHiddenFiles: showsHiddenFiles)
+        // Left out while they are the defaults, so a later version's defaults reach whoever never
+        // changed them.
+        let changed = favorites == TreeRoots.defaultFavorites(home: home) ? nil : favorites
+        return WorkspaceState(left: settings(.left), right: settings(.right), showsHiddenFiles: showsHiddenFiles,
+                              favorites: changed)
     }
 }
 
