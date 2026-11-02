@@ -11,7 +11,7 @@ extension Workspace {
         for _ in 0 ..< 20 {
             let pending = Array(rootsWork.values) + Array(pendingOpen.values) + Array(pendingWork.values)
                 + [settingsWork].compactMap(\.self) + Array(gitWork.values)
-                + treeWork.values.flatMap(\.values)
+                + treeWork.values.flatMap(\.values) + Array(highlightWork.values)
             guard !pending.isEmpty else {
                 return
             }

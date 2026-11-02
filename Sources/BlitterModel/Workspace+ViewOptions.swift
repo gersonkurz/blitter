@@ -23,6 +23,7 @@ extension Workspace {
     }
 
     func select(_ side: Side, _ names: Set<String>) -> Bool {
+        sides[side]?.selectsFirstMatch = false // a choice made: the fast filter leaves it (#39)
         guard sides[side]?.selection != names else {
             return false
         }

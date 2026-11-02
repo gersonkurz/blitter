@@ -30,6 +30,10 @@ public enum Command: Sendable {
     case showColumn(Side, ListColumn, Bool)
     /// The side's file list shows the settings file's columns again.
     case resetColumns(Side)
+    /// Highlight or filter the side's items by name (#39); nil ends it.
+    case setQuickFilter(Side, QuickFilter?)
+    /// Select the next or previous highlighted item.
+    case selectQuickFilterMatch(Side, forward: Bool)
     /// Replace the side's selection with these entry names.
     case select(Side, Set<String>)
     /// Show or hide hidden files on both sides.

@@ -38,6 +38,9 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var gitStates: [String: GitItemStatus] = [:]
     var renderedGit: (version: Int, entries: Int) = (-1, -1)
     var dateFormatter = DateFormatter()
+    /// The fast filter's highlighted names the list was last drawn with (#39).
+    var highlightedNames: Set<String> = []
+    let quickFilterBar = QuickFilterBar()
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
@@ -72,7 +75,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 
         navigationButtons.onCommand = { [weak self] command in self?.workspace.perform(command) }
         let root = NSView()
-        for subview in [navigationButtons, pathField, scrollView, statusLabel] {
+        for subview in [navigationButtons, pathField, scrollView, quickFilterBar, statusLabel] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
@@ -85,7 +88,10 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             scrollView.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: quickFilterBar.topAnchor),
+            quickFilterBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            quickFilterBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            quickFilterBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             statusLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
@@ -128,6 +134,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsMultipleSelection = true
         tableView.allowsColumnReordering = true
+        tableView.allowsTypeSelect = false // the fast filter takes the keys (#39)
+        tableView.onKey = { [weak self] event in self?.handleQuickFilterKey(event) ?? false }
         // A wider list gives the room to the names.
         tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         tableView.dataSource = self
@@ -197,6 +205,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             }
         }
         renderGit() // after `entries` and `location` are the new listing's
+        renderQuickFilter()
         applySelection(state.selection)
         if folderChanged, !entries.isEmpty {
             // A new folder starts at the top, or at the folder we came up from.
@@ -214,6 +223,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         let text = switch identifier {
         case sizeColumn, modifiedColumn: TabularTextField(labelWithString: "")
         case permissionsColumn: MonospacedTextField(labelWithString: "")
+        case nameColumn: NameTextField(labelWithString: "")
         default: NSTextField(labelWithString: "")
         }
         text.lineBreakMode = .byTruncatingMiddle
@@ -294,6 +304,8 @@ extension FileListViewController {
         workspace.perform(.open(side, name: entries[row].entry.name))
     }
 
+    /// A selection the model made (a fast-filter match, #39; a created item) is scrolled into
+    /// view; one the user made in the table already matches and is left alone.
     private func applySelection(_ names: Set<String>) {
         guard selectedNames() != names else {
             return
@@ -303,6 +315,9 @@ extension FileListViewController {
             rows.insert(row)
         }
         tableView.selectRowIndexes(rows, byExtendingSelection: false)
+        if let first = rows.first {
+            tableView.scrollRowToVisible(first)
+        }
     }
 
     private func selectedNames() -> Set<String> {
@@ -325,6 +340,7 @@ extension FileListViewController {
         switch column.identifier {
         case Self.nameColumn:
             cell.textField?.stringValue = listed.entry.name
+            (cell.textField as? NameTextField)?.isBold = isHighlighted(listed.entry.name)
             let name = listed.entry.name
             let folder = location
             cell.imageView?.image = icons.icon(for: listed, in: folder) { [weak self] in
@@ -348,14 +364,6 @@ extension FileListViewController {
             return
         }
         tableView.reloadData(forRowIndexes: [row], columnIndexes: [column])
-    }
-
-    /// Type-to-select matches the start of the name.
-    func tableView(_: NSTableView, typeSelectStringFor column: NSTableColumn?, row: Int) -> String? {
-        guard column == nil || column?.identifier == Self.nameColumn, row < entries.count else {
-            return nil
-        }
-        return entries[row].entry.name
     }
 
     func tableViewSelectionDidChange(_: Notification) {

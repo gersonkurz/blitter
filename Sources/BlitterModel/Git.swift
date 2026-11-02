@@ -175,6 +175,7 @@ extension Workspace {
 
     /// What follows every listing: a folder action chosen while it was read (#20), and git (#22).
     func listingArrived(_ side: Side) {
+        updateHighlights(side) // the fast filter (#39)
         runPendingAction(on: side)
         updateGit(side)
     }

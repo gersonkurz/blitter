@@ -66,12 +66,16 @@ extension Workspace {
         // where they came from. Until then the old rows are shown, with nothing selected.
         state.selection = []
         state.renameRequest = nil
+        state.quickFilter = nil // it was for the folder we leave (#39)
+        state.highlighted = []
+        state.selectsFirstMatch = false
         state.fallsBackToHome = false
         state.pendingSelection = Paths.parent(of: previous) == location
             ? PendingSelection(folder: location, name: Paths.lastComponent(of: previous)) : nil
         state.pendingAction = nil
         sides[side] = state
         cancelPendingOpen(side)
+        cancelHighlightSearch(side)
         load(side)
         revealInTree(side, preferredRoot: treeRoot)
         return true

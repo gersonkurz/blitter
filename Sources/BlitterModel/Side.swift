@@ -59,6 +59,12 @@ public struct SideState: Sendable {
     /// The file list's columns once the user showed or hid one here (#25); nil follows the
     /// settings file. Saved for the next launch.
     public internal(set) var columns: Set<ListColumn>?
+    /// The fast filter (#39), until the side goes to another folder.
+    public internal(set) var quickFilter: QuickFilter?
+    /// The names that match the fast filter in highlight mode; found in the background.
+    public internal(set) var highlighted: Set<String> = []
+    /// A key press asked for the first match to be selected, and none has been yet.
+    var selectsFirstMatch = false
     /// Expanded folders, loaded subfolders and the selection of this side's folder tree.
     public internal(set) var tree = FolderTreeState()
 

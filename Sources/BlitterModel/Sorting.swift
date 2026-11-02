@@ -32,10 +32,14 @@ public struct ListedEntry: Sendable {
 enum Listing {
     /// Filters and sorts a folder's entries for display. Folders always come first, in both sort
     /// directions; ties are broken by name so the order is stable. Runs off the main thread.
-    static func visibleEntries(_ entries: [DirectoryEntry], showHidden: Bool, sort: ListSort) -> [ListedEntry] {
+    /// `filter` is the fast filter's text in filter mode (#39): only matching names are listed.
+    static func visibleEntries(_ entries: [DirectoryEntry], showHidden: Bool, sort: ListSort,
+                               filter: String? = nil) -> [ListedEntry]
+    {
         var types = ContentTypes()
+        let matcher = filter.flatMap { $0.isEmpty ? nil : QuickFilter.Matcher($0) }
         var listed = entries.compactMap { entry -> ListedEntry? in
-            guard showHidden || !entry.isHidden else {
+            guard showHidden || !entry.isHidden, matcher?.matches(entry.name) ?? true else {
                 return nil
             }
             let (type, description) = types.classify(entry)

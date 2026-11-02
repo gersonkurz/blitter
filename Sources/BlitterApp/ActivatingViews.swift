@@ -6,6 +6,8 @@ final class ActivatingTableView: NSTableView, @preconcurrency NSViewContentSelec
     var onBecomeFirstResponder: (() -> Void)?
     var onReturn: (() -> Void)?
     var onSpace: (() -> Void)?
+    /// Sees every key first (the fast filter, #39); returns whether it used it.
+    var onKey: ((NSEvent) -> Bool)?
     /// Set while the context menu is opened from the keyboard (⌃↩ by default). AppKit then fakes a
     /// right-click at `selectionAnchorRect`, so `clickedRow` must not be taken as the user's choice.
     private(set) var isShowingContextMenuFromKeyboard = false
@@ -34,6 +36,9 @@ final class ActivatingTableView: NSTableView, @preconcurrency NSViewContentSelec
     }
 
     override func keyDown(with event: NSEvent) {
+        if onKey?(event) == true {
+            return
+        }
         let returnKeys: Set<UInt16> = [36, 76] // Return, keypad Enter
         let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
         if returnKeys.contains(event.keyCode), modifiers.isEmpty {

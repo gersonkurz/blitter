@@ -55,6 +55,8 @@ public final class Workspace {
     var watchedFolders: Set<String> = []
     /// The running load or re-sort per side. A new one cancels the previous one.
     private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
+    /// The fast filter's search for highlighted names (#39). A newer one cancels it.
+    var highlightWork: [Side: Task<Void, Never>] = [:]
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
     var pendingOpen: [Side: Task<Void, Never>] = [:]
     static let maxRecentLocations = 20
@@ -139,6 +141,8 @@ public final class Workspace {
         case let .sort(side, order): sort(side, order)
         case let .showColumn(side, column, shown): showColumn(side, column, shown)
         case let .resetColumns(side): resetColumns(side)
+        case let .setQuickFilter(side, filter): setQuickFilter(side, filter)
+        case let .selectQuickFilterMatch(side, forward): selectQuickFilterMatch(side, forward: forward)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
         case .copyToOtherSide: transferSelection(move: false)
@@ -202,7 +206,8 @@ public final class Workspace {
         let showHidden = showsHiddenFiles
         startWork(on: side, location: state.location) {
             let entries = try await lister(state.location)
-            let visible = Listing.visibleEntries(entries, showHidden: showHidden, sort: state.sort)
+            let visible = Listing.visibleEntries(entries, showHidden: showHidden, sort: state.sort,
+                                                 filter: state.listFilter)
             return (entries, visible)
         }
     }
@@ -218,7 +223,8 @@ public final class Workspace {
         }
         let showHidden = showsHiddenFiles
         startWork(on: side, location: state.entriesLocation) {
-            (state.allEntries, Listing.visibleEntries(state.allEntries, showHidden: showHidden, sort: state.sort))
+            (state.allEntries, Listing.visibleEntries(state.allEntries, showHidden: showHidden, sort: state.sort,
+                                                      filter: state.listFilter))
         }
     }
 
