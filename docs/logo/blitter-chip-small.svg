@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The icon for 16, 32 and 64 pixels: no text, four bold pins a side, big panes. -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#0055AA"/>
+  <g fill="#C9CDD6">
+    <rect x="196" y="300" width="100" height="56" rx="10"/><rect x="196" y="416" width="100" height="56" rx="10"/>
+    <rect x="196" y="532" width="100" height="56" rx="10"/><rect x="196" y="648" width="100" height="56" rx="10"/>
+    <rect x="728" y="300" width="100" height="56" rx="10"/><rect x="728" y="416" width="100" height="56" rx="10"/>
+    <rect x="728" y="532" width="100" height="56" rx="10"/><rect x="728" y="648" width="100" height="56" rx="10"/>
+  </g>
+  <rect x="266" y="212" width="492" height="600" rx="40" fill="#1E1E26"/>
+  <rect x="320" y="300" width="182" height="424" rx="18" fill="#FF8800"/>
+  <rect x="522" y="300" width="182" height="424" rx="18" fill="#FFFFFF"/>
+</svg>

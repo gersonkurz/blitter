@@ -19,6 +19,16 @@ default:
 generate:
     xcodegen generate --quiet
 
+# Render the app icon (docs/logo/*.svg) into Sources/BlitterApp/AppIcon.icns
+icon:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    swiftc -O tools/render-icon.swift -o "$work/render-icon"
+    "$work/render-icon" docs/logo/blitter-chip.svg docs/logo/blitter-chip-small.svg "$work/AppIcon.iconset"
+    iconutil -c icns "$work/AppIcon.iconset" -o Sources/BlitterApp/AppIcon.icns
+
 # Build the app (Debug or Release)
 build config="Debug": generate
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{config}} \
