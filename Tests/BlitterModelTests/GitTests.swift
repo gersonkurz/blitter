@@ -88,6 +88,43 @@ struct GitTests {
         #expect(state("/dirty") == nil)
     }
 
+    /// #25: the Git column's words; the colors above come from them.
+    @Test func statusesSayWhatTheItemIs() async throws {
+        let sides = try SidesOnDisk()
+        for folder in ["dirty", "ahead"] {
+            try FileManager.default.createDirectory(
+                atPath: sides.left + "/" + folder,
+                withIntermediateDirectories: false
+            )
+        }
+        let left = sides.left
+        let git = FakeGit([
+            left + "/dirty": GitRepoStatus(changed: ["src/main.swift"], untracked: ["notes/", "new.txt"],
+                                           ignored: ["build/", "conf/local.json"], trackedFolders: ["", "src", "docs"]),
+            left + "/ahead": GitRepoStatus(ahead: 2, behind: 1),
+        ])
+        sides.workspace.gitAccess = git.access
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+
+        let folder = { sides.workspace.gitStatus(of: left + $0, isFolder: true) }
+        let file = { sides.workspace.gitStatus(of: left + $0, isFolder: false) }
+        #expect(folder("/ahead") == .aheadOrBehind(ahead: 2, behind: 1))
+        #expect(folder("/dirty") == .modified && folder("/dirty/src") == .modified)
+        #expect(folder("/dirty/docs") == .unchanged)
+        #expect(folder("/dirty/notes") == .untracked && folder("/dirty/build") == .ignored)
+        #expect(folder("/dirty/build/sub") == .ignored) // inside an ignored folder
+        #expect(folder("/dirty/conf") == nil && folder("/dirty/.git") == nil) // nothing tracked in it
+        #expect(file("/dirty/src/main.swift") == .modified && file("/dirty/README.md") == .unchanged)
+        #expect(file("/dirty/new.txt") == .untracked && file("/dirty/notes/idea.txt") == .untracked)
+        #expect(file("/dirty/conf/local.json") == .ignored && file("/dirty/build/out.o") == .ignored)
+        #expect(GitItemStatus.untracked.state == nil && GitItemStatus.ignored.state == nil)
+        #expect(GitItemStatus.unchanged.state == .clean)
+
+        sides.workspace.settings.gitColors = false // git off: no status at all
+        #expect(folder("/dirty") == nil && file("/dirty/new.txt") == nil)
+    }
+
     @Test func theWorkingCopyBeingViewedIsReadAgainItsNeighboursNotSoOften() async throws {
         let sides = try SidesOnDisk()
         try FileManager.default.createDirectory(atPath: sides.left + "/neighbour", withIntermediateDirectories: false)

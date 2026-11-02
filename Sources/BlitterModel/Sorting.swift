@@ -8,6 +8,7 @@ public enum SortColumn: String, CaseIterable, Codable, Sendable {
     case size
     case modified
     case kind
+    case permissions
 }
 
 public struct ListSort: Equatable, Codable, Sendable {
@@ -57,6 +58,7 @@ enum Listing {
             case .size: compareValues(lhs.entry.size, rhs.entry.size)
             case .modified: compareValues(lhs.entry.modificationDate, rhs.entry.modificationDate)
             case .kind: compareValues(kindRank[lhs.kindDescription] ?? 0, kindRank[rhs.kindDescription] ?? 0)
+            case .permissions: compareValues(lhs.entry.permissions, rhs.entry.permissions)
             }
             if order == .orderedSame {
                 order = lhs.entry.name.localizedStandardCompare(rhs.entry.name)

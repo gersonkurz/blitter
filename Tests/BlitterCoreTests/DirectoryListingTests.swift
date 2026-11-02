@@ -52,6 +52,19 @@ struct DirectoryListingTests {
         #expect(link.size == Int64("data.bin".utf8.count))
     }
 
+    /// #25: the permission bits, from the same bulk call.
+    @Test func readsThePermissionBits() async throws {
+        let folder = try TemporaryFolder()
+        for (name, mode) in [("plain", 0o644), ("script", 0o755), ("private", 0o600), ("sticky", 0o1777)] {
+            chmod(folder.createFile(name), mode_t(mode))
+        }
+        try FileManager.default.createDirectory(atPath: folder.path + "/Sub", withIntermediateDirectories: false)
+        chmod(folder.path + "/Sub", 0o750)
+        let entries = try await listDirectory(folder.path)
+        let modes = Dictionary(uniqueKeysWithValues: entries.map { ($0.name, $0.permissions) })
+        #expect(modes == ["plain": 0o644, "script": 0o755, "private": 0o600, "sticky": 0o1777, "Sub": 0o750])
+    }
+
     @Test func detectsHiddenItemsByDotAndByFlag() async throws {
         let folder = try TemporaryFolder()
         folder.createFile(".dotfile")
@@ -222,11 +235,13 @@ struct ParseEntryTests {
 
     @Test func allAttributesWithAnInvalidUTF8Name() {
         var builder = EntryBuilder()
-        builder.common |= attrgroup_t(ATTR_CMN_OBJTYPE) | attrgroup_t(ATTR_CMN_MODTIME) | attrgroup_t(ATTR_CMN_FLAGS)
+        builder.common |= attrgroup_t(ATTR_CMN_OBJTYPE) | attrgroup_t(ATTR_CMN_MODTIME)
+            | attrgroup_t(ATTR_CMN_ACCESSMASK) | attrgroup_t(ATTR_CMN_FLAGS)
         builder.file = attrgroup_t(ATTR_FILE_DATALENGTH)
         builder.appendNameReference()
         builder.append(fsobj_type_t(VREG.rawValue))
         builder.append(timespec(tv_sec: 1_700_000_000, tv_nsec: 250_000_000))
+        builder.append(UInt32(S_IFREG) | 0o4751) // the file type bits are dropped
         builder.append(UInt32(UF_HIDDEN) | UInt32(SF_DATALESS))
         builder.append(off_t(42))
 
@@ -236,6 +251,7 @@ struct ParseEntryTests {
         #expect(entry.size == 42)
         #expect(entry.modificationDate == Date(timeIntervalSince1970: 1_700_000_000.25))
         #expect(entry.isHidden && entry.isDataless)
+        #expect(entry.permissions == 0o4751)
         #expect(entry.error == 0)
     }
 }

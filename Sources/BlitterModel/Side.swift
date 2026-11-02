@@ -56,6 +56,9 @@ public struct SideState: Sendable {
     /// The entry whose name the view should edit in place, in the folder it belongs to. The token
     /// changes with every request, so the view can tell a new request from one it already started.
     public internal(set) var renameRequest: RenameRequest?
+    /// The file list's columns once the user showed or hid one here (#25); nil follows the
+    /// settings file. Saved for the next launch.
+    public internal(set) var columns: Set<ListColumn>?
     /// Expanded folders, loaded subfolders and the selection of this side's folder tree.
     public internal(set) var tree = FolderTreeState()
 

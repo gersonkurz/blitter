@@ -4,10 +4,14 @@ public struct WorkspaceState: Codable, Equatable, Sendable {
     public struct SideSettings: Codable, Equatable, Sendable {
         public var location: String
         public var sort: ListSort
+        /// The file list's columns if the user changed them (#25), else nil. Names, so a column
+        /// a later version drops cannot make the whole state unreadable.
+        public var columns: [String]?
 
-        public init(location: String, sort: ListSort) {
+        public init(location: String, sort: ListSort, columns: [String]? = nil) {
             self.location = location
             self.sort = sort
+            self.columns = columns
         }
     }
 
@@ -27,7 +31,8 @@ public extension Workspace {
     var savedState: WorkspaceState {
         func settings(_ side: Side) -> WorkspaceState.SideSettings {
             let state = state(of: side)
-            return WorkspaceState.SideSettings(location: state.location, sort: state.sort)
+            return WorkspaceState.SideSettings(location: state.location, sort: state.sort,
+                                               columns: state.columns.map(ListColumn.names(of:)))
         }
         return WorkspaceState(left: settings(.left), right: settings(.right), showsHiddenFiles: showsHiddenFiles)
     }
@@ -36,9 +41,10 @@ public extension Workspace {
 extension SideState {
     init(restoring settings: WorkspaceState.SideSettings) {
         self.init(location: settings.location)
-        // The Kind column is no longer shown (#13): a saved sort by it would sort by something
-        // invisible, so it becomes the default sort.
-        sort = settings.sort.column == .kind ? ListSort() : settings.sort
+        columns = settings.columns.map(ListColumn.set(named:))
+        // A sort by a column that turns out hidden (Kind, by default since #13) becomes the
+        // default sort once the settings are known: `Workspace.keepSortVisible` (#25).
+        sort = settings.sort
         fallsBackToHome = true
     }
 }

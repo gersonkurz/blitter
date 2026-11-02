@@ -26,6 +26,10 @@ public enum Command: Sendable {
     /// Read the side's folder again.
     case refresh(Side)
     case sort(Side, ListSort)
+    /// Show or hide a column of the side's file list (#25); Name is always shown.
+    case showColumn(Side, ListColumn, Bool)
+    /// The side's file list shows the settings file's columns again.
+    case resetColumns(Side)
     /// Replace the side's selection with these entry names.
     case select(Side, Set<String>)
     /// Show or hide hidden files on both sides.

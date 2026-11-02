@@ -68,6 +68,10 @@ extension Workspace {
             settings = newSettings
             changed = true
         }
+        // Every read, the first one too: the columns are only now known for sure (#25).
+        for side in Side.allCases where keepSortVisible(side) {
+            changed = true
+        }
         let text = problems.isEmpty ? nil : "Settings file: " + problems.joined(separator: " ")
         if text != settingsNotice?.text {
             if let old = settingsNotice {

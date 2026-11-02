@@ -9,7 +9,12 @@ public extension Settings {
     date_format = "dd.MM.yyyy HH:mm"
     # Whether Delete Immediately (⌥⌘⌫) asks before deleting for good. ⇧⌥⌘⌫ never asks.
     confirm_delete = true
+    # The file list's columns, from "name" (always shown), "size", "modified", "kind",
+    # "permissions" and "git". A right-click on the list's header shows or hides them per side;
+    # "Default Columns" there goes back to this list. Their order is dragged in the header.
+    columns = ["name", "size", "modified"]
     # Whether git working copies, and folders in them with changes, are colored by their state.
+    # Off, nothing reads git: the Git column stays empty.
     git_colors = true
 
     # External tools: [tools.<id>] opens items with an app (name, bundle identifier or path).

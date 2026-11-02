@@ -12,6 +12,10 @@ extension FileListViewController: NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === tableView.headerView?.menu {
+            fillColumnsMenu(menu) // #25
+            return
+        }
         guard menu === tableView.menu else {
             return
         }

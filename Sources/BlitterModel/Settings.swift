@@ -6,6 +6,8 @@ import TOMLKit
 public struct Settings: Equatable, Sendable {
     /// How the Date Modified column shows dates, as a Unicode date pattern (#12).
     public var dateFormat = "dd.MM.yyyy HH:mm"
+    /// The file list's columns for a side whose columns the user has not changed (#25).
+    public var columns = ListColumn.defaults
     /// Whether Delete Immediately asks first (#17). Delete Immediately Without Asking never does.
     public var confirmDelete = true
     /// Whether folders show their git state as a color (#22).
@@ -165,6 +167,17 @@ public struct Settings: Equatable, Sendable {
                     return "expected a date pattern such as “dd.MM.yyyy HH:mm”."
                 }
                 settings.dateFormat = format
+                return nil
+            },
+            "columns": { settings, value in
+                let names = value.array?.compactMap(\.string)
+                guard let names, names.count == value.array?.count,
+                      names.allSatisfy({ ListColumn(rawValue: $0) != nil })
+                else {
+                    let known = ListColumn.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+                    return "expected a list of columns from \(known)."
+                }
+                settings.columns = ListColumn.set(named: names)
                 return nil
             },
             "git_colors": { settings, value in

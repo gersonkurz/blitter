@@ -28,10 +28,10 @@ extension FileListViewController {
             return
         }
         renderedGit = (workspace.gitVersion, state.entriesVersion)
-        var states: [String: GitState] = [:]
+        var states: [String: GitItemStatus] = [:]
         for listed in entries {
             let path = (location as NSString).appendingPathComponent(listed.entry.name)
-            states[listed.entry.name] = workspace.gitState(of: path, isFolder: listed.entry.kind == .directory)
+            states[listed.entry.name] = workspace.gitStatus(of: path, isFolder: listed.entry.kind == .directory)
         }
         guard states != gitStates else {
             return
@@ -45,7 +45,7 @@ extension FileListViewController {
 
     func textColor(for listed: ListedEntry) -> NSColor {
         // A git state is information: it shows with and without a theme; a problem still wins.
-        if listed.entry.error == 0, let git = gitStates[listed.entry.name] {
+        if listed.entry.error == 0, let git = gitStates[listed.entry.name]?.state {
             return palette?.color(git.role) ?? .labelColor
         }
         guard let palette, palette.isThemed else {

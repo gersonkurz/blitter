@@ -34,8 +34,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var renderedDateFormat = ""
     /// The colors the list was last drawn with (#21); nil before the first render.
     var palette: Palette?
-    /// The git state of each shown item by name (#22, #35), and what it was computed from.
-    var gitStates: [String: GitState] = [:]
+    /// The git status of each shown item by name (#22, #35, #25), and what it was computed from.
+    var gitStates: [String: GitItemStatus] = [:]
     var renderedGit: (version: Int, entries: Int) = (-1, -1)
     var dateFormatter = DateFormatter()
 
@@ -113,8 +113,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
-    static let hiddenByDefault: Set<SortColumn> = [.kind]
-
     /// "v2" since #13: the v0.1 layouts showed Kind, and AppKit would restore it; everyone starts
     /// once with the new default.
     static func columnsAutosaveName(_ side: Side) -> String {
@@ -122,24 +120,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func configureTable() {
-        // Column identifiers are the SortColumn raw values, so a header click maps straight to a sort.
-        for sortColumn in SortColumn.allCases {
-            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(sortColumn.rawValue))
-            switch sortColumn {
-            case .name: (column.title, column.width) = ("Name", 280)
-            case .size: (column.title, column.width) = ("Size", 80)
-            case .modified: (column.title, column.width) = ("Date Modified", 150)
-            case .kind: (column.title, column.width) = ("Kind", 140)
-            }
-            // Kind is not shown by default (#13); configurable columns (#25) can show it again.
-            column.isHidden = Self.hiddenByDefault.contains(sortColumn)
-            column.minWidth = 40
-            column.sortDescriptorPrototype = NSSortDescriptor(key: sortColumn.rawValue, ascending: true)
-            if sortColumn == .size {
-                column.headerCell.alignment = .right
-            }
-            tableView.addTableColumn(column)
-        }
+        addColumns()
         tableView.autosaveName = AppEnvironment.autosaveName(Self.columnsAutosaveName(side))
         tableView.autosaveTableColumns = !AppEnvironment.isHostedTest
         tableView.style = .fullWidth
@@ -191,6 +172,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         renderDateFormat(workspace.settings.dateFormat)
+        renderColumns()
 
         let sortDescriptor = NSSortDescriptor(key: state.sort.column.rawValue, ascending: state.sort.ascending)
         if tableView.sortDescriptors.first != sortDescriptor {
@@ -229,8 +211,11 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
-        let isTabular = identifier == sizeColumn || identifier == modifiedColumn
-        let text = isTabular ? TabularTextField(labelWithString: "") : NSTextField(labelWithString: "")
+        let text = switch identifier {
+        case sizeColumn, modifiedColumn: TabularTextField(labelWithString: "")
+        case permissionsColumn: MonospacedTextField(labelWithString: "")
+        default: NSTextField(labelWithString: "")
+        }
         text.lineBreakMode = .byTruncatingMiddle
         text.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(text)
@@ -350,7 +335,7 @@ extension FileListViewController {
         case Self.modifiedColumn:
             cell.textField?.stringValue = dateFormatter.string(from: listed.entry.modificationDate)
         default:
-            cell.textField?.stringValue = listed.kindDescription
+            cell.textField?.stringValue = columnText(column.identifier, for: listed) ?? listed.kindDescription
         }
         cell.textField?.textColor = textColor(for: listed)
         return cell

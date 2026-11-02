@@ -24,9 +24,12 @@ public struct DirectoryEntry: Equatable, Sendable {
     /// Non-zero errno if the file system could not read this entry's attributes. The other fields
     /// then hold whatever could be read.
     public var error: Int32
+    /// The permission bits of the mode (`0o7777`: read, write, execute, setuid, setgid, sticky),
+    /// for the Permissions column (#25).
+    public var permissions: UInt16 = 0
 
     public init(name: String, kind: Kind, size: Int64, modificationDate: Date, isHidden: Bool, isDataless: Bool,
-                error: Int32)
+                error: Int32, permissions: UInt16 = 0)
     {
         self.name = name
         self.kind = kind
@@ -35,6 +38,7 @@ public struct DirectoryEntry: Equatable, Sendable {
         self.isHidden = isHidden
         self.isDataless = isDataless
         self.error = error
+        self.permissions = permissions
     }
 }
 
@@ -97,7 +101,7 @@ enum BulkLister {
         // The C constants import with different integer types, so each is converted on its own.
         request.commonattr = attrgroup_t(ATTR_CMN_RETURNED_ATTRS) | attrgroup_t(ATTR_CMN_NAME)
             | attrgroup_t(ATTR_CMN_ERROR) | attrgroup_t(ATTR_CMN_OBJTYPE) | attrgroup_t(ATTR_CMN_MODTIME)
-            | attrgroup_t(ATTR_CMN_FLAGS)
+            | attrgroup_t(ATTR_CMN_ACCESSMASK) | attrgroup_t(ATTR_CMN_FLAGS)
         request.fileattr = attrgroup_t(ATTR_FILE_DATALENGTH)
 
         let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: bufferSize, alignment: 16)
@@ -174,6 +178,10 @@ enum BulkLister {
         if common & attrgroup_t(ATTR_CMN_MODTIME) != 0 {
             let time = read(timespec.self)
             result.modificationDate = Date(timeIntervalSince1970: Double(time.tv_sec) + Double(time.tv_nsec) / 1e9)
+        }
+        // ATTR_CMN_ACCESSMASK (0x20000) comes before ATTR_CMN_FLAGS (0x40000).
+        if common & attrgroup_t(ATTR_CMN_ACCESSMASK) != 0 {
+            result.permissions = UInt16(truncatingIfNeeded: read(UInt32.self)) & 0o7777
         }
         var flags: UInt32 = 0
         if common & attrgroup_t(ATTR_CMN_FLAGS) != 0 {
