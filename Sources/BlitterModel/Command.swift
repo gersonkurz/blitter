@@ -38,6 +38,11 @@ public enum Command: Sendable {
     case select(Side, Set<String>)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
+    /// Search below the side's folder for names matching the pattern (#48); empty: stop showing
+    /// the results.
+    case find(Side, pattern: String)
+    /// Stop the side's search; its results so far stay.
+    case stopFind(Side)
     /// Copy the active side's selection into the other side's folder.
     case copyToOtherSide
     /// Move the active side's selection into the other side's folder.

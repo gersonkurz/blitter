@@ -119,7 +119,9 @@ extension Workspace {
     }
 
     func requestRename(_ side: Side) -> Bool {
-        guard let state = sides[side], state.selection.count == 1, let name = state.selection.first else {
+        guard let state = sides[side], state.find == nil, state.selection.count == 1,
+              let name = state.selection.first
+        else {
             return false
         }
         requestRename(of: name, in: state.entriesLocation, on: side)
@@ -135,7 +137,7 @@ extension Workspace {
     }
 
     func newFolder(_ side: Side) -> Bool {
-        guard let state = sides[side] else {
+        guard let state = sides[side], state.find == nil else {
             return false
         }
         let taken = Set(state.allEntries.map { $0.name.lowercased() })
@@ -172,8 +174,14 @@ extension Workspace {
 
     // MARK: Jobs
 
+    /// The outermost selected items (a search lists a folder and what is in it, #48), so a
+    /// question about deleting counts what will be deleted. By name alone, without the disk (the
+    /// main thread): one entry is inside another only in search results, and a search never
+    /// enters a link, so whatever lies between them is a real folder. The job checks again.
     private func selectedPaths(_ state: SideState) -> [String] {
-        state.selection.sorted().map { Paths.appending($0, to: state.entriesLocation) }
+        FileOperation.outermost(state.selection.sorted().map { Paths.appending($0, to: state.entriesLocation) }) { _ in
+            true
+        }
     }
 
     private func requestRename(of name: String, in folder: String, on side: Side) {

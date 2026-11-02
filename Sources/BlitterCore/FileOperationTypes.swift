@@ -19,6 +19,53 @@ public enum FileOperation: Equatable, Sendable {
     case newFolder(parent: String, name: String)
 }
 
+public extension FileOperation {
+    /// The same operation on the outermost of its items: an item given together with a folder it
+    /// is in (search results, #48, list both) goes along with that folder, and is not copied,
+    /// moved or deleted a second time; an item given twice counts once. The order stays.
+    /// "In" means inside on disk: only through real folders, never through a symbolic link
+    /// (copying a link does not copy what it leads to), so `isRealFolder` is asked about each
+    /// folder in between. It reads the disk by default: call this off the main thread.
+    func withoutNestedItems(isRealFolder: (String) -> Bool = Self.isRealFolder) -> FileOperation {
+        switch self {
+        case let .copy(paths, folder): .copy(Self.outermost(paths, isRealFolder: isRealFolder), into: folder)
+        case let .move(paths, folder): .move(Self.outermost(paths, isRealFolder: isRealFolder), into: folder)
+        case let .trash(paths): .trash(Self.outermost(paths, isRealFolder: isRealFolder))
+        case let .delete(paths): .delete(Self.outermost(paths, isRealFolder: isRealFolder))
+        case .command, .rename, .newFolder: self
+        }
+    }
+
+    /// `paths` without repeats, and without those inside another of them through real folders.
+    /// Set lookups find the nearest other item above each one; only then is the disk asked, about
+    /// the folders between the two.
+    static func outermost(_ paths: [String], isRealFolder: (String) -> Bool) -> [String] {
+        let all = Set(paths)
+        var kept: Set<String> = []
+        return paths.filter { path in
+            var between: [String] = []
+            var folder = path
+            while let slash = folder.lastIndex(of: "/"), slash != folder.startIndex {
+                folder = String(folder[..<slash])
+                between.append(folder)
+                if all.contains(folder) {
+                    if between.allSatisfy(isRealFolder) {
+                        return false // it goes along with `folder`
+                    }
+                    break // behind a link: given on its own, it stays
+                }
+            }
+            return kept.insert(path).inserted
+        }
+    }
+
+    /// A folder, not a link to one.
+    static func isRealFolder(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+    }
+}
+
 /// An item already exists where a copy or move wants to put one.
 public struct Conflict: Equatable, Sendable {
     public let source: String

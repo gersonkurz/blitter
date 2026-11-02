@@ -88,16 +88,20 @@ public struct Action: Sendable {
     public let title: String
     public let scope: ActionScope
     public let output: ActionOutput
+    /// Whether it is offered on a side that shows search results (#48): not for what names an
+    /// entry in the folder itself (rename, new folder).
+    let worksInFind: Bool
     /// The command that carries the action out on a side whose state fits the scope.
     let command: @MainActor @Sendable (Workspace, Side) -> Command
 
-    init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none,
+    init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
          command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
         self.id = id
         self.title = title
         self.scope = scope
         self.output = output
+        self.worksInFind = worksInFind
         self.command = command
     }
 }
@@ -130,7 +134,7 @@ public struct ActionRegistry: Sendable {
         Action("copy", "Copy", scope: .selection, output: .clipboard) { _, side in .copyToPasteboard(side) },
         Action("copy-path", "Copy Path", scope: .selection, output: .clipboard) { _, side in .copyPaths(side) },
         Action("copy-name", "Copy Name", scope: .selection, output: .clipboard) { _, side in .copyNames(side) },
-        Action("rename", "Rename", scope: .single) { _, side in .requestRename(side) },
+        Action("rename", "Rename", scope: .single, worksInFind: false) { _, side in .requestRename(side) },
         Action("copy-to-other-side", "Copy to Other Side", scope: .selection) { workspace, side in
             .copyItems(workspace.selectedItems(on: side).map(\.path),
                        toFolder: workspace.state(of: side.opposite).location)
@@ -144,7 +148,7 @@ public struct ActionRegistry: Sendable {
         Action("delete-immediately", "Delete Immediately", scope: .selection) { _, side in .deleteSelection(side) },
         Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
                scope: .selection) { _, side in .deleteSelectionWithoutAsking(side) },
-        Action("new-folder", "New Folder", scope: .folder) { _, side in .newFolder(side) },
+        Action("new-folder", "New Folder", scope: .folder, worksInFind: false) { _, side in .newFolder(side) },
         Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard) { _, side in
             .copyFolderPath(side)
         },
@@ -177,14 +181,17 @@ public extension Workspace {
     func actions(for side: Side) -> [Action] {
         let (here, other) = (state(of: side), state(of: side.opposite))
         let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
-        return actionRegistry.all.filter { $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy) }
+        return actionRegistry.all.filter {
+            (here.find == nil || $0.worksInFind) && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy)
+        }
     }
 
     /// Whether `perform(.runAction(id, side))` would run the action now.
     func canRun(_ id: String, on side: Side) -> Bool {
-        guard let scope = actionRegistry.action(id)?.scope else {
+        guard let action = actionRegistry.action(id), state(of: side).find == nil || action.worksInFind else {
             return false
         }
+        let scope = action.scope
         // Menus ask this for every item: only a working-copy action needs to know whether its
         // target is in a working copy (#46).
         let inWorkingCopy = scope == .workingCopy && workingCopyRoot(containing: workingCopyTarget(on: side)) != nil

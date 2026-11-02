@@ -56,4 +56,8 @@ final class SideViewController: NSSplitViewController {
     func focusPathField() {
         fileList.focusPathField()
     }
+
+    func focusList() {
+        fileList.focusList()
+    }
 }

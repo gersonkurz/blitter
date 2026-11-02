@@ -44,7 +44,8 @@ extension Workspace {
             guard let state = sides[side] else {
                 continue
             }
-            if changes.contains(where: { $0.affects(state.location) }) {
+            // A search's results are a snapshot: it runs again for jobs and Refresh only (#48).
+            if state.find == nil, changes.contains(where: { $0.affects(state.location) }) {
                 load(side)
             }
             // A read still running may have looked at the folder before the change: start over.

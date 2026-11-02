@@ -67,6 +67,12 @@ public func listDirectory(_ path: String) async throws -> [DirectoryEntry] {
     }
 }
 
+/// The same listing, for code that already runs on a thread of its own (a search walking a
+/// folder tree, #48): blocks the calling thread. Throws `CancellationError` once `cancelled` is set.
+public func listDirectory(_ path: String, cancelled: CancellationFlag) throws -> [DirectoryEntry] {
+    try BulkLister.list(path, cancelled: cancelled)
+}
+
 /// A flag a task sets when it is cancelled, for work running outside Swift concurrency.
 public final class CancellationFlag: Sendable {
     private let flag = Atomic(false)

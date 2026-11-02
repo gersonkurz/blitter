@@ -1,13 +1,14 @@
 import AppKit
 import BlitterModel
 
-/// The main window: the two sides next to each other, and below them the strip of running file
-/// operations, which takes no space while there are none.
+/// The main window: the two sides next to each other, below them the Find panel (#48) while it
+/// is shown, and the strip of running file operations, which takes no space while there are none.
 @MainActor
 final class MainWindowController: NSWindowController {
     private let workspace: Workspace
     private let sideControllers: [SideViewController]
     private let jobsController: JobsViewController
+    let findController: FindPanelController
     /// The delete request the window has already asked about.
     private var askedDeleteToken: Int?
     /// Light and dark mode take different theme schemes (#21).
@@ -19,6 +20,7 @@ final class MainWindowController: NSWindowController {
         self.workspace = workspace
         sideControllers = Side.allCases.map { SideViewController(workspace: workspace, side: $0) }
         jobsController = JobsViewController(workspace: workspace)
+        findController = FindPanelController(workspace: workspace)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1400, height: 800),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered,
@@ -41,19 +43,7 @@ final class MainWindowController: NSWindowController {
         }
         // Set after the items exist, so the saved divider position applies to them.
         splitViewController.splitView.autosaveName = AppEnvironment.autosaveName("MainSplit")
-        let content = NSViewController()
-        let stack = NSStackView(views: [splitViewController.view, jobsController.view])
-        stack.orientation = .vertical
-        stack.spacing = 0
-        stack.distribution = .fill
-        splitViewController.view.setContentHuggingPriority(.defaultLow, for: .vertical)
-        // A vertical stack centers its views at their natural width; both span the window.
-        for view in [splitViewController.view, jobsController.view] {
-            view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        }
-        content.view = stack
-        content.addChild(splitViewController)
-        content.addChild(jobsController)
+        let content = makeContent(splitViewController)
         window.contentViewController = content
         window.setContentSize(NSSize(width: 1400, height: 800))
         if let name = AppEnvironment.autosaveName("MainWindow") {
@@ -70,6 +60,31 @@ final class MainWindowController: NSWindowController {
         render()
     }
 
+    /// The sides, then the Find panel, then the jobs strip, each spanning the window.
+    private func makeContent(_ splitViewController: NSSplitViewController) -> NSViewController {
+        let content = NSViewController()
+        let stack = NSStackView(views: [splitViewController.view, findController.view, jobsController.view])
+        stack.orientation = .vertical
+        stack.spacing = 0
+        stack.distribution = .fill
+        splitViewController.view.setContentHuggingPriority(.defaultLow, for: .vertical)
+        // A vertical stack centers its views at their natural width; both span the window.
+        for view in [splitViewController.view, findController.view, jobsController.view] {
+            view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+        content.view = stack
+        content.addChild(splitViewController)
+        content.addChild(findController)
+        content.addChild(jobsController)
+        findController.onVisibilityChange = { [weak self] in
+            guard let self, findController.view.isHidden else {
+                return
+            }
+            sideControllers.first { $0.side == workspace.activeSide }?.focusList() // the keys go back
+        }
+        return content
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) is not supported")
@@ -77,6 +92,11 @@ final class MainWindowController: NSWindowController {
 
     func togglePreview(on side: Side) {
         sideControllers.first { $0.side == side }?.togglePreview()
+    }
+
+    /// Find… (⌘F, #48): the Find panel, for the active side.
+    @objc func showFind(_: Any?) {
+        findController.show()
     }
 
     func focusPathField(of side: Side) {
@@ -88,6 +108,7 @@ final class MainWindowController: NSWindowController {
             controller.render()
         }
         jobsController.render()
+        findController.render()
         askToDeleteIfNeeded()
         afterRender?()
     }

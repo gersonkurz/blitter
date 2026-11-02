@@ -61,6 +61,8 @@ public struct SideState: Sendable {
     /// The file list's columns once the user showed or hid one here (#25); nil follows the
     /// settings file. Saved for the next launch.
     public internal(set) var columns: Set<ListColumn>?
+    /// The search the side shows instead of its folder's listing (#48), until it goes elsewhere.
+    public internal(set) var find: FindState?
     /// The fast filter (#39), until the side goes to another folder.
     public internal(set) var quickFilter: QuickFilter?
     /// The names that match the fast filter in highlight mode; found in the background.

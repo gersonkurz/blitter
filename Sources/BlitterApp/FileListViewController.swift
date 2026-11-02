@@ -13,7 +13,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     let side: Side
     /// The general pasteboard; tests use one of their own, so they never touch the user's clipboard.
     var pasteboard = NSPasteboard.general
-    private let pathField = ActivatingComboBox()
+    let pathField = ActivatingComboBox()
     private(set) lazy var navigationButtons = NavigationButtons(side: side)
     let statusLabel = NSTextField(labelWithString: "")
     let tableView = ActivatingTableView()
@@ -168,7 +168,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         let isActive = workspace.activeSide == side
         // Never overwrite what the user is typing.
         if pathField.currentEditor() == nil {
-            pathField.stringValue = state.location
+            pathField.stringValue = Self.shownLocation(state)
         }
         renderPalette()
         pathField.textColor = pathFieldColor(isActive: isActive)
@@ -268,12 +268,17 @@ extension FileListViewController {
 
     // MARK: User input
 
+    /// The folder, or what a search below it looks for (#48).
+    static func shownLocation(_ state: SideState) -> String {
+        state.find?.displayLocation ?? state.location
+    }
+
     @objc private func pathEntered(_ sender: NSComboBox) {
         let typed = sender.stringValue
         // Hand focus back to the list first, so the field shows the resolved path afterwards.
         view.window?.makeFirstResponder(tableView)
         workspace.perform(.navigate(side, path: typed))
-        pathField.stringValue = workspace.state(of: side).location
+        pathField.stringValue = Self.shownLocation(workspace.state(of: side))
     }
 
     func control(_: NSControl, textView _: NSTextView, doCommandBy selector: Selector) -> Bool {
@@ -282,7 +287,7 @@ extension FileListViewController {
         }
         // Escape in the path field drops the edit.
         view.window?.makeFirstResponder(tableView)
-        pathField.stringValue = workspace.state(of: side).location
+        pathField.stringValue = Self.shownLocation(workspace.state(of: side))
         return true
     }
 

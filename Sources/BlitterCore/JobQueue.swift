@@ -83,7 +83,8 @@ public final class JobQueue {
             gate?.wait()
             var operations = FileOperations(context: runner, trash: trash, remove: remove,
                                             simulateOtherVolume: simulateOtherVolume, sizingProbe: sizingProbe)
-            let errors = operations.run(operation)
+            // On the job's thread: finding what lies inside what looks at the disk (#48).
+            let errors = operations.run(operation.withoutNestedItems())
             runner.finish(errors)
         }
         onChange?()

@@ -56,7 +56,10 @@ public final class Workspace {
     var watcher: (any FolderWatching)?
     var watchedFolders: Set<String> = []
     /// The running load or re-sort per side. A new one cancels the previous one.
-    private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
+    var pendingWork: [Side: Task<Void, Never>] = [:]
+    /// Find (#48): the running search per side, and the flag that stops its walk early.
+    var findWork: [Side: Task<Void, Never>] = [:]
+    var findStops: [Side: CancellationFlag] = [:]
     /// The fast filter's search for highlighted names (#39). A newer one cancels it.
     var highlightWork: [Side: Task<Void, Never>] = [:]
     /// Starting the diff tool (#40): finding it and launching it; tests replace both.
@@ -135,7 +138,9 @@ public final class Workspace {
         }
     }
 
-    /// Carries out the command. Returns false if it changed nothing, so nobody is notified.
+    // swiftlint:disable function_body_length
+    /// Carries out the command. Returns false if it changed nothing, so nobody is notified. One
+    /// line per command: a table, not logic to split.
     func apply(_ command: Command) -> Bool {
         switch command {
         case let .navigate(side, path): navigate(side, path)
@@ -157,6 +162,8 @@ public final class Workspace {
         case let .selectQuickFilterMatch(side, forward): selectQuickFilterMatch(side, forward: forward)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
+        case let .find(side, pattern): find(side, pattern)
+        case let .stopFind(side): stopFind(side)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
@@ -188,9 +195,12 @@ public final class Workspace {
         case let .runFolderAction(id, side, folder): runFolderAction(id, on: side, folder: folder)
         }
     }
+    // swiftlint:enable function_body_length
+}
 
-    // MARK: Loading
+// MARK: Loading
 
+extension Workspace {
     /// Reads the side's folder, then filters and sorts it, all off the main thread.
     private func startAtHome(_ side: Side, _ restored: SideState) {
         var state = restored
@@ -204,15 +214,27 @@ public final class Workspace {
         notifyChange()
     }
 
-    /// Reads the side's folder again if it shows one of `folders`.
+    /// Reads the side's folder again if it shows one of `folders`; a search (#48) runs again if
+    /// one of them is below the folder it searched.
     func reload(showing folders: Set<String>) {
-        for side in Side.allCases where sides[side].map({ folders.contains($0.location) }) == true {
-            load(side)
+        for side in Side.allCases {
+            guard let state = sides[side] else {
+                continue
+            }
+            let shows = state.find == nil ? folders.contains(state.location)
+                : folders.contains { $0 == state.location || Paths.contains($0, in: state.location) }
+            if shows {
+                load(side)
+            }
         }
     }
 
     func load(_ side: Side) {
         guard let state = sides[side] else {
+            return
+        }
+        guard state.find == nil else {
+            runFind(side, fresh: false) // the results are the side's listing (#48)
             return
         }
         sides[side]?.status = .loading
@@ -245,8 +267,8 @@ public final class Workspace {
 
     /// Runs `work`, which lists or re-sorts the folder at `location`, and stores its result unless
     /// newer work for the side replaced it in the meantime.
-    private func startWork(on side: Side, location: String,
-                           _ work: @escaping @Sendable () async throws -> Listing.Result)
+    func startWork(on side: Side, location: String,
+                   _ work: @escaping @Sendable () async throws -> Listing.Result)
     {
         pendingWork[side]?.cancel()
         pendingWork[side] = Task { [weak self] in

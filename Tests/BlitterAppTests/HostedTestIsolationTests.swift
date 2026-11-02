@@ -6,10 +6,13 @@ import Testing
 /// The app hosts these tests and shares the real app's defaults: it must leave them alone.
 @MainActor
 struct HostedTestIsolationTests {
-    @Test func theHostOpensNoWindowAndSavesNothing() {
+    @Test func theHostOpensNoWindowAndSavesNothing() throws {
         #expect(AppEnvironment.isHostedTest)
         #expect(NSApp.mainMenu != nil) // the menu is still there for the tests
-        #expect(!NSApp.windows.contains { $0.windowController is MainWindowController })
+        // The host's own window: never made. (Not "no main window anywhere": suites run
+        // interleaved, and another test may have one of its own open right now.)
+        let delegate = try #require(NSApp.delegate as? AppDelegate)
+        #expect(delegate.windowController == nil)
     }
 
     @Test func viewsDoNotAutosaveTheirLayoutUnderTest() {

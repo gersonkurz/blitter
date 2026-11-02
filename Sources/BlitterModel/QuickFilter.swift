@@ -29,9 +29,15 @@ public struct QuickFilter: Equatable, Sendable {
     struct Matcher {
         private let pattern: [Character]
 
-        init(_ text: String) {
-            // Anywhere in the name: as if surrounded by `*`.
-            pattern = ["*"] + Array(Self.fold(text)) + ["*"]
+        /// `wholeName` (Find, #48): text with a wildcard is matched against the whole name, so
+        /// `*.swift` means names ending in ".swift"; text without one still matches anywhere.
+        init(_ text: String, wholeName: Bool = false) {
+            let folded = Array(Self.fold(text))
+            if wholeName, folded.contains(where: { $0 == "*" || $0 == "?" }) {
+                pattern = folded
+            } else {
+                pattern = ["*"] + folded + ["*"] // anywhere in the name: as if surrounded by `*`
+            }
         }
 
         private static func fold(_ text: String) -> String {

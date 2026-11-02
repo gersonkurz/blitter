@@ -3,8 +3,15 @@ import Foundation
 
 /// Going to folders: typed paths, the parent, back and forward, opening entries.
 extension Workspace {
+    /// A typed path. The path field shows a search as `search://…` (#48): that text is not a
+    /// path, so it changes nothing (searches are typed in the Find panel), whether it is the
+    /// side's own search entered again or one pasted from elsewhere.
     func navigate(_ side: Side, _ input: String) -> Bool {
-        guard let state = sides[side], let path = Paths.resolve(input, relativeTo: state.location, home: home) else {
+        guard let state = sides[side], !input.hasPrefix(FindState.scheme), let path = Paths.resolve(
+            input,
+            relativeTo: state.location,
+            home: home
+        ) else {
             return false
         }
         return go(side, .path(path))
@@ -21,6 +28,14 @@ extension Workspace {
         case path(String)
         case back
         case forward
+
+        func isPossible(from state: SideState) -> Bool {
+            switch self {
+            case .path: true
+            case .back: !state.backStack.isEmpty
+            case .forward: !state.forwardStack.isEmpty
+            }
+        }
     }
 
     /// Moves the side to another folder, records it in the history, starts reading it and reveals
@@ -28,6 +43,10 @@ extension Workspace {
     /// arrives. Returns false if there is nowhere to go.
     @discardableResult
     func go(_ side: Side, _ destination: Destination, treeRoot: String? = nil) -> Bool {
+        guard let current = sides[side], destination.isPossible(from: current) else {
+            return false // nowhere to go: a search shown stays as it is (#48 review)
+        }
+        leaveFind(side) // any navigation ends a search, even to the folder it searched (#48)
         guard var state = sides[side] else {
             return false
         }
@@ -57,11 +76,7 @@ extension Workspace {
             location = target
         }
         state.location = location
-        state.recentLocations.removeAll { $0 == location }
-        state.recentLocations.insert(location, at: 0)
-        if state.recentLocations.count > Self.maxRecentLocations {
-            state.recentLocations.removeLast()
-        }
+        Self.remember(location, in: &state)
         // Coming up out of a folder selects it once the parent's listing is there, so the user sees
         // where they came from. Until then the old rows are shown, with nothing selected.
         state.selection = []
@@ -79,6 +94,15 @@ extension Workspace {
         load(side)
         revealInTree(side, preferredRoot: treeRoot)
         return true
+    }
+
+    /// The path field's recent folders: `location` first, each once, at most `maxRecentLocations`.
+    private static func remember(_ location: String, in state: inout SideState) {
+        state.recentLocations.removeAll { $0 == location }
+        state.recentLocations.insert(location, at: 0)
+        if state.recentLocations.count > maxRecentLocations {
+            state.recentLocations.removeLast()
+        }
     }
 
     /// A navigation the user asked for wins over a symbolic link still being checked.

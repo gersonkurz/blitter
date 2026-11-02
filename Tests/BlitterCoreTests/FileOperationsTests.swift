@@ -340,3 +340,47 @@ struct FileOperationsTests {
         #expect(queue.jobs.first { $0.id == id }?.isDone == true)
     }
 }
+
+/// #48 review: an item together with a folder it is in goes along with the folder; one behind a
+/// symbolic link does not (copying the link does not copy it).
+@MainActor
+struct NestedItemsTests {
+    @Test func onlyTheOutermostItemsAreOperatedOn() {
+        let paths = ["/r/a/b/two.txt", "/r/a", "/r/top.txt", "/r/a/one.txt", "/r/top.txt", "/r/ab"]
+        let real: (String) -> Bool = { _ in true }
+        #expect(FileOperation.outermost(paths, isRealFolder: real) == ["/r/a", "/r/top.txt", "/r/ab"])
+        let behindLink = FileOperation.outermost(["/r/link/file.txt", "/r/link"]) { $0 != "/r/link" }
+        #expect(behindLink == ["/r/link/file.txt", "/r/link"])
+        #expect(FileOperation.rename("/r/a", newName: "b").withoutNestedItems(isRealFolder: real)
+            == .rename("/r/a", newName: "b"))
+    }
+
+    /// On disk: a link and a file reached through it, both copied, both arrive.
+    @Test func aFileBehindALinkIsCopiedToo() async throws {
+        let folder = try TemporaryFolder()
+        let external = folder.path + "/external"
+        let source = folder.path + "/source"
+        let target = folder.path + "/target"
+        for path in [external, source, target] {
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: false)
+        }
+        FileManager.default.createFile(atPath: external + "/file.txt", contents: Data("x".utf8))
+        try FileManager.default.createSymbolicLink(atPath: source + "/link", withDestinationPath: external)
+        #expect(FileOperation.copy([source + "/link/file.txt", source + "/link"], into: target)
+            .withoutNestedItems() == .copy([source + "/link/file.txt", source + "/link"], into: target))
+        let queue = JobQueue()
+        let done = AsyncStream<Job> { continuation in
+            queue.onFinish = { continuation.yield($0) }
+        }
+        queue.start(.copy([source + "/link/file.txt", source + "/link"], into: target))
+        var finished: Job?
+        for await job in done {
+            finished = job
+            break
+        }
+        #expect(finished?.errors.isEmpty == true)
+        let copied = try FileManager.default.contentsOfDirectory(atPath: target).sorted()
+        #expect(copied == ["file.txt", "link"])
+        #expect(try FileManager.default.destinationOfSymbolicLink(atPath: target + "/link") == external)
+    }
+}

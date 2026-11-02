@@ -12,7 +12,7 @@ extension Workspace {
             let pending = Array(rootsWork.values) + Array(pendingOpen.values) + Array(pendingWork.values)
                 + [settingsWork].compactMap(\.self) + Array(gitWork.values)
                 + treeWork.values.flatMap(\.values) + Array(highlightWork.values)
-                + Array(schemeWork.values)
+                + Array(schemeWork.values) + Array(findWork.values)
             guard !pending.isEmpty else {
                 return
             }

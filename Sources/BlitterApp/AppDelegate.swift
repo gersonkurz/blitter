@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     /// Starts where the last session ended.
     lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
         : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
-    private var windowController: MainWindowController?
+    private(set) var windowController: MainWindowController?
     /// The menus whose action items come from the settings (#24), and what they were built from.
     var fileMenuItems: NSMenu?
     var editMenuItems: NSMenu?
@@ -198,6 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                                         keyEquivalent: "v")
         moveHere.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(.separator())
+        // The main window's controller answers it (#48): it is in the window's responder chain.
+        editMenu.addItem(withTitle: "Find…", action: #selector(MainWindowController.showFind(_:)), keyEquivalent: "f")
         return editMenu
     }
 

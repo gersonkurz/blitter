@@ -34,7 +34,11 @@ extension Workspace {
     func toggleHiddenFiles() -> Bool {
         showsHiddenFiles.toggle()
         for side in Side.allCases {
-            relist(side)
+            if sides[side]?.find != nil {
+                load(side) // hidden folders are searched, or not (#48)
+            } else {
+                relist(side)
+            }
             sides[side]?.tree.version += 1
         }
         return true

@@ -221,7 +221,10 @@ public extension Workspace {
         gitWork[side]?.cancel()
         startGitPolling()
         let location = state.entriesLocation
-        let folders = state.visibleEntries.filter { $0.entry.kind == .directory }.map {
+        // A search's results (#48) lie anywhere below the folder: the working copies they are in
+        // are looked for in the background, from the results themselves.
+        let results = state.find == nil ? [] : state.visibleEntries
+        let folders = state.find != nil ? [] : state.visibleEntries.filter { $0.entry.kind == .directory }.map {
             Paths.appending($0.entry.name, to: location)
         }
         let now = Date()
@@ -230,7 +233,7 @@ public extension Workspace {
         let access = gitAccess
         gitWork[side] = Task { [weak self] in
             let cancelled = CancellationFlag()
-            let scan = GitScan(location: location, folders: folders, known: known, fresh: fresh)
+            let scan = GitScan(location: location, folders: folders, results: results, known: known, fresh: fresh)
             let worker = Task.detached(priority: .utility) {
                 Self.readRepositories(scan, access: access, cancelled: cancelled)
             }
@@ -281,7 +284,39 @@ public extension Workspace {
                 results.updateValue(nil, forKey: folder) // its .git is gone
             }
         }
+        let below = workingCopies(of: scan.results, below: location, access: access, cancelled: cancelled)
+        for root in below.found where root != enclosing && !fresh.contains(root) && !cancelled.isSet {
+            read(root)
+        }
+        for folder in below.looked where known.contains(folder) && !below.found.contains(folder) {
+            results.updateValue(nil, forKey: folder) // its .git is gone
+        }
         return results
+    }
+
+    /// The working copies search results are in (#48): from each result's folder up towards
+    /// `location`, the nearest folder that is one. Each folder is looked at once, however many
+    /// results are in it. Also every folder looked at, so known ones that are no longer working
+    /// copies are forgotten.
+    private nonisolated static func workingCopies(
+        of entries: [ListedEntry], below location: String, access: GitAccess, cancelled: CancellationFlag
+    ) -> (found: Set<String>, looked: Set<String>) {
+        var found: Set<String> = []
+        var looked: Set<String> = []
+        for listed in entries where !cancelled.isSet {
+            var folder = Paths.appending(listed.entry.name, to: location)
+            if listed.entry.kind != .directory {
+                folder = Paths.parent(of: folder) ?? location
+            }
+            while folder != location, Paths.contains(folder, in: location), looked.insert(folder).inserted {
+                if access.isRepositoryRoot(folder) {
+                    found.insert(folder)
+                    break // the nearest one; the folders above it are another result's business
+                }
+                folder = Paths.parent(of: folder) ?? location
+            }
+        }
+        return (found, looked)
     }
 
     private func merge(_ results: [String: KnownRepository?]) {
@@ -330,6 +365,8 @@ public extension Workspace {
 struct GitScan: Sendable {
     let location: String
     let folders: [String]
+    /// A search's results (#48), whose working copies are looked for; empty for a folder listing.
+    let results: [ListedEntry]
     let known: Set<String>
     let fresh: Set<String>
 }
