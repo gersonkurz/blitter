@@ -157,6 +157,9 @@ public struct ActionRegistry: Sendable {
         Action("git-log", "Git Log…", scope: .workingCopy) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitLog, path: workspace.workingCopyTarget(on: side)))
         },
+        Action("git-sync", "Git Sync…", scope: .workingCopy) { workspace, side in
+            .present(DialogRequest(kind: DialogRequest.gitSync, path: workspace.workingCopyTarget(on: side)))
+        },
         Action("compare-folders", "Compare Folders", scope: .bothFolders) { workspace, _ in
             .compare(
                 left: workspace.state(of: .left).entriesLocation,

@@ -42,7 +42,9 @@ extension FileOperations {
     /// to the group, and after 2 s (or at once if the program is gone) KILL to the group. stderr
     /// is read as it comes, keeping only its end; once the program exits, the job is done, even
     /// if something it left running still holds stderr open.
-    static func runCommand(_ arguments: [String], in folder: String, cancelled: CancellationFlag) -> String? {
+    static func runCommand(_ arguments: [String], in folder: String, cancelled: CancellationFlag,
+                           output: @escaping (Data) -> Void = { _ in }) -> String?
+    {
         guard let name = arguments.first else {
             return "The command is empty."
         }
@@ -53,6 +55,8 @@ extension FileOperations {
         }
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = path.joined(separator: ":")
+        // No terminal to ask in: git fails at once instead of waiting for a password (#43).
+        environment["GIT_TERMINAL_PROMPT"] = "0"
         let child: SpawnedProcess
         do {
             child = try SpawnedProcess(program, arguments: [name] + arguments.dropFirst(), folder: folder,
@@ -60,6 +64,7 @@ extension FileOperations {
         } catch {
             return "“\(name)” could not be started: \(error.localizedDescription)"
         }
+        child.onOutput = output
         guard let status = child.wait(cancelled: cancelled) else {
             return nil // cancelled: the job says so itself
         }
@@ -109,8 +114,9 @@ public enum Launcher {
     }
 }
 
-/// A process started with `posix_spawn` in a group of its own, stdin and stdout on /dev/null,
-/// stderr on a pipe (or /dev/null), every other descriptor closed. Used by one thread at a time.
+/// A process started with `posix_spawn` in a group of its own, stdin on /dev/null, stdout and
+/// stderr together on a pipe (or both on /dev/null), every other descriptor closed. Used by one
+/// thread at a time.
 private final class SpawnedProcess: @unchecked Sendable {
     struct Status {
         /// Nil if it was ended by a signal.
@@ -121,6 +127,8 @@ private final class SpawnedProcess: @unchecked Sendable {
     private let pid: pid_t
     private let errorsRead: Int32
     private(set) var errorTail = Data()
+    /// Each piece of output as it is read (stdout and stderr together, #43).
+    var onOutput: ((Data) -> Void)?
 
     init(_ program: String, arguments: [String], folder: String, environment: [String: String],
          keepErrors: Bool = true) throws
@@ -140,10 +148,11 @@ private final class SpawnedProcess: @unchecked Sendable {
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
         posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
-        posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0)
         if keepErrors {
+            posix_spawn_file_actions_adddup2(&actions, fds[1], 1)
             posix_spawn_file_actions_adddup2(&actions, fds[1], 2)
         } else {
+            posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0)
             posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0)
         }
         if #available(macOS 26, *) {
@@ -232,6 +241,7 @@ private final class SpawnedProcess: @unchecked Sendable {
                 return
             }
             errorTail.append(contentsOf: buffer[0 ..< count])
+            onOutput?(Data(buffer[0 ..< count]))
             if errorTail.count > FileOperations.errorTailLimit {
                 errorTail = errorTail.suffix(FileOperations.errorTailLimit)
             }

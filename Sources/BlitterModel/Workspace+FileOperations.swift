@@ -199,7 +199,17 @@ extension Workspace {
         }
     }
 
+    /// Calls `handler` with the job as it ended, whatever the outcome (#43: a dialog that started
+    /// it shows how it went). A job that succeeded leaves the list at once, so this is the only
+    /// way to see its end.
+    public func whenJobDone(_ id: Int, _ handler: @escaping (Job) -> Void) {
+        jobObservers[id, default: []].append(handler)
+    }
+
     func jobFinished(_ job: Job) {
+        for handler in jobObservers.removeValue(forKey: job.id) ?? [] {
+            handler(job)
+        }
         let followUp = jobFollowUps.removeValue(forKey: job.id)
         let succeeded = job.state == .finished && job.errors.isEmpty
         if succeeded {

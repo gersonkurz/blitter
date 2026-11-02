@@ -112,6 +112,24 @@ struct GitHistoryTests {
         #expect(try #require(Git.log(of: root, path: "a?c.txt")).isEmpty)
     }
 
+    /// #43 review: finding the last fetch can be cancelled; git is stopped, or not started.
+    @Test func findingTheLastFetchCanBeCancelled() throws {
+        let folder = try TemporaryFolder()
+        let script = folder.path + "/slow-git"
+        try "#!/bin/sh\nsleep 30\n".write(toFile: script, atomically: true, encoding: .utf8)
+        chmod(script, 0o755)
+        let cancelled = CancellationFlag()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { cancelled.set() }
+        let start = Date()
+        #expect(Git.lastFetch(of: folder.path, git: script, cancelled: cancelled) == nil)
+        #expect(Date().timeIntervalSince(start) < 3)
+        let already = CancellationFlag()
+        already.set()
+        let again = Date()
+        #expect(Git.lastFetch(of: folder.path, git: script, cancelled: already) == nil)
+        #expect(Date().timeIntervalSince(again) < 0.5) // not started at all
+    }
+
     /// #42 review: reading a version can be cancelled; git is stopped.
     @Test func readingAVersionCanBeCancelled() throws {
         let folder = try TemporaryFolder()

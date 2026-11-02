@@ -47,6 +47,8 @@ public final class Workspace {
     var treeWork: [Side: [String: Task<Void, Never>]] = [:]
     /// File operations in the background.
     let jobQueue: JobQueue
+    /// Who wants to know how a job ended (`whenJobDone`).
+    var jobObservers: [Int: [(Job) -> Void]] = [:]
     /// What to do after a job succeeded, e.g. select a renamed item.
     var jobFollowUps: [Int: (Workspace) -> Void] = [:]
     var nextRenameToken = 0

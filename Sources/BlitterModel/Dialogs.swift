@@ -12,6 +12,8 @@ public struct DialogRequest: Equatable, Sendable {
 
     /// The Git Log for a working copy, file or folder (#42).
     public static let gitLog = "git-log"
+    /// Fetch, pull and push for the working copy a path is in (#43).
+    public static let gitSync = "git-sync"
 }
 
 extension Workspace {

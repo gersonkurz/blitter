@@ -16,6 +16,8 @@ struct GitStatusTests {
         let data = Data(records.joined(separator: "\0").utf8 + [0])
         let status = Git.parse(data)
         #expect(status.ahead == 2 && status.behind == 1)
+        #expect(status.branch == "main" && status.upstream == "origin/main") // #43
+        #expect(Git.parse(Data("# branch.head (detached)\0".utf8)).branch == nil)
         #expect(status.changed == ["src/with space.swift", "docs/new.md", "docs/old.md", "conflict.txt"])
         #expect(status.untracked == ["notes/", "top.txt"])
         #expect(status.ignored == ["ignored.log"])

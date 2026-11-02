@@ -56,4 +56,14 @@ public struct JobProgress: Equatable, Sendable {
     public var totalBytes: Int64?
     public var doneBytes: Int64 = 0
     public var currentItem: String?
+    /// A command job's output, stdout and stderr together as it came (#43): its last 64 KB.
+    public var outputBytes = Data()
+
+    /// `outputBytes` as text; a character cut at the start is dropped, anything not UTF-8 shows
+    /// as "�".
+    public var output: String {
+        FileOperations.text(of: outputBytes)
+    }
+
+    static let outputLimit = 64 * 1024
 }

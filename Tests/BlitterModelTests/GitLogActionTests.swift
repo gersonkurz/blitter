@@ -59,6 +59,33 @@ struct GitLogActionTests {
         #expect(presented == [DialogRequest(kind: DialogRequest.gitLog, path: sides.left + "/repo")])
     }
 
+    /// #43: Git Sync, the same way; and the end of a job, whatever it was, reaches whoever asked.
+    @Test func gitSyncIsOfferedTheSameWayAndAJobsEndIsReported() async throws {
+        let sides = try SidesOnDisk()
+        try await sides.settle()
+        var presented: [DialogRequest] = []
+        sides.workspace.system.present = { presented.append($0) }
+        #expect(!sides.workspace.canRun("git-sync", on: .left))
+        sides.workspace.gitRepositories[sides.left] = KnownRepository(GitRepoStatus(), checked: Date())
+        sides.workspace.perform(.runAction("git-sync", .left))
+        #expect(presented == [DialogRequest(kind: DialogRequest.gitSync, path: sides.left)])
+
+        var ended: [Job] = []
+        sides.workspace.perform(.runCommand(["sh", "-c", "echo fine"], folder: sides.left))
+        let fine = try #require(sides.workspace.jobs.last?.id)
+        sides.workspace.whenJobDone(fine) { ended.append($0) }
+        sides.workspace.perform(.runCommand(["sh", "-c", "echo bad; exit 2"], folder: sides.left))
+        let bad = try #require(sides.workspace.jobs.last?.id)
+        sides.workspace.whenJobDone(bad) { ended.append($0) }
+        try await sides.settle()
+        #expect(Set(ended.map(\.id)) == [fine, bad])
+        let good = try #require(ended.first { $0.id == fine })
+        #expect(good.errors.isEmpty && good.progress.output == "fine\n")
+        #expect(!sides.workspace.jobs.contains { $0.id == fine }) // it left the list, yet was reported
+        #expect(ended.first { $0.id == bad }?.errors.isEmpty == false)
+        #expect(sides.workspace.jobObservers.isEmpty)
+    }
+
     @Test func theTreeOffersItOnlyOnFoldersInAKnownWorkingCopy() async throws {
         let sides = try SidesOnDisk()
         try await sides.settle()

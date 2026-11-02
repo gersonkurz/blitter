@@ -74,6 +74,24 @@ public extension Git {
                    cancelled: cancelled)
     }
 
+    /// When the working copy was last fetched (#43): the time of its `FETCH_HEAD`, wherever git
+    /// keeps it (a worktree's or a submodule's `.git` is a file pointing elsewhere). Nil if never.
+    /// Stops git when `cancelled` is set.
+    static func lastFetch(of root: String, git: String? = executable, timeout: TimeInterval = 10,
+                          cancelled: CancellationFlag = CancellationFlag()) -> Date?
+    {
+        guard let git, !cancelled.isSet,
+              let data = run(git, ["rev-parse", "--git-path", "FETCH_HEAD"], in: root,
+                             until: Date().addingTimeInterval(timeout), cancelled: cancelled),
+              let text = String(bytes: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty
+        else {
+            return nil
+        }
+        let path = text.hasPrefix("/") ? text : root + "/" + text
+        return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+    }
+
     /// `git log -z --format=%H%x1f%P%x1f%an%x1f%at%x1f%s`: commits separated by NUL, fields
     /// by 0x1F. A subject cannot hold either.
     internal static func parseLog(_ data: Data) -> [GitCommit] {

@@ -71,7 +71,19 @@ struct FileOperations {
             delete(paths)
         case let .command(arguments, folder):
             // Cancelled before it started: it never runs.
-            if !isCancelled, let problem = Self.runCommand(arguments, in: folder, cancelled: context.cancellation) {
+            // Its output goes to the job's progress as it comes, for a dialog to show (#43).
+            let context = context
+            let output = { (data: Data) in
+                context.update { progress in
+                    progress.outputBytes.append(data)
+                    if progress.outputBytes.count > JobProgress.outputLimit {
+                        progress.outputBytes = progress.outputBytes.suffix(JobProgress.outputLimit)
+                    }
+                }
+            }
+            if !isCancelled,
+               let problem = Self.runCommand(arguments, in: folder, cancelled: context.cancellation, output: output)
+            {
                 fail(folder, problem)
             }
         case let .rename(path, name):

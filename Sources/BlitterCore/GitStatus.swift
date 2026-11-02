@@ -5,6 +5,9 @@ public struct GitRepoStatus: Equatable, Sendable {
     /// Commits the branch is ahead of and behind its upstream (0 without one).
     public var ahead = 0
     public var behind = 0
+    /// The branch checked out (nil: a detached HEAD), and the upstream it tracks (#43).
+    public var branch: String?
+    public var upstream: String?
     /// Tracked files that changed: modified, staged, renamed (both names), unmerged. Relative
     /// to the repository root.
     public var changed: [String] = []
@@ -164,6 +167,22 @@ public enum Git {
         var data = Data()
     }
 
+    /// A `# branch.…` header: the branch (#43), its upstream (#43), ahead and behind.
+    private static func readHeader(_ record: String, into status: inout GitRepoStatus) {
+        if record.hasPrefix("# branch.head ") {
+            let head = String(record.dropFirst("# branch.head ".count))
+            status.branch = head == "(detached)" ? nil : head
+        } else if record.hasPrefix("# branch.upstream ") {
+            status.upstream = String(record.dropFirst("# branch.upstream ".count))
+        } else if record.hasPrefix("# branch.ab ") {
+            let parts = record.split(separator: " ")
+            if parts.count == 4 {
+                status.ahead = Int(parts[2].dropFirst()) ?? 0
+                status.behind = Int(parts[3].dropFirst()) ?? 0
+            }
+        }
+    }
+
     /// Parses `git status --porcelain=v2 --branch -z`.
     static func parse(_ data: Data) -> GitRepoStatus {
         var status = GitRepoStatus()
@@ -173,12 +192,8 @@ public enum Git {
         while index < records.count {
             let record = records[index]
             index += 1
-            if record.hasPrefix("# branch.ab ") {
-                let parts = record.split(separator: " ")
-                if parts.count == 4 {
-                    status.ahead = Int(parts[2].dropFirst()) ?? 0
-                    status.behind = Int(parts[3].dropFirst()) ?? 0
-                }
+            if record.hasPrefix("# ") {
+                readHeader(record, into: &status)
                 continue
             }
             // Ordinary (1), renamed or copied (2), unmerged (u), untracked (?), ignored (!); the

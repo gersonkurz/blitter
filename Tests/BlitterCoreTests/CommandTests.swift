@@ -22,6 +22,21 @@ struct CommandTests {
         #expect(message.contains("exit code 3") && message.contains("broken"))
     }
 
+    /// #43: a command's output, stdout and stderr together in the order they came, is the job's,
+    /// for a dialog to show; bounded to its last 64 KB. git never waits for a password.
+    @Test func theOutputIsTheJobsAndGitIsToldNotToPrompt() async throws {
+        let fixture = try OperationFixture()
+        let script = "echo first; echo second >&2; echo prompt=$GIT_TERMINAL_PROMPT"
+        let job = try await fixture.run(.command(["sh", "-c", script], folder: fixture.source))
+        #expect(job.errors.isEmpty)
+        #expect(job.progress.output == "first\nsecond\nprompt=0\n")
+
+        let long = try await fixture.run(.command(["sh", "-c", "head -c 200000 /dev/zero | tr '\\0' 'x'; echo END"],
+                                                  folder: fixture.source))
+        #expect(long.progress.outputBytes.count == JobProgress.outputLimit)
+        #expect(long.progress.output.hasSuffix("xxxEND\n")) // the end is kept
+    }
+
     @Test func aMissingProgramIsReported() async throws {
         let fixture = try OperationFixture()
         let job = try await fixture.run(.command(["no-such-program-7f3c"], folder: fixture.source))
