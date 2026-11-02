@@ -57,6 +57,9 @@ public final class Workspace {
     private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
     /// The fast filter's search for highlighted names (#39). A newer one cancels it.
     var highlightWork: [Side: Task<Void, Never>] = [:]
+    /// Color schemes being fetched, by the name the settings give them (#34), and how.
+    var schemeWork: [String: Task<Void, Never>] = [:]
+    public var fetch: @Sendable (URL) async throws -> Data = Downloads.fetch
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
     var pendingOpen: [Side: Task<Void, Never>] = [:]
     static let maxRecentLocations = 20

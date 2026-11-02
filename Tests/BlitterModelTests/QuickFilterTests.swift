@@ -114,8 +114,10 @@ struct QuickFilterTests {
 
     /// The highlights follow the listing: a folder read again may have new matches.
     @Test func aNewListingIsHighlightedAgain() async {
-        let lister = FakeLister([.success([entry("a.txt"), entry("b.md")]),
-                                 .success([entry("a.txt"), entry("b.md"), entry("c.txt")])])
+        // Both sides start here and read in either order: each gets the first listing; the
+        // refresh gets the second.
+        let first: Result<[DirectoryEntry], POSIXError> = .success([entry("a.txt"), entry("b.md")])
+        let lister = FakeLister([first, first, .success([entry("a.txt"), entry("b.md"), entry("c.txt")])])
         let workspace = Workspace(initialLocation: "/folder", home: "/folder", lister: lister.list,
                                   directoryCheck: { _ in false }, volumes: { [] }, watcher: FakeWatcher.factory)
         await workspace.settle()

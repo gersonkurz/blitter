@@ -1,3 +1,4 @@
+import Foundation
 import TOMLKit
 import UniformTypeIdentifiers
 
@@ -21,54 +22,6 @@ public struct RGB: Equatable, Hashable, Sendable {
         }
         self.init(red: UInt8(value >> 16), green: UInt8((value >> 8) & 0xFF), blue: UInt8(value & 0xFF))
     }
-}
-
-/// A Base16 scheme: 16 colors, base00 (darkest background in a dark scheme) to base0F.
-public struct Base16Scheme: Equatable, Sendable {
-    public let colors: [RGB]
-
-    init?(_ hex: [String]) {
-        let colors = hex.compactMap(RGB.init(hex:))
-        guard colors.count == 16, hex.count == 16 else {
-            return nil
-        }
-        self.colors = colors
-    }
-
-    static func slotName(_ index: Int) -> String {
-        "base0" + String(index, radix: 16, uppercase: true)
-    }
-
-    /// Slot names "base00"…"base0F" (any case) to 0…15.
-    static func slot(_ name: String) -> Int? {
-        let lower = name.lowercased()
-        guard lower.count == 6, lower.hasPrefix("base0"), let index = Int(lower.suffix(1), radix: 16) else {
-            return nil
-        }
-        return index
-    }
-
-    // swiftlint:disable force_unwrapping
-    /// Base16 Default by Chris Kempson, and Solarized by Ethan Schoonover, as Base16 schemes.
-    static let builtIn: [String: Base16Scheme] = [
-        "default-dark": Base16Scheme([
-            "181818", "282828", "383838", "585858", "b8b8b8", "d8d8d8", "e8e8e8", "f8f8f8",
-            "ab4642", "dc9656", "f7ca88", "a1b56c", "86c1b9", "7cafc2", "ba8baf", "a16946",
-        ])!,
-        "default-light": Base16Scheme([
-            "f8f8f8", "e8e8e8", "d8d8d8", "b8b8b8", "585858", "383838", "282828", "181818",
-            "ab4642", "dc9656", "f7ca88", "a1b56c", "86c1b9", "7cafc2", "ba8baf", "a16946",
-        ])!,
-        "solarized-dark": Base16Scheme([
-            "002b36", "073642", "586e75", "657b83", "839496", "93a1a1", "eee8d5", "fdf6e3",
-            "dc322f", "cb4b16", "b58900", "859900", "2aa198", "268bd2", "6c71c4", "d33682",
-        ])!,
-        "solarized-light": Base16Scheme([
-            "fdf6e3", "eee8d5", "93a1a1", "839496", "657b83", "586e75", "073642", "002b36",
-            "dc322f", "cb4b16", "b58900", "859900", "2aa198", "268bd2", "6c71c4", "d33682",
-        ])!,
-    ]
-    // swiftlint:enable force_unwrapping
 }
 
 /// What a color means; each role takes one of the scheme's 16 slots.
@@ -107,7 +60,7 @@ public enum ThemeRole: String, CaseIterable, Sendable {
 
 /// The colors to draw with: a scheme and which slot each role takes.
 public struct Theme: Equatable, Sendable {
-    public let scheme: Base16Scheme
+    public let scheme: Base24Scheme
     public let slots: [ThemeRole: Int]
 
     public func color(_ role: ThemeRole) -> RGB {
@@ -121,7 +74,7 @@ public struct ThemeSettings: Equatable, Sendable {
     public var light = "system"
     public var dark = "system"
     public var slots = ThemeRole.defaultSlots
-    public var schemes: [String: Base16Scheme] = [:]
+    public var schemes: [String: Base24Scheme] = [:]
 
     /// The theme for the appearance, or nil for the system's colors.
     public func theme(dark isDark: Bool) -> Theme? {
@@ -129,8 +82,8 @@ public struct ThemeSettings: Equatable, Sendable {
         return scheme(named: name).map { Theme(scheme: $0, slots: slots) }
     }
 
-    func scheme(named name: String) -> Base16Scheme? {
-        schemes[name] ?? Base16Scheme.builtIn[name]
+    func scheme(named name: String) -> Base24Scheme? {
+        schemes[name] ?? Base24Scheme.builtIn[name]
     }
 
     /// Applies `[theme]`. Each entry with a problem is reported and keeps its previous value.
@@ -148,8 +101,13 @@ public struct ThemeSettings: Equatable, Sendable {
             case ("schemes", _?):
                 continue // read above
             case let ("light", value?), let ("dark", value?):
-                guard let scheme = value.string, scheme == "system" || self.scheme(named: scheme) != nil else {
-                    problems.append("“\(name)”: expected \"system\" or a scheme: \(schemeNames).")
+                // A name from the collection, a file or an address is looked for later, when the
+                // settings are read (#34); here only its form is checked.
+                guard let scheme = value.string, scheme == "system" || self.scheme(named: scheme) != nil
+                    || SchemeReference(scheme, home: "") != nil
+                else {
+                    problems.append("“\(name)”: expected \"system\", a scheme (\(schemeNames)), a scheme "
+                        + "name from tinted-theming such as \"dracula\", a file path or an https address.")
                     continue
                 }
                 if key == "light" {
@@ -167,8 +125,51 @@ public struct ThemeSettings: Equatable, Sendable {
         return problems
     }
 
+    /// Finds the schemes `light` and `dark` name that are neither built in nor in the file (#34):
+    /// a file is read, a scheme from the collection or the web is taken from `cacheFolder` if
+    /// fetched before, else listed to be fetched. Until then, and when it cannot be read, the
+    /// setting is "system". Reads files: off the main thread.
+    mutating func resolve(cacheFolder: String?, home: String) -> (problems: [String], downloads: [SchemeDownload]) {
+        var problems: [String] = []
+        var downloads: [SchemeDownload] = []
+        for key in ["light", "dark"] {
+            let name = key == "light" ? light : dark
+            guard name != "system", scheme(named: name) == nil, let reference = SchemeReference(name, home: home) else {
+                continue
+            }
+            let path = if case let .file(path) = reference {
+                path
+            } else {
+                cacheFolder.flatMap(reference.cachePath)
+            }
+            // A file that is there but cannot be read is reported, never fetched over: the fetch
+            // would not replace it, and would start again with every read (#34 review).
+            if let path, Base24Scheme.entryExists(path) {
+                if let scheme = Base24Scheme.read(path) {
+                    schemes[name] = scheme
+                    continue
+                }
+                problems.append("“theme.\(key)”: “\(path)” is not a readable Base16 or Base24 scheme.")
+            } else if case .file = reference {
+                problems.append("“theme.\(key)”: “\(path ?? name)” could not be read.")
+            } else if let path {
+                if !downloads.contains(where: { $0.name == name }) {
+                    downloads.append(SchemeDownload(name: name, urls: reference.downloadURLs, cachePath: path))
+                }
+            } else {
+                problems.append("“theme.\(key)”: “\(name)” needs a settings file to keep it in.")
+            }
+            if key == "light" {
+                light = "system"
+            } else {
+                dark = "system"
+            }
+        }
+        return (problems, downloads)
+    }
+
     private var schemeNames: String {
-        (["system"] + (Array(Base16Scheme.builtIn.keys) + Array(schemes.keys)).sorted()).joined(separator: ", ")
+        (["system"] + (Array(Base24Scheme.builtIn.keys) + Array(schemes.keys)).sorted()).joined(separator: ", ")
     }
 
     private mutating func readRoles(_ value: TOMLValueConvertible,
@@ -185,8 +186,8 @@ public struct ThemeSettings: Equatable, Sendable {
                     + ThemeRole.allCases.map(\.rawValue).joined(separator: ", ") + ".")
                 continue
             }
-            guard let slot = value?.string.flatMap(Base16Scheme.slot) else {
-                problems.append("“theme.roles.\(key)”: expected a slot from \"base00\" to \"base0F\".")
+            guard let slot = value?.string.flatMap(Base24Scheme.slot) else {
+                problems.append("“theme.roles.\(key)”: expected a slot from \"base00\" to \"base17\".")
                 continue
             }
             slots[role] = slot
@@ -207,13 +208,15 @@ public struct ThemeSettings: Equatable, Sendable {
                 problems.append("“theme.schemes.\(name)” must be a section with base00 … base0F.")
                 continue
             }
-            // Base16 files write "base0A"; "base0a" is accepted too.
-            let hex = (0 ..< 16).map { index in
-                let slot = Base16Scheme.slotName(index)
+            // Base16 (base00 … base0F) or Base24 (… base17). Files write "base0A"; "base0a" works too.
+            let count = colors.keys.count
+            let hex = (0 ..< count).map { index in
+                let slot = Base24Scheme.slotName(index)
                 return (colors[slot] ?? colors[slot.lowercased()])?.string ?? ""
             }
-            guard let scheme = Base16Scheme(hex), colors.keys.count == 16 else {
-                problems.append("“theme.schemes.\(name)” needs exactly base00 … base0F, each a color like \"#181818\".")
+            guard let scheme = Base24Scheme(hex) else {
+                problems.append("“theme.schemes.\(name)” needs exactly base00 … base0F (Base16) or base00 … "
+                    + "base17 (Base24), each a color like \"#181818\".")
                 continue
             }
             schemes[name] = scheme

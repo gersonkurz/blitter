@@ -37,18 +37,23 @@ extension Workspace {
             return
         }
         settingsWork?.cancel()
+        let home = home
         settingsWork = Task { [weak self] in
-            let result: (settings: Settings, problems: [String])
+            var result: (settings: Settings, problems: [String])
             do {
                 result = try await Self.readSettings(path)
             } catch {
                 result = (Settings(), ["The settings file could not be read: \(error.localizedDescription)"])
             }
+            // The schemes the theme names that are not in the file (#34): read, or to be fetched.
+            let schemes = Self.schemesFolder(of: path)
+            let (resolved, downloads) = await Self.resolveSchemes(result.settings, folder: schemes, home: home)
             guard !Task.isCancelled, let self else {
                 return
             }
             settingsWork = nil
-            apply(result.settings, problems: result.problems)
+            apply(resolved.settings, problems: result.problems + resolved.problems)
+            download(downloads)
         }
     }
 

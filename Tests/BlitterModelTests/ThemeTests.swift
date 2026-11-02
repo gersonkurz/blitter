@@ -14,11 +14,15 @@ struct ThemeTests {
         for bad in ["", "#7cafc", "7cafc2a", "#gggggg", "+7cafc", " 7cafc"] {
             #expect(RGB(hex: bad) == nil, "\(bad)")
         }
-        #expect(Base16Scheme.slot("base00") == 0 && Base16Scheme.slot("base0D") == 13 && Base16Scheme
+        #expect(Base24Scheme.slot("base00") == 0 && Base24Scheme.slot("base0D") == 13 && Base24Scheme
             .slot("BASE0f") == 15)
-        #expect(Base16Scheme.slot("base10") == nil && Base16Scheme.slot("base0G") == nil && Base16Scheme
-            .slot("base0") == nil)
-        #expect(Base16Scheme.builtIn.count == 4 && Base16Scheme.builtIn.values.allSatisfy { $0.colors.count == 16 })
+        // Base24 (#34): base10 … base17 are slots 16 … 23; base18 and beyond are not.
+        #expect(Base24Scheme.slot("base10") == 16 && Base24Scheme.slot("BASE17") == 23)
+        for bad in ["base18", "base1A", "base20", "base0G", "base0", "base000"] {
+            #expect(Base24Scheme.slot(bad) == nil, "\(bad)")
+        }
+        #expect((0 ..< 24).allSatisfy { Base24Scheme.slot(Base24Scheme.slotName($0)) == $0 })
+        #expect(Base24Scheme.builtIn.count == 4 && Base24Scheme.builtIn.values.allSatisfy { $0.colors.count == 24 })
     }
 
     @Test func theDefaultIsTheSystemsOwnLook() {
@@ -61,7 +65,7 @@ struct ThemeTests {
     @Test func problemsAreReportedAndKeepTheDefaults() {
         let (settings, problems) = Settings.parse("""
         [theme]
-        light = "neon"
+        light = "Neon Lights"
         dark = 3
         roles = "folder"
         extra = 1
@@ -76,7 +80,7 @@ struct ThemeTests {
         #expect(problems.contains { $0.contains("theme.schemes.half") })
         #expect(problems.contains { $0.contains("theme.extra") })
 
-        let (roles, roleProblems) = Settings.parse("[theme.roles]\nfolder = \"base10\"\nsparkle = \"base01\"\n")
+        let (roles, roleProblems) = Settings.parse("[theme.roles]\nfolder = \"base18\"\nsparkle = \"base01\"\n")
         #expect(roles.theme == ThemeSettings())
         #expect(roleProblems.count == 2)
     }

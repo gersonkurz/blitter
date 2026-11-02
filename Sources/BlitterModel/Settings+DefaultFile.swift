@@ -81,14 +81,18 @@ public extension Settings {
         { action = "copy-name", key = "shift+opt+cmd+c" },
     ]
 
-    # Colors: a Base16 scheme for light mode and one for dark mode; "system" keeps macOS's colors.
-    # Built in: default-dark, default-light, solarized-dark, solarized-light. Add your own as
-    # [theme.schemes.<name>] with base00 = "#181818" … base0F = "#a16946".
+    # Colors: a Base16 or Base24 scheme for light mode and one for dark mode; "system" keeps
+    # macOS's colors. Built in: default-dark, default-light, solarized-dark, solarized-light.
+    # Any scheme of https://github.com/tinted-theming/schemes by its name, e.g. "dracula" or
+    # "gruvbox-dark-hard": fetched once and kept in the "schemes" folder next to this file.
+    # A scheme file: "~/themes/mine.yaml"; or an address: "https://…/mine.yaml".
+    # Or your own: [theme.schemes.<name>] with base00 = "#181818" … base0F (… base17 for Base24).
     [theme]
     light = "system"
     dark = "system"
 
-    # Which of the scheme's 16 colors each role takes.
+    # Which of the scheme's colors each role takes: base00 … base0F, and base10 … base17 (a
+    # Base16 scheme has those too, from Base24's fallbacks).
     [theme.roles]
     background = "base00"
     stripe = "base01"
