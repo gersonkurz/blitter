@@ -179,7 +179,17 @@ public struct RenameRequest: Equatable, Sendable {
 
 struct PendingSelection: Equatable {
     let folder: String
-    let name: String
+    let names: Set<String>
+
+    init(folder: String, name: String) {
+        self.folder = folder
+        names = [name]
+    }
+
+    init(folder: String, names: Set<String>) {
+        self.folder = folder
+        self.names = names
+    }
 }
 
 struct PendingAction: Equatable {

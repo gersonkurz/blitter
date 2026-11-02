@@ -193,14 +193,20 @@ extension Workspace {
     /// folder: a job that finishes after the user went elsewhere selects nothing there.
     @discardableResult
     private func select(_ name: String, in folder: String, on side: Side) -> Bool {
+        select([name], in: folder, on: side)
+    }
+
+    /// The same for several names (a batch rename's): those the listing shows are selected.
+    @discardableResult
+    func select(_ names: Set<String>, in folder: String, on side: Side) -> Bool {
         guard sides[side]?.location == folder else {
             return false
         }
-        sides[side]?.pendingSelection = PendingSelection(folder: folder, name: name)
+        sides[side]?.pendingSelection = PendingSelection(folder: folder, names: names)
         return true
     }
 
-    private func startJob(_ operation: FileOperation, then followUp: ((Workspace) -> Void)? = nil) {
+    func startJob(_ operation: FileOperation, then followUp: ((Workspace) -> Void)? = nil) {
         let id = jobQueue.start(operation)
         if let followUp {
             jobFollowUps[id] = followUp
@@ -241,6 +247,7 @@ extension Workspace {
         case let .trash(paths), let .delete(paths): Set(paths.map(parent))
         case let .command(_, folder): [folder] // e.g. git pull changes the files in it
         case let .rename(path, _): [parent(path)]
+        case let .renameAll(renames): Set(renames.map { parent($0.path) })
         case let .newFolder(folder, _): [folder]
         }
     }

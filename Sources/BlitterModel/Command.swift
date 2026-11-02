@@ -92,6 +92,13 @@ public enum Command: Sendable {
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a
     /// rename always hits the item it was started for. `side` selects the result.
     case rename(Side, path: String, newName: String)
+    /// Ask the window to show Batch Rename for the side's selection (`batchRenameRequest`).
+    case requestBatchRename(Side)
+    /// Carry out the renames a Batch Rename preview shows (`Workspace.batchRenamePreview`), all
+    /// or none, if they are all still possible; ends the request.
+    case batchRename(Side, BatchRenamePreview)
+    /// Batch Rename was closed without renaming.
+    case cancelBatchRename
     /// Ask the view to edit the name of the side's single selected entry.
     case requestRename(Side)
     case cancelRename(Side)

@@ -13,7 +13,8 @@ final class OperationFixture {
     let queue: JobQueue
 
     init(otherVolume: Bool = false, remove: @escaping FileOperations.Remover = FileOperations.removeForGood,
-         gate: DispatchSemaphore? = nil, sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil) throws
+         gate: DispatchSemaphore? = nil, sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
+         rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive) throws
     {
         root = try TemporaryFolder()
         source = root.path + "/source"
@@ -26,7 +27,7 @@ final class OperationFixture {
         queue = JobQueue(trash: { path in
             let target = trash + "/" + UUID().uuidString + "-" + (path as NSString).lastPathComponent
             try FileManager.default.moveItem(atPath: path, toPath: target)
-        }, remove: remove, simulateOtherVolume: otherVolume, gate: gate, sizingProbe: sizingProbe)
+        }, remove: remove, simulateOtherVolume: otherVolume, gate: gate, sizingProbe: sizingProbe, rename: rename)
     }
 
     @discardableResult

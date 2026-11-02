@@ -8,6 +8,15 @@ protocol OperationContext: AnyObject, Sendable {
     func update(_ change: (inout JobProgress) -> Void)
     /// Blocks until the conflict is answered; nil if the job was cancelled meanwhile.
     func ask(_ conflict: Conflict) -> ConflictAnswer?
+    /// The rest of the job runs to the end as one step (a batch rename, #54): false if it was
+    /// cancelled already, otherwise Cancel has no effect from now on and the job finishes.
+    func commit() -> Bool
+}
+
+extension OperationContext {
+    func commit() -> Bool {
+        !cancellation.isSet
+    }
 }
 
 /// Carries out file operations synchronously on the calling (job) thread.
@@ -23,10 +32,14 @@ struct FileOperations {
     /// Removes an item for good (only ever a partial copy of our own, or the original after a
     /// complete move to another volume). Returns 0 or an errno; tests make it fail.
     typealias Remover = @Sendable (String) -> Int32
+    /// Renames an item to a name that must be free (`RENAME_EXCL`). Returns 0 or an errno;
+    /// tests make it fail at chosen steps of a batch rename.
+    typealias Renamer = @Sendable (String, String) -> Int32
 
     let context: OperationContext
     let trashItem: Trasher
     let removeItem: Remover
+    let renameItem: Renamer
     /// Tests watch (and cancel) size scans through this.
     let sizingProbe: (@Sendable (CancellationFlag) -> Void)?
     /// Tests set this to take the paths used between volumes (no clone, no rename) on one volume.
@@ -37,17 +50,23 @@ struct FileOperations {
 
     init(context: OperationContext, trash: @escaping Trasher = FileOperations.moveToTrash,
          remove: @escaping Remover = FileOperations.removeForGood, simulateOtherVolume: Bool = false,
-         sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil)
+         sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
+         rename: @escaping Renamer = FileOperations.renameExclusive)
     {
         self.context = context
         trashItem = trash
         removeItem = remove
+        renameItem = rename
         self.sizingProbe = sizingProbe
         self.simulateOtherVolume = simulateOtherVolume
     }
 
-    private var isCancelled: Bool {
+    var isCancelled: Bool {
         context.cancellation.isSet
+    }
+
+    @Sendable static func renameExclusive(_ path: String, _ target: String) -> Int32 {
+        renamex_np(path, target, UInt32(RENAME_EXCL)) == 0 ? 0 : errno
     }
 
     @Sendable static func removeForGood(_ path: String) -> Int32 {
@@ -88,6 +107,8 @@ struct FileOperations {
             }
         case let .rename(path, name):
             rename(path, to: name)
+        case let .renameAll(renames):
+            renameAll(renames)
         case let .newFolder(folder, name):
             newFolder(in: folder, name: name)
         }
@@ -268,24 +289,6 @@ struct FileOperations {
         }
     }
 
-    private mutating func rename(_ path: String, to name: String) {
-        guard !isCancelled else {
-            return
-        }
-        guard Self.isValidName(name) else {
-            fail(path, "“\(name)” is not a valid name.")
-            return
-        }
-        let target = ((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name)
-        // On a case-insensitive volume a change of case only names the same item: that is the one
-        // case where the new name may already "exist". Anything else must not be overwritten.
-        let isSameItem = Self.identity(target) != nil && Self.identity(target) == Self.identity(path)
-        let flags = isSameItem ? 0 : UInt32(RENAME_EXCL)
-        if renamex_np(path, target, flags) != 0 {
-            fail(path, errno == EEXIST ? "An item named “\(name)” already exists." : Self.message(errno))
-        }
-    }
-
     private mutating func newFolder(in folder: String, name: String) {
         guard !isCancelled else {
             return
@@ -307,7 +310,7 @@ struct FileOperations {
         Self.size(of: path, cancelled: context.cancellation, visit: sizingProbe)
     }
 
-    private mutating func fail(_ path: String, _ message: String) {
+    mutating func fail(_ path: String, _ message: String) {
         errors.append(JobError(path: path, message: message))
     }
 }

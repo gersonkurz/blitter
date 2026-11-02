@@ -17,7 +17,8 @@ public struct ContextMenus: Equatable, Sendable {
         items: [
             .action("open"), .action("quick-look"), .action("folder-sizes"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
-            .action("rename"), .action("move-to-trash"), .action("delete-immediately"), .separator,
+            .action("rename"), .action("batch-rename"), .action("move-to-trash"), .action("delete-immediately"),
+            .separator,
             .action("compare-files"), .action("git-log"), .action("git-commit"), .action("git-sync"),
             .separator,
             .action("reveal-in-finder"), .action("open-in-terminal"), .action("open-in-code"),

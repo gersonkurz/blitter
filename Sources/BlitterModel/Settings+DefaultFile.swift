@@ -45,7 +45,7 @@ public extension Settings {
 
     # The file list's context menus: action names in order, "-" for a separator, and
     # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
-    # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
+    # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
     # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
     # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, compare-files,
     # compare-folders, git-log, git-commit and git-sync (only inside a git working copy), and the
@@ -55,7 +55,7 @@ public extension Settings {
     items = [
         "open", "quick-look", "folder-sizes", "-",
         "copy-path", "copy-name", "-",
-        "rename", "move-to-trash", "delete-immediately", "-",
+        "rename", "batch-rename", "move-to-trash", "delete-immediately", "-",
         "compare-files", "git-log", "git-commit", "git-sync", "-",
         "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
     ]
@@ -74,6 +74,7 @@ public extension Settings {
     file = [
         { action = "new-folder", key = "shift+cmd+n" },
         { action = "rename", key = "f2" },
+        { action = "batch-rename", key = "shift+f2" },
         "-",
         { action = "copy-to-other-side", key = "f5" },
         { action = "move-to-other-side", key = "f6" },

@@ -289,6 +289,8 @@ enum JobText {
             "Running “\(([name(arguments.first ?? "")] + arguments.dropFirst()).joined(separator: " "))”"
         case let .rename(path, newName):
             "Renaming “\(name(path))” to “\(newName)”"
+        case let .renameAll(renames):
+            "Renaming \(items(renames.map(\.path)))"
         case let .newFolder(_, folderName):
             "Creating “\(folderName)”"
         }

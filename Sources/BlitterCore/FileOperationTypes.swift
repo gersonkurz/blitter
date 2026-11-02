@@ -15,6 +15,9 @@ public enum FileOperation: Equatable, Sendable {
     case command([String], folder: String)
     /// Give an item a new name in the same folder.
     case rename(String, newName: String)
+    /// Give several items new names, each in its own folder (batch rename): all or none, and
+    /// names may be swapped or passed along ("a" → "b", "b" → "c").
+    case renameAll([Rename])
     /// Create a folder.
     case newFolder(parent: String, name: String)
 }
@@ -32,7 +35,7 @@ public extension FileOperation {
         case let .move(paths, folder): .move(Self.outermost(paths, isRealFolder: isRealFolder), into: folder)
         case let .trash(paths): .trash(Self.outermost(paths, isRealFolder: isRealFolder))
         case let .delete(paths): .delete(Self.outermost(paths, isRealFolder: isRealFolder))
-        case .command, .rename, .newFolder: self
+        case .command, .rename, .renameAll, .newFolder: self
         }
     }
 
@@ -63,6 +66,17 @@ public extension FileOperation {
     static func isRealFolder(_ path: String) -> Bool {
         var info = stat()
         return lstat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+    }
+}
+
+/// One item of a batch rename.
+public struct Rename: Equatable, Sendable {
+    public let path: String
+    public let newName: String
+
+    public init(path: String, newName: String) {
+        self.path = path
+        self.newName = newName
     }
 }
 

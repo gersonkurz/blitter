@@ -26,9 +26,20 @@ struct MenuBarTests {
                 nil
             }
         }
-        #expect(file == ["new-folder", "rename", "copy-to-other-side", "move-to-other-side", "reveal-in-finder",
-                         "folder-sizes", "compare-files", "compare-folders", "move-to-trash", "delete-immediately",
-                         "delete-immediately-without-asking"])
+        #expect(file == [
+            "new-folder",
+            "rename",
+            "batch-rename",
+            "copy-to-other-side",
+            "move-to-other-side",
+            "reveal-in-finder",
+            "folder-sizes",
+            "compare-files",
+            "compare-folders",
+            "move-to-trash",
+            "delete-immediately",
+            "delete-immediately-without-asking",
+        ])
         #expect(bar.file.last == .action("delete-immediately-without-asking",
                                          shortcut: Shortcut(.backspace, [.shift, .option, .command]), alternate: true))
         #expect(bar.edit.count == 2)

@@ -230,12 +230,12 @@ final class FindDiskImage {
     let folder: String
     let mountPoint: String
 
-    init() throws {
+    init(fileSystem: String = "APFS") throws {
         folder = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path
             + "/BlitterFindVolume-" + UUID().uuidString
         mountPoint = folder + "/mount"
         try FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
-        try Self.hdiutil(["create", "-quiet", "-size", "16m", "-fs", "APFS", "-volname", "BlitterTest", "-type",
+        try Self.hdiutil(["create", "-quiet", "-size", "16m", "-fs", fileSystem, "-volname", "BlitterTest", "-type",
                           "SPARSE", folder + "/volume"])
         try Self.hdiutil(["attach", "-quiet", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mountPoint,
                           folder + "/volume.sparseimage"])

@@ -97,6 +97,9 @@ public final class Workspace {
     /// Items waiting for the user to confirm that they are deleted for good; the window asks.
     public internal(set) var deleteRequest: DeleteRequest?
     var nextDeleteToken = 0
+    /// Batch Rename asked for, waiting for the window to show it.
+    public internal(set) var batchRenameRequest: BatchRenameRequest?
+    var nextBatchRenameToken = 0
     /// Every action the user can run, by id (#15).
     /// Built from the settings' tools; replaced when they change.
     public internal(set) var actionRegistry = ActionRegistry(tools: Tool.defaults)
@@ -178,6 +181,9 @@ public final class Workspace {
         case let .stopFind(side): stopFind(side)
         case let .measureFolderSizes(side): measureFolders(side)
         case let .selectByPattern(side, pattern, mode): selectByPattern(side, pattern, mode)
+        case let .requestBatchRename(side): requestBatchRename(side)
+        case let .batchRename(side, preview): batchRename(side, preview)
+        case .cancelBatchRename: cancelBatchRename()
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
@@ -325,9 +331,12 @@ extension Workspace {
             // Keep only selected names that still exist (looked up, not searched: #47).
             state.selection = state.selection.filter { listing.index[$0] != nil }
             state.folderSizes = Self.keepingListedFolders(state.folderSizes, in: listing.all)
-            if let pending = state.pendingSelection, pending.folder == location, listing.index[pending.name] != nil {
-                state.selection = [pending.name]
-                state.pendingSelection = nil
+            if let pending = state.pendingSelection, pending.folder == location {
+                let listed = pending.names.filter { listing.index[$0] != nil }
+                if !listed.isEmpty {
+                    state.selection = listed
+                    state.pendingSelection = nil
+                }
             }
         case .failure where state.fallsBackToHome && location != home:
             // A folder from the last session that is gone: start at home, without an error.

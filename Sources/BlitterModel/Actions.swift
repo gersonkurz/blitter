@@ -140,6 +140,9 @@ public struct ActionRegistry: Sendable {
         Action("copy-path", "Copy Path", scope: .selection, output: .clipboard) { _, side in .copyPaths(side) },
         Action("copy-name", "Copy Name", scope: .selection, output: .clipboard) { _, side in .copyNames(side) },
         Action("rename", "Rename", scope: .single, worksInFind: false) { _, side in .requestRename(side) },
+        Action("batch-rename", "Batch Rename…", scope: .selection, worksInFind: false) { _, side in
+            .requestBatchRename(side)
+        },
         Action("copy-to-other-side", "Copy to Other Side", scope: .selection) { workspace, side in
             .copyItems(workspace.selectedItems(on: side).map(\.path),
                        toFolder: workspace.state(of: side.opposite).location)

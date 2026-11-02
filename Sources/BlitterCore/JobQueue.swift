@@ -39,6 +39,7 @@ public final class JobQueue {
     /// Tests hold jobs here before they touch the disk, e.g. to cancel them first.
     private let gate: DispatchSemaphore?
     private let sizingProbe: (@Sendable (CancellationFlag) -> Void)?
+    private let rename: FileOperations.Renamer
     private var runners: [Int: JobRunner] = [:]
     private var nextID = 1
 
@@ -48,6 +49,7 @@ public final class JobQueue {
         simulateOtherVolume = false
         gate = nil
         sizingProbe = nil
+        rename = FileOperations.renameExclusive
     }
 
     /// For tests: a Trash of their own, a remover that can fail, the paths used between volumes on
@@ -58,8 +60,10 @@ public final class JobQueue {
         remove: @escaping FileOperations.Remover = FileOperations.removeForGood,
         simulateOtherVolume: Bool = false,
         gate: DispatchSemaphore? = nil,
-        sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil
+        sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
+        rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive
     ) {
+        self.rename = rename
         self.trash = trash
         self.remove = remove
         self.simulateOtherVolume = simulateOtherVolume
@@ -79,10 +83,12 @@ public final class JobQueue {
         let simulateOtherVolume = simulateOtherVolume
         let gate = gate
         let sizingProbe = sizingProbe
+        let rename = rename
         DispatchQueue.global(qos: .userInitiated).async {
             gate?.wait()
             var operations = FileOperations(context: runner, trash: trash, remove: remove,
-                                            simulateOtherVolume: simulateOtherVolume, sizingProbe: sizingProbe)
+                                            simulateOtherVolume: simulateOtherVolume, sizingProbe: sizingProbe,
+                                            rename: rename)
             // On the job's thread: finding what lies inside what looks at the disk (#48).
             let errors = operations.run(operation.withoutNestedItems())
             runner.finish(errors)
@@ -133,8 +139,10 @@ private final class JobRunner: OperationContext, @unchecked Sendable {
     private weak var queue: JobQueue?
     private let lock = NSLock()
     let cancellation = CancellationFlag()
-    // Guarded by `lock`.
+    /// Guarded by `lock`.
     private var cancelled = false
+    /// The job runs to the end now (`commit`): Cancel no longer applies.
+    private var committed = false
     private var progress = JobProgress()
     private var publishScheduled = false
     private var isWaiting = false
@@ -210,13 +218,26 @@ private final class JobRunner: OperationContext, @unchecked Sendable {
     }
 
     func cancel() {
-        cancellation.set()
         let wakeUp = lock.withLock { () -> Bool in
+            guard !committed else {
+                return false // it finishes anyway
+            }
+            cancellation.set()
             defer { cancelled = true }
             return !cancelled && isWaiting && pendingAnswer == nil
         }
         if wakeUp {
             answered.signal() // the job waits for an answer it will not get
+        }
+    }
+
+    func commit() -> Bool {
+        lock.withLock {
+            guard !cancellation.isSet else {
+                return false
+            }
+            committed = true
+            return true
         }
     }
 

@@ -1,5 +1,6 @@
 import AppKit
 import BlitterModel
+import SwiftUI
 
 /// The main window: the two sides next to each other, below them the Find panel (#48) while it
 /// is shown, and the strip of running file operations, which takes no space while there are none.
@@ -11,6 +12,10 @@ final class MainWindowController: NSWindowController {
     let findController: FindPanelController
     /// The delete request the window has already asked about.
     private var askedDeleteToken: Int?
+    /// The Batch Rename request the window has already shown.
+    private var shownBatchRenameToken: Int?
+    /// The Batch Rename sheet's model while it is open, kept up to date on every render.
+    private weak var batchRename: BatchRenameModel?
     /// Light and dark mode take different theme schemes (#21).
     private var appearanceObservation: NSKeyValueObservation?
     /// Runs after every render, e.g. to save the state for the next launch.
@@ -118,7 +123,28 @@ final class MainWindowController: NSWindowController {
         jobsController.render()
         findController.render()
         askToDeleteIfNeeded()
+        showBatchRenameIfNeeded()
+        batchRename?.refresh()
         afterRender?()
+    }
+
+    /// Batch Rename shows in a sheet; it closes itself when done.
+    private func showBatchRenameIfNeeded() {
+        guard let request = workspace.batchRenameRequest, request.token != shownBatchRenameToken,
+              let content = window?.contentViewController
+        else {
+            return
+        }
+        shownBatchRenameToken = request.token
+        let model = BatchRenameModel(workspace: workspace, side: request.side)
+        batchRename = model
+        let sheet = NSHostingController(rootView: BatchRenameView(model: model))
+        model.onClose = { [weak content, weak sheet] in
+            if let sheet {
+                content?.dismiss(sheet)
+            }
+        }
+        content.presentAsSheet(sheet)
     }
 
     /// Delete Immediately asks in a sheet; the answer goes back as a command.

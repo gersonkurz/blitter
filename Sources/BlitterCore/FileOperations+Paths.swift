@@ -12,7 +12,7 @@ extension FileOperations {
         return lstat(path, &info) == 0
     }
 
-    struct Identity: Equatable {
+    struct Identity: Hashable {
         let device: dev_t
         let inode: ino_t
     }

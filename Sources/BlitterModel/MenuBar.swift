@@ -80,7 +80,7 @@ public struct MenuBarSettings: Equatable, Sendable {
     /// The menus as they were before they became configurable.
     static let defaults = MenuBarSettings(
         file: [
-            item("new-folder", "shift+cmd+n"), item("rename", "f2"), .separator,
+            item("new-folder", "shift+cmd+n"), item("rename", "f2"), item("batch-rename", "shift+f2"), .separator,
             item("copy-to-other-side", "f5"), item("move-to-other-side", "f6"),
             item("reveal-in-finder", "opt+cmd+r"), item("folder-sizes", "opt+cmd+s"), .separator,
             item("compare-files", "opt+cmd+d"), item("compare-folders", "shift+opt+cmd+d"), .separator,
