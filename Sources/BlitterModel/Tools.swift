@@ -26,10 +26,12 @@ public struct Tool: Equatable, Sendable {
 
     /// The text editor tool's app also opens the settings file (#36).
     static let textEditorID = "open-in-text-editor"
+    /// The terminal tool also opens a working copy whose rebase stopped (#45).
+    static let terminalID = "open-in-terminal"
 
     /// iTerm is the owner's choice of terminal (#18); each can be changed in the settings file.
     static let defaults = [
-        Tool(id: "open-in-terminal", title: "Open in Terminal", app: "iTerm", scope: .folder),
+        Tool(id: terminalID, title: "Open in Terminal", app: "iTerm", scope: .folder),
         Tool(id: "open-in-code", title: "Open in Code", app: "Visual Studio Code", scope: .selectionOrFolder),
         Tool(id: textEditorID, title: "Open in Text Editor", app: "TextEdit", scope: .files),
     ]
@@ -141,5 +143,17 @@ public struct Tool: Equatable, Sendable {
             return value == nil ? "its name has a control character (such as \\u0000)." : "unknown setting."
         }
         return nil
+    }
+}
+
+public extension Workspace {
+    /// What opens `folder` with the terminal tool, as the settings file defines it: its command
+    /// line as a job, or its app. Nil if there is no such tool.
+    func terminalCommand(for folder: String) -> Command? {
+        guard let tool = settings.tools.first(where: { $0.id == Tool.terminalID }) else {
+            return nil
+        }
+        return tool.command.isEmpty ? .openWithApp(tool.app, paths: [folder], title: tool.title)
+            : .runCommand(Tool.arguments(tool.command, folder: folder, paths: [folder]), folder: folder)
     }
 }

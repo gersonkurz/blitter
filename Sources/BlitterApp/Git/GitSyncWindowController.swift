@@ -3,10 +3,11 @@ import BlitterCore
 import BlitterGit
 import BlitterModel
 
-/// The Git Sync window (#43): where the branch stands, Fetch, Pull (rebase) and Push, and the
-/// running operation's output. The operations are jobs: the jobs strip shows them too.
+/// The Git Sync window (#43): where the branch stands, Fetch, Pull (rebase), Fetch & Rebase (#45)
+/// and Push, and the running operation's output. The operations are jobs: the jobs strip shows
+/// them too. While a rebase is stopped, a row offers to abort it or open the terminal.
 @MainActor
-final class GitSyncWindowController: NSWindowController {
+final class GitSyncWindowController: NSWindowController, NSWindowDelegate {
     let sync: GitSync
     let branchLabel = NSTextField(labelWithString: "")
     let upstreamLabel = NSTextField(labelWithString: "")
@@ -16,6 +17,9 @@ final class GitSyncWindowController: NSWindowController {
     let outputView = NSTextView()
     private(set) var operationButtons: [GitSync.Operation: NSButton] = [:]
     let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+    let terminalButton = NSButton(title: "Open in Terminal", target: nil, action: nil)
+    /// Abort Rebase and Open in Terminal, shown while a rebase is under way.
+    let rebaseRow = NSStackView()
     private let dateFormatter: DateFormatter
 
     init(workspace: Workspace, path: String, access: GitSyncAccess = .real) {
@@ -27,6 +31,7 @@ final class GitSyncWindowController: NSWindowController {
         window.title = "Git Sync — " + ((sync.root ?? path) as NSString).lastPathComponent
         window.isReleasedWhenClosed = false
         super.init(window: window)
+        window.delegate = self
         window.contentView = makeContent()
         window.center()
         sync.onChange = { [weak self] in self?.render() }
@@ -50,17 +55,21 @@ final class GitSyncWindowController: NSWindowController {
         facts.column(at: 0).xPlacement = .trailing
         facts.rowSpacing = 4
 
-        var buttons: [NSView] = []
         for operation in GitSync.Operation.allCases {
             let button = NSButton(title: operation.title, target: self, action: #selector(runOperation(_:)))
             button.identifier = NSUserInterfaceItemIdentifier(operation.rawValue)
             operationButtons[operation] = button
-            buttons.append(button)
         }
         cancelButton.target = self
         cancelButton.action = #selector(cancelRunning(_:))
-        let row = NSStackView(views: buttons + [cancelButton])
+        let row = NSStackView(views: GitSync.Operation.syncing.compactMap { operationButtons[$0] } + [cancelButton])
         row.spacing = 8
+        terminalButton.target = self
+        terminalButton.action = #selector(openTerminal(_:))
+        for view in [operationButtons[.abortRebase], terminalButton].compactMap(\.self) {
+            rebaseRow.addArrangedSubview(view)
+        }
+        rebaseRow.spacing = 8
 
         outputView.isEditable = false
         outputView.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
@@ -72,7 +81,7 @@ final class GitSyncWindowController: NSWindowController {
         outputView.autoresizingMask = [.width]
         statusLabel.lineBreakMode = .byTruncatingTail
 
-        let stack = NSStackView(views: [facts, row, scroll, statusLabel])
+        let stack = NSStackView(views: [facts, row, rebaseRow, scroll, statusLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -90,10 +99,11 @@ final class GitSyncWindowController: NSWindowController {
         upstreamLabel.stringValue = status.map { $0.upstream ?? "none" } ?? "…"
         stateLabel.stringValue = status.map(Self.describe) ?? "…"
         fetchedLabel.stringValue = sync.lastFetch.map(dateFormatter.string(from:)) ?? "never"
-        let idle = sync.running == nil && sync.root != nil
         for (operation, button) in operationButtons {
-            button.isEnabled = idle && (operation == .fetch || status?.upstream != nil)
+            button.isEnabled = sync.canRun(operation)
         }
+        rebaseRow.isHidden = !sync.isRebasing
+        terminalButton.isEnabled = sync.isRebasing
         cancelButton.isEnabled = sync.running != nil
         if outputView.string != sync.output {
             outputView.string = sync.output
@@ -123,6 +133,9 @@ final class GitSyncWindowController: NSWindowController {
         if let running = sync.running {
             return ("\(running.title)…", false)
         }
+        if sync.isRebasing {
+            return ("A rebase has stopped, most likely on a conflict: abort it, or finish it in the terminal.", true)
+        }
         switch sync.outcome {
         case let .succeeded(operation): return ("\(operation.title) done.", false)
         case let .failed(operation, message): return ("\(operation.title) failed: \(message)", true)
@@ -142,5 +155,15 @@ final class GitSyncWindowController: NSWindowController {
 
     @objc private func cancelRunning(_: Any?) {
         sync.perform(.cancel)
+    }
+
+    @objc private func openTerminal(_: Any?) {
+        sync.perform(.openTerminal)
+    }
+
+    /// Back from the terminal (or anywhere): what happened there shows, a rebase finished or
+    /// aborted there included (#45 review).
+    func windowDidBecomeKey(_: Notification) {
+        sync.perform(.refresh)
     }
 }

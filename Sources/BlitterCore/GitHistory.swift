@@ -92,6 +92,26 @@ public extension Git {
         return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
     }
 
+    /// Whether a rebase is under way (#45), stopped on a conflict or otherwise: git keeps its
+    /// state in `rebase-merge` or `rebase-apply`, wherever the working copy's git folder is.
+    /// False when git fails or is cancelled.
+    static func isRebasing(_ root: String, git: String? = executable, timeout: TimeInterval = 10,
+                           cancelled: CancellationFlag = CancellationFlag()) -> Bool
+    {
+        guard let git, !cancelled.isSet,
+              let data = run(git, ["rev-parse", "--git-path", "rebase-merge", "--git-path", "rebase-apply"],
+                             in: root, until: Date().addingTimeInterval(timeout), cancelled: cancelled),
+              let text = String(bytes: data, encoding: .utf8)
+        else {
+            return false
+        }
+        return text.split(separator: "\n").contains { line in
+            let path = line.hasPrefix("/") ? String(line) : root + "/" + line
+            var isFolder: ObjCBool = false
+            return FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) && isFolder.boolValue
+        }
+    }
+
     /// `git log -z --format=%H%x1f%P%x1f%an%x1f%at%x1f%s`: commits separated by NUL, fields
     /// by 0x1F. A subject cannot hold either.
     internal static func parseLog(_ data: Data) -> [GitCommit] {

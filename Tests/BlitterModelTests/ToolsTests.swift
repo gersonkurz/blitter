@@ -1,3 +1,4 @@
+import BlitterCore
 @testable import BlitterModel
 import Foundation
 import Testing
@@ -11,6 +12,29 @@ struct ToolSettingsTests {
         #expect(tools.map(\.scope) == [.folder, .selectionOrFolder, .files])
         // The commented default file spells out exactly the defaults.
         #expect(Settings.parse(Settings.defaultFile) == (Settings(), []))
+    }
+
+    /// #45: a working copy opens with the terminal tool as the settings file defines it.
+    @MainActor
+    @Test func theTerminalToolOpensAFolder() {
+        let workspace = Workspace(initialLocation: "/", home: "/", lister: { _ in [] }, directoryCheck: { _ in false },
+                                  volumes: { [] }, watcher: { _ in NoWatching() })
+        guard case let .openWithApp(app, paths, _) = workspace.terminalCommand(for: "/repo") else {
+            Issue.record("expected the app to open")
+            return
+        }
+        #expect(app == "iTerm" && paths == ["/repo"])
+        let (settings, problems) = Settings.parse("""
+        [tools.open-in-terminal]
+        command = ["open", "-a", "Terminal", "{folder}"]
+        """)
+        #expect(problems.isEmpty)
+        workspace.settings = settings
+        guard case let .runCommand(arguments, folder) = workspace.terminalCommand(for: "/repo") else {
+            Issue.record("expected the command line to run")
+            return
+        }
+        #expect(arguments == ["open", "-a", "Terminal", "/repo"] && folder == "/repo")
     }
 
     @Test func aDefaultChangesOnlyWhatIsGivenAndANewToolIsAdded() {
@@ -196,4 +220,8 @@ struct ToolActionsTests {
         sides.workspace.perform(.runAction("fork", .left))
         #expect(opened == ["Fork"])
     }
+}
+
+private final class NoWatching: FolderWatching {
+    func watch(_: Set<String>) {}
 }

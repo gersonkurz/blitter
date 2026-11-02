@@ -8,53 +8,72 @@ public struct GitSyncAccess: Sendable {
     public var status: @Sendable (_ root: String, _ cancelled: CancellationFlag) -> GitRepoStatus?
     /// When it was last fetched, if ever (the time of its `FETCH_HEAD`).
     public var lastFetch: @Sendable (_ root: String, _ cancelled: CancellationFlag) -> Date?
+    /// Whether a rebase is under way (#45).
+    public var rebasing: @Sendable (_ root: String, _ cancelled: CancellationFlag) -> Bool
     /// The git to run: a real one, never `/usr/bin/git` (it only offers to install the tools).
     public var git: String?
 
     public static let real = GitSyncAccess(
         status: { Git.status(of: $0, cancelled: $1) },
         lastFetch: { Git.lastFetch(of: $0, cancelled: $1) },
+        rebasing: { Git.isRebasing($0, cancelled: $1) },
         git: Git.executable
     )
 
     public init(status: @escaping @Sendable (String, CancellationFlag) -> GitRepoStatus?,
-                lastFetch: @escaping @Sendable (String, CancellationFlag) -> Date?, git: String?)
+                lastFetch: @escaping @Sendable (String, CancellationFlag) -> Date?,
+                rebasing: @escaping @Sendable (String, CancellationFlag) -> Bool = { _, _ in false }, git: String?)
     {
         self.status = status
         self.lastFetch = lastFetch
+        self.rebasing = rebasing
         self.git = git
     }
 }
 
 /// Git Sync (#43): a working copy's branch and how it stands against its upstream, and Fetch,
-/// Pull (rebase) and Push. Each runs as a job (in the jobs strip, with Cancel); its output
-/// shows here as it comes. Never `--force`: a rejected push is shown, not retried.
+/// Pull (rebase), Fetch & Rebase (#45) and Push. Each runs as jobs (in the jobs strip, with
+/// Cancel); their output shows here as it comes. Never `--force`: a rejected push is shown, not
+/// retried. A rebase that stopped on a conflict is shown as such: it can be aborted here, or
+/// finished in the terminal; nothing else runs until then.
 @MainActor
 public final class GitSync {
     public enum Operation: String, CaseIterable, Sendable {
         case fetch
         case pull
+        case fetchAndRebase
         case push
+        case abortRebase
+
+        /// The ones that bring the branch and its upstream together, in the window's order.
+        public static let syncing: [Operation] = [.fetch, .pull, .fetchAndRebase, .push]
 
         public var title: String {
             switch self {
             case .fetch: "Fetch"
             case .pull: "Pull (rebase)"
+            case .fetchAndRebase: "Fetch & Rebase"
             case .push: "Push"
+            case .abortRebase: "Abort Rebase"
             }
         }
 
-        var arguments: [String] {
+        /// git's arguments, one list per step: a step runs only if the one before succeeded.
+        var steps: [[String]] {
             switch self {
-            case .fetch: ["fetch", "--prune"]
-            case .pull: ["pull", "--rebase"]
-            case .push: ["push"]
+            case .fetch: [["fetch", "--prune"]]
+            case .pull: [["pull", "--rebase"]]
+            case .fetchAndRebase: [["fetch", "--prune"], ["rebase", "@{upstream}"]]
+            case .push: [["push"]]
+            case .abortRebase: [["rebase", "--abort"]]
             }
         }
     }
 
     public enum Command: Equatable, Sendable {
         case run(Operation)
+        /// Open the working copy with the terminal tool, to finish a rebase there (#45).
+        case openTerminal
         /// Cancel the running operation's job.
         case cancel
         /// Read the status again.
@@ -71,6 +90,8 @@ public final class GitSync {
     public let root: String?
     public private(set) var status: GitRepoStatus?
     public private(set) var lastFetch: Date?
+    /// A rebase is under way, most likely stopped on a conflict (#45).
+    public private(set) var isRebasing = false
     /// Why the status could not be read, or an operation not started.
     public private(set) var problem: String?
     /// The operation running now.
@@ -105,9 +126,27 @@ public final class GitSync {
         statusWork != nil || running != nil
     }
 
+    /// Whether `.run(operation)` would start now: one at a time, and only on a state read
+    /// after the last one ended (it may have left a rebase stopped, #45 review); during a rebase
+    /// only Abort Rebase; Pull, Fetch & Rebase and Push need an upstream.
+    public func canRun(_ operation: Operation) -> Bool {
+        guard root != nil, running == nil, statusWork == nil else {
+            return false
+        }
+        return switch operation {
+        case .abortRebase: isRebasing
+        case .fetch: !isRebasing
+        case .pull, .fetchAndRebase, .push: !isRebasing && status?.upstream != nil
+        }
+    }
+
     public func perform(_ command: Command) {
         switch command {
         case let .run(operation): run(operation)
+        case .openTerminal:
+            if let root, let open = workspace.terminalCommand(for: root) {
+                workspace.perform(open)
+            }
         case .cancel: commands.cancel()
         case .refresh: refresh()
         }
@@ -124,11 +163,12 @@ public final class GitSync {
         statusWork = Task { [weak self] in
             let cancelled = CancellationFlag()
             let worker = Task.detached(priority: .userInitiated) {
-                // Both stop when the read is replaced; the second is not started then.
+                // All stop when the read is replaced; the later ones are not started then.
                 let status = access.status(root, cancelled)
-                return (status, cancelled.isSet ? nil : access.lastFetch(root, cancelled))
+                let lastFetch = cancelled.isSet ? nil : access.lastFetch(root, cancelled)
+                return (status, lastFetch, !cancelled.isSet && access.rebasing(root, cancelled))
             }
-            let (status, lastFetch) = await withTaskCancellationHandler {
+            let (status, lastFetch, rebasing) = await withTaskCancellationHandler {
                 await worker.value
             } onCancel: {
                 cancelled.set()
@@ -139,6 +179,7 @@ public final class GitSync {
             statusWork = nil
             self.status = status
             self.lastFetch = lastFetch
+            isRebasing = rebasing
             if status == nil, running == nil {
                 problem = "The working copy's state could not be read."
             }
@@ -149,7 +190,7 @@ public final class GitSync {
     // MARK: Operations
 
     private func run(_ operation: Operation) {
-        guard root != nil, running == nil else {
+        guard canRun(operation) else {
             return
         }
         guard let git = access.git else {
@@ -157,7 +198,7 @@ public final class GitSync {
             onChange?()
             return
         }
-        let started = commands.start([[git] + operation.arguments]) { [weak self] ending in
+        let started = commands.start(operation.steps.map { [git] + $0 }) { [weak self] ending in
             let outcome: Outcome = switch ending {
             case .succeeded: .succeeded(operation)
             case let .failed(_, message): .failed(operation, message)
@@ -177,7 +218,7 @@ public final class GitSync {
     private func finish(_ outcome: Outcome) {
         running = nil
         self.outcome = outcome
+        refresh() // first: nothing can start before the new state is read
         onChange?()
-        refresh()
     }
 }
