@@ -41,6 +41,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     /// The fast filter's highlighted names the list was last drawn with (#39).
     var highlightedNames: Set<String> = []
     let quickFilterBar = QuickFilterBar()
+    let statusBar = SideStatusBar()
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
@@ -75,7 +76,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 
         navigationButtons.onCommand = { [weak self] command in self?.workspace.perform(command) }
         let root = NSView()
-        for subview in [navigationButtons, pathField, scrollView, quickFilterBar, statusLabel] {
+        for subview in [navigationButtons, pathField, scrollView, quickFilterBar, statusBar, statusLabel] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
@@ -91,7 +92,10 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             scrollView.bottomAnchor.constraint(equalTo: quickFilterBar.topAnchor),
             quickFilterBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             quickFilterBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            quickFilterBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            quickFilterBar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            statusBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            statusBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            statusBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             statusLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
@@ -215,6 +219,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         followSelectionInPreview()
 
         renderStatus(state.status)
+        statusBar.render(state)
     }
 
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {

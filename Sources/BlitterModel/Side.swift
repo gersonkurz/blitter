@@ -38,6 +38,11 @@ public struct SideState: Sendable {
     public internal(set) var sort = ListSort()
     /// Names of the selected entries. Names stay valid across reloads, row indexes do not.
     public internal(set) var selection: Set<String> = []
+    /// What `visibleEntries` holds, counted with the listing in the background (#51).
+    public internal(set) var totals = EntryTotals()
+    /// The free space last read for the side, and the folder it was read for (#51): it is current
+    /// only while that folder is `entriesLocation`.
+    public internal(set) var freeSpace: FreeSpace?
     /// Increases whenever `visibleEntries` is replaced, so views can tell a new listing from a
     /// selection change and reload only when needed.
     public internal(set) var entriesVersion = 0
@@ -98,6 +103,11 @@ public struct SideState: Sendable {
             return visibleEntries.allSatisfy { !selection.contains($0.entry.name) || test($0) }
         }
         return selection.allSatisfy { name in listed(name).map(test) ?? true }
+    }
+
+    /// What is selected (#51). Looks the names up, or makes one pass when many are selected.
+    public var selectedTotals: EntryTotals {
+        EntryTotals(selectedEntries)
     }
 
     /// The selected entries, in list order.

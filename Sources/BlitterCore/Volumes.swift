@@ -83,3 +83,18 @@ enum MountTable {
         }
     }
 }
+
+/// The space available on the volume holding `path`, as the Finder counts it (purgeable space
+/// included), or nil if it cannot be read. Blocks a GCD thread, never the caller's: a stalled
+/// network volume can take long to answer.
+public func freeSpace(at path: String) async -> Int64? {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global(qos: .utility).async {
+            let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey]
+            let values = try? URL(fileURLWithPath: path, isDirectory: true).resourceValues(forKeys: keys)
+            // Some volumes (network shares) know only the plain figure.
+            let plain = values?.volumeAvailableCapacity.map(Int64.init)
+            continuation.resume(returning: values?.volumeAvailableCapacityForImportantUsage ?? plain)
+        }
+    }
+}

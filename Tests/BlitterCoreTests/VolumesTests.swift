@@ -37,4 +37,15 @@ struct VolumesTests {
         #expect(MountTable.volumeName(of: "/") == expected)
         #expect(MountTable.volumeName(of: "/no/such/path") == nil)
     }
+
+    /// Free space as the Finder counts it (#51); nil for a path that is not there.
+    @Test func freeSpaceOfAVolume() async throws {
+        let expected = try #require(try URL(fileURLWithPath: NSTemporaryDirectory())
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage)
+        let space = try #require(await freeSpace(at: NSTemporaryDirectory()))
+        // Other processes write meanwhile: the two reads agree to within a gigabyte.
+        #expect(space > 0 && abs(space - expected) < 1_000_000_000)
+        #expect(await freeSpace(at: "/no/such/path") == nil)
+    }
 }

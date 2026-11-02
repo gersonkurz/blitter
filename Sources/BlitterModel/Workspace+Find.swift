@@ -81,6 +81,7 @@ extension Workspace {
             sides[side]?.allEntries = []
             sides[side]?.visibleEntries = []
             sides[side]?.visibleIndex = [:]
+            sides[side]?.totals = EntryTotals()
             sides[side]?.entriesVersion += 1
         }
         let (root, matcher, contents) = (find.root, QuickFilter.Matcher(find.pattern, wholeName: true), find.contents)

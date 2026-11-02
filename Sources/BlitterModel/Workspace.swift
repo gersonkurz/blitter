@@ -72,6 +72,11 @@ public final class Workspace {
     /// Color schemes being fetched, by the name the settings give them (#34), and how.
     var schemeWork: [String: Task<Void, Never>] = [:]
     public var fetch: @Sendable (URL) async throws -> Data = Downloads.fetch
+    /// Free space (#51): the read running per side, the sides whose listing changed meanwhile,
+    /// and how it is read (tests replace it).
+    var freeSpaceWork: [Side: Task<Void, Never>] = [:]
+    var freeSpaceWanted: Set<Side> = []
+    public var readFreeSpace: @Sendable (String) async -> Int64? = BlitterCore.freeSpace(at:)
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
     var pendingOpen: [Side: Task<Void, Never>] = [:]
     static let maxRecentLocations = 20
@@ -305,6 +310,7 @@ extension Workspace {
             state.allEntries = listing.all
             state.visibleEntries = listing.visible
             state.visibleIndex = listing.index
+            state.totals = listing.totals
             state.status = .loaded
             // Keep only selected names that still exist (looked up, not searched: #47).
             state.selection = state.selection.filter { listing.index[$0] != nil }
@@ -320,6 +326,7 @@ extension Workspace {
             state.allEntries = []
             state.visibleEntries = []
             state.visibleIndex = [:]
+            state.totals = EntryTotals()
             state.selection = []
             state.status = .failed(Paths.listingMessage(for: error, location: location))
         }

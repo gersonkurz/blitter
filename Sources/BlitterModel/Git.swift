@@ -202,6 +202,7 @@ public extension Workspace {
         updateHighlights(side) // the fast filter (#39)
         runPendingAction(on: side)
         updateGit(side)
+        updateFreeSpace(side)
     }
 
     /// Finds the working copy the side is in and those among its folders, and reads their status

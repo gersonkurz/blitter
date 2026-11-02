@@ -36,10 +36,12 @@ enum Listing {
         let all: [DirectoryEntry]
         let visible: [ListedEntry]
         let index: [String: Int]
+        let totals: EntryTotals
 
         init(all: [DirectoryEntry], visible: [ListedEntry]) {
             self.all = all
             self.visible = visible
+            totals = EntryTotals(visible)
             var index: [String: Int] = [:]
             index.reserveCapacity(visible.count)
             for (row, listed) in visible.enumerated() {
