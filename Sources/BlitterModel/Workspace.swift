@@ -220,7 +220,7 @@ public final class Workspace {
             let entries = try await lister(state.location)
             let visible = Listing.visibleEntries(entries, showHidden: showHidden, sort: state.sort,
                                                  filter: state.listFilter)
-            return (entries, visible)
+            return Listing.Result(all: entries, visible: visible)
         }
     }
 
@@ -235,19 +235,20 @@ public final class Workspace {
         }
         let showHidden = showsHiddenFiles
         startWork(on: side, location: state.entriesLocation) {
-            (state.allEntries, Listing.visibleEntries(state.allEntries, showHidden: showHidden, sort: state.sort,
-                                                      filter: state.listFilter))
+            Listing.Result(all: state.allEntries, visible: Listing.visibleEntries(
+                state.allEntries, showHidden: showHidden, sort: state.sort, filter: state.listFilter
+            ))
         }
     }
 
     /// Runs `work`, which lists or re-sorts the folder at `location`, and stores its result unless
     /// newer work for the side replaced it in the meantime.
     private func startWork(on side: Side, location: String,
-                           _ work: @escaping @Sendable () async throws -> ([DirectoryEntry], [ListedEntry]))
+                           _ work: @escaping @Sendable () async throws -> Listing.Result)
     {
         pendingWork[side]?.cancel()
         pendingWork[side] = Task { [weak self] in
-            let result: Result<([DirectoryEntry], [ListedEntry]), Error>
+            let result: Result<Listing.Result, Error>
             do {
                 // `work` is nonisolated, so it runs off the main actor, and as a child of this task
                 // it sees cancellation.
@@ -263,7 +264,7 @@ public final class Workspace {
     }
 
     private func finish(_ side: Side, location: String,
-                        with result: Result<([DirectoryEntry], [ListedEntry]), Error>)
+                        with result: Result<Listing.Result, Error>)
     {
         guard var state = sides[side] else {
             return
@@ -275,15 +276,15 @@ public final class Workspace {
         }
         state.entriesLocation = location
         switch result {
-        case let .success((all, visible)):
+        case let .success(listing):
             state.fallsBackToHome = false
-            state.allEntries = all
-            state.visibleEntries = visible
+            state.allEntries = listing.all
+            state.visibleEntries = listing.visible
+            state.visibleIndex = listing.index
             state.status = .loaded
-            // Keep only selected names that still exist.
-            let visibleNames = Set(visible.map(\.entry.name))
-            state.selection.formIntersection(visibleNames)
-            if let pending = state.pendingSelection, pending.folder == location, visibleNames.contains(pending.name) {
+            // Keep only selected names that still exist (looked up, not searched: #47).
+            state.selection = state.selection.filter { listing.index[$0] != nil }
+            if let pending = state.pendingSelection, pending.folder == location, listing.index[pending.name] != nil {
                 state.selection = [pending.name]
                 state.pendingSelection = nil
             }
@@ -294,6 +295,7 @@ public final class Workspace {
         case let .failure(error):
             state.allEntries = []
             state.visibleEntries = []
+            state.visibleIndex = [:]
             state.selection = []
             state.status = .failed(Paths.listingMessage(for: error, location: location))
         }

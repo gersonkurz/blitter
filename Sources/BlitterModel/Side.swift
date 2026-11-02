@@ -33,6 +33,8 @@ public struct SideState: Sendable {
     var allEntries: [DirectoryEntry] = []
     /// What the file list shows: hidden items filtered out (unless shown), sorted.
     public internal(set) var visibleEntries: [ListedEntry] = []
+    /// The row of each name in `visibleEntries` (#47).
+    var visibleIndex: [String: Int] = [:]
     public internal(set) var sort = ListSort()
     /// Names of the selected entries. Names stay valid across reloads, row indexes do not.
     public internal(set) var selection: Set<String> = []
@@ -71,6 +73,46 @@ public struct SideState: Sendable {
     /// Set for a folder restored from the last session: if its first listing fails (the folder is
     /// gone, its volume unmounted), the side starts at the home folder instead.
     var fallsBackToHome = false
+
+    /// The listed entry with this name, found by lookup. Checked against the listing, so an
+    /// index that is out of step can never give a wrong entry.
+    func listed(_ name: String) -> ListedEntry? {
+        guard let row = visibleIndex[name], row < visibleEntries.count, visibleEntries[row].entry.name == name else {
+            return nil
+        }
+        return visibleEntries[row]
+    }
+
+    /// Few selected (fewer than one in eight rows): each is looked up. Many: one pass over the
+    /// listing is cheaper than a lookup and a sort for each (measured, #47 review), and stops
+    /// early where it can (folders come first).
+    var selectionIsSparse: Bool {
+        selection.count * 8 < visibleEntries.count
+    }
+
+    /// Whether every selected entry that is listed passes `test`; names not listed are ignored.
+    func selectedEntriesAllSatisfy(_ test: (ListedEntry) -> Bool) -> Bool {
+        guard selectionIsSparse else {
+            return visibleEntries.allSatisfy { !selection.contains($0.entry.name) || test($0) }
+        }
+        return selection.allSatisfy { name in listed(name).map(test) ?? true }
+    }
+
+    /// The selected entries, in list order.
+    var selectedEntries: [ListedEntry] {
+        guard selectionIsSparse else {
+            return visibleEntries.filter { selection.contains($0.entry.name) }
+        }
+        var rows: [Int] = []
+        rows.reserveCapacity(selection.count)
+        for name in selection {
+            if let row = visibleIndex[name], row < visibleEntries.count, visibleEntries[row].entry.name == name {
+                rows.append(row)
+            }
+        }
+        rows.sort()
+        return rows.map { visibleEntries[$0] }
+    }
 
     init(location: String) {
         self.location = location

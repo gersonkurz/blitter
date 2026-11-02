@@ -30,6 +30,25 @@ public struct ListedEntry: Sendable {
 }
 
 enum Listing {
+    /// A folder's entries, what the list shows of them, and where each shown name is: built in
+    /// the background, so the main thread never searches the listing for a name (#47).
+    struct Result: Sendable {
+        let all: [DirectoryEntry]
+        let visible: [ListedEntry]
+        let index: [String: Int]
+
+        init(all: [DirectoryEntry], visible: [ListedEntry]) {
+            self.all = all
+            self.visible = visible
+            var index: [String: Int] = [:]
+            index.reserveCapacity(visible.count)
+            for (row, listed) in visible.enumerated() {
+                index[listed.entry.name] = row
+            }
+            self.index = index
+        }
+    }
+
     /// Filters and sorts a folder's entries for display. Folders always come first, in both sort
     /// directions; ties are broken by name so the order is stable. Runs off the main thread.
     /// `filter` is the fast filter's text in filter mode (#39): only matching names are listed.

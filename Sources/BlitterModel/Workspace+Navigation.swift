@@ -91,7 +91,7 @@ extension Workspace {
     /// is first checked in the background and opened only if it leads to a folder.
     func open(_ side: Side, _ name: String) -> Bool {
         guard let state = sides[side],
-              let listed = state.visibleEntries.first(where: { $0.entry.name == name })
+              let listed = state.listed(name)
         else {
             return false
         }

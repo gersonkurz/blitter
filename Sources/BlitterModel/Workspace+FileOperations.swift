@@ -63,7 +63,7 @@ extension Workspace {
         guard let state = sides[side] else {
             return []
         }
-        return state.visibleEntries.filter { state.selection.contains($0.entry.name) }.map {
+        return state.selectedEntries.map {
             SelectedItem(path: Paths.appending($0.entry.name, to: state.entriesLocation),
                          isDirectory: $0.entry.kind == .directory)
         }

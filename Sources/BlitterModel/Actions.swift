@@ -37,9 +37,7 @@ public enum ActionScope: Equatable, Sendable {
         case .selection: !state.selection.isEmpty
         case .single: state.selection.count == 1
         case .files:
-            !state.selection.isEmpty && state.visibleEntries.allSatisfy { listed in
-                !state.selection.contains(listed.entry.name) || [.file, .symlink].contains(listed.entry.kind)
-            }
+            !state.selection.isEmpty && state.selectedEntriesAllSatisfy { [.file, .symlink].contains($0.entry.kind) }
         }
     }
 }
@@ -56,7 +54,7 @@ extension ActionScope {
             return nil
         }
         func files(_ state: SideState) -> [String] {
-            state.visibleEntries.filter { state.selection.contains($0.entry.name) && $0.entry.kind != .directory }
+            state.selectedEntries.filter { $0.entry.kind != .directory }
                 .map { Paths.appending($0.entry.name, to: state.entriesLocation) }
         }
         let here = files(state)
