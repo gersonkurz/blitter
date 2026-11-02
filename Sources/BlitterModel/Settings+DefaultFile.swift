@@ -32,6 +32,7 @@ public extension Settings {
     app = "Visual Studio Code"
     on = "selection-or-folder"
 
+    # Its app also opens this file (Settings…).
     [tools.open-in-text-editor]
     title = "Open in Text Editor"
     app = "TextEdit"

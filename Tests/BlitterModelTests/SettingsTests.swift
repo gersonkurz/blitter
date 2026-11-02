@@ -186,7 +186,11 @@ struct SettingsFileTests {
         let path = folder.path + "/config/blitter/settings.toml"
         let workspace = await makeWorkspace(settingsFile: path)
         var edited: [String] = []
-        workspace.system.editText = { edited.append($0) }
+        workspace.system.openWithApp = { app, paths, _ in
+            #expect(app == "TextEdit") // the text editor tool's app (#36)
+            edited += paths
+        }
+        workspace.system.editText = { _ in Issue.record("the default app is only the fallback") }
 
         workspace.perform(.openSettingsFile)
         for _ in 0 ..< 200 where edited.isEmpty {
@@ -208,5 +212,51 @@ struct SettingsFileTests {
         #expect(watcher.watchCalls > callsBefore)
         #expect(try String(contentsOfFile: path, encoding: .utf8).contains("mine")) // not overwritten
         #expect(workspace.settings.dateFormat == "mine")
+    }
+
+    /// #36: if the text editor tool's app cannot be found, the file still opens (default app),
+    /// and a notice says why.
+    @Test func theSettingsFileOpensEvenIfTheEditorAppIsMissing() async throws {
+        let folder = try TemporaryFolder()
+        let path = folder.path + "/settings.toml"
+        try "[tools.open-in-text-editor]\napp = \"NoSuchEditor\"\n".write(
+            toFile: path,
+            atomically: true,
+            encoding: .utf8
+        )
+        let workspace = await makeWorkspace(settingsFile: path)
+        var tried: [String] = []
+        var edited: [String] = []
+        workspace.system.openWithApp = { app, _, failed in
+            tried.append(app)
+            failed("the app “\(app)” was not found.")
+        }
+        workspace.system.editText = { edited.append($0) }
+        workspace.perform(.openSettingsFile)
+        for _ in 0 ..< 200 where edited.isEmpty {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(tried == ["NoSuchEditor"])
+        #expect(edited == [path])
+        #expect(workspace.notices.map(\.text)
+            == ["Settings…: the app “NoSuchEditor” was not found. It opens with the default app instead."])
+    }
+
+    /// #36: a text editor tool that runs a command has no app to open the file with.
+    @Test func aCommandTextEditorLeavesTheSettingsFileToItsDefaultApp() async throws {
+        let folder = try TemporaryFolder()
+        let path = folder.path + "/settings.toml"
+        try "[tools.open-in-text-editor]\ncommand = [\"vim\", \"{paths}\"]\n"
+            .write(toFile: path, atomically: true, encoding: .utf8)
+        let workspace = await makeWorkspace(settingsFile: path)
+        var edited: [String] = []
+        workspace.system.openWithApp = { _, _, _ in Issue.record("a command tool has no app") }
+        workspace.system.editText = { edited.append($0) }
+        workspace.perform(.openSettingsFile)
+        for _ in 0 ..< 200 where edited.isEmpty {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(edited == [path])
+        #expect(workspace.notices.isEmpty)
     }
 }

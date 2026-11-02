@@ -24,11 +24,14 @@ public struct Tool: Equatable, Sendable {
         self.command = command
     }
 
+    /// The text editor tool's app also opens the settings file (#36).
+    static let textEditorID = "open-in-text-editor"
+
     /// iTerm is the owner's choice of terminal (#18); each can be changed in the settings file.
     static let defaults = [
         Tool(id: "open-in-terminal", title: "Open in Terminal", app: "iTerm", scope: .folder),
         Tool(id: "open-in-code", title: "Open in Code", app: "Visual Studio Code", scope: .selectionOrFolder),
-        Tool(id: "open-in-text-editor", title: "Open in Text Editor", app: "TextEdit", scope: .files),
+        Tool(id: textEditorID, title: "Open in Text Editor", app: "TextEdit", scope: .files),
     ]
 
     var action: Action {

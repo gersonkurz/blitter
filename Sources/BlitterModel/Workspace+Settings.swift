@@ -116,6 +116,10 @@ extension Workspace {
 
     /// Creates the file with the commented defaults if there is none (never overwrites), then
     /// opens it for editing. Saving it is enough: the change is picked up by the watcher.
+    ///
+    /// It opens with the text editor tool's app (#36), so one setting decides both. If that tool
+    /// runs a command instead, or its app cannot be found, the file opens with its default app:
+    /// a broken setting must never keep the user from the file that fixes it.
     func openSettingsFile() -> Bool {
         guard let path = settingsFile else {
             return false
@@ -131,10 +135,22 @@ extension Workspace {
             guard let self else {
                 return
             }
-            system.editText(path)
+            edit(path)
             updateWatchedFolders(retry: true) // its folder may only exist now
             loadSettings()
         }
         return false
+    }
+
+    private func edit(_ path: String) {
+        guard let app = settings.tools.first(where: { $0.id == Tool.textEditorID })?.app, !app.isEmpty else {
+            system.editText(path)
+            return
+        }
+        system.openWithApp(app, [path]) { [weak self] message in
+            self?.addNotice("Settings…: \(message) It opens with the default app instead.")
+            self?.system.editText(path)
+            self?.notifyChange()
+        }
     }
 }
