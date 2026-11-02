@@ -18,13 +18,14 @@ public struct ContextMenus: Equatable, Sendable {
             .action("open"), .action("quick-look"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
             .action("rename"), .action("move-to-trash"), .action("delete-immediately"), .separator,
-            .action("compare-files"), .action("git-log"), .action("git-sync"), .separator,
+            .action("compare-files"), .action("git-log"), .action("git-commit"), .action("git-sync"),
+            .separator,
             .action("reveal-in-finder"), .action("open-in-terminal"), .action("open-in-code"),
             .action("open-in-text-editor"),
         ],
         folder: [
             .action("new-folder"), .separator, .action("copy-folder-path"), .action("compare-folders"),
-            .action("git-log"), .action("git-sync"), .separator,
+            .action("git-log"), .action("git-commit"), .action("git-sync"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]
     )

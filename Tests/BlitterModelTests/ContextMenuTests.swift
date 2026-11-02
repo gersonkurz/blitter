@@ -14,7 +14,8 @@ struct ContextMenuSettingsTests {
             }
         } == [
             "open", "quick-look", "copy-path", "copy-name", "rename", "move-to-trash", "delete-immediately",
-            "compare-files", "git-log", "git-sync", "reveal-in-finder", "open-in-terminal", "open-in-code",
+            "compare-files", "git-log", "git-commit", "git-sync", "reveal-in-finder", "open-in-terminal",
+            "open-in-code",
             "open-in-text-editor",
         ])
         #expect(menus.folder == [
@@ -23,6 +24,7 @@ struct ContextMenuSettingsTests {
             .action("copy-folder-path"),
             .action("compare-folders"),
             .action("git-log"),
+            .action("git-commit"),
             .action("git-sync"),
             .separator,
             .action("open-in-terminal"),

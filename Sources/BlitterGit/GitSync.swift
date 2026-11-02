@@ -73,26 +73,31 @@ public final class GitSync {
     public private(set) var lastFetch: Date?
     /// Why the status could not be read, or an operation not started.
     public private(set) var problem: String?
-    /// The operation running now, and its job.
-    public private(set) var running: (operation: Operation, job: Int)?
+    /// The operation running now.
+    public private(set) var running: Operation?
     public private(set) var outcome: Outcome?
-    /// The running or last operation's output.
-    public private(set) var output = ""
     public var onChange: (() -> Void)?
 
     private let workspace: Workspace
     private let access: GitSyncAccess
+    private let commands: CommandSequence
     private var statusWork: Task<Void, Never>?
-    private var watching: Task<Void, Never>?
 
     public init(workspace: Workspace, path: String, access: GitSyncAccess = .real) {
         self.workspace = workspace
         self.access = access
         root = workspace.workingCopyRoot(containing: path)
+        commands = CommandSequence(workspace: workspace, folder: root ?? "/")
         if root == nil {
             problem = "“\(path)” is not in a git working copy."
         }
+        commands.onChange = { [weak self] in self?.onChange?() }
         refresh()
+    }
+
+    /// The running or last operation's output.
+    public var output: String {
+        commands.output
     }
 
     /// Whether anything is still running (tests wait for it).
@@ -103,7 +108,7 @@ public final class GitSync {
     public func perform(_ command: Command) {
         switch command {
         case let .run(operation): run(operation)
-        case .cancel: running.map { workspace.perform(.cancelJob($0.job)) }
+        case .cancel: commands.cancel()
         case .refresh: refresh()
         }
     }
@@ -144,7 +149,7 @@ public final class GitSync {
     // MARK: Operations
 
     private func run(_ operation: Operation) {
-        guard let root, running == nil else {
+        guard root != nil, running == nil else {
             return
         }
         guard let git = access.git else {
@@ -152,54 +157,24 @@ public final class GitSync {
             onChange?()
             return
         }
-        let arguments = [git] + operation.arguments
-        let known = Set(workspace.jobs.map(\.id))
-        workspace.perform(.runCommand(arguments, folder: root))
-        guard let job = workspace.jobs.last(where: { !known.contains($0.id) && $0.operation == .command(
-            arguments,
-            folder: root
-        ) })
-        else {
+        let started = commands.start([[git] + operation.arguments]) { [weak self] ending in
+            let outcome: Outcome = switch ending {
+            case .succeeded: .succeeded(operation)
+            case let .failed(_, message): .failed(operation, message)
+            case .cancelled: .cancelled(operation)
+            }
+            self?.finish(outcome)
+        }
+        guard started else {
             return
         }
         problem = nil
         outcome = nil
-        output = ""
-        running = (operation, job.id)
+        running = operation
         onChange?()
-        watch(job.id)
     }
 
-    /// Follows the job's output while it runs (the jobs strip shows its progress too); its end,
-    /// last output included, comes from the workspace, as a job that succeeded leaves the list
-    /// at once.
-    private func watch(_ id: Int) {
-        workspace.whenJobDone(id) { [weak self] job in
-            guard let self, let running, running.job == id else {
-                return
-            }
-            output = job.progress.output
-            let outcome: Outcome = switch job.state {
-            case .cancelled: .cancelled(running.operation)
-            default: job.errors.first.map { .failed(running.operation, $0.message) } ?? .succeeded(running.operation)
-            }
-            finish(running.operation, outcome: outcome)
-        }
-        watching = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self, let running, running.job == id else {
-                    return
-                }
-                if let job = workspace.jobs.first(where: { $0.id == id }), job.progress.output != output {
-                    output = job.progress.output
-                    onChange?()
-                }
-                try? await Task.sleep(for: .milliseconds(200))
-            }
-        }
-    }
-
-    private func finish(_: Operation, outcome: Outcome) {
+    private func finish(_ outcome: Outcome) {
         running = nil
         self.outcome = outcome
         onChange?()

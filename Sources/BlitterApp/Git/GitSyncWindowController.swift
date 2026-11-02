@@ -121,7 +121,7 @@ final class GitSyncWindowController: NSWindowController {
             return (problem, true)
         }
         if let running = sync.running {
-            return ("\(running.operation.title)…", false)
+            return ("\(running.title)…", false)
         }
         switch sync.outcome {
         case let .succeeded(operation): return ("\(operation.title) done.", false)

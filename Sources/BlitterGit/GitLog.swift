@@ -67,7 +67,7 @@ public final class GitLog {
 
     private let workspace: Workspace
     private let access: GitHistoryAccess
-    private var work: [String: Task<Void, Never>] = [:]
+    private let work = BackgroundWork()
 
     public init(workspace: Workspace, path: String, access: GitHistoryAccess = .real) {
         self.workspace = workspace
@@ -156,8 +156,7 @@ public final class GitLog {
         }
         selected = hash.flatMap { hash in commits.first { $0.hash == hash } }
         guard let root, let commit = selected else {
-            work["changes"]?.cancel()
-            work["changes"] = nil
+            work.cancel("changes")
             changes = []
             onChange?()
             return
@@ -195,22 +194,17 @@ public final class GitLog {
         }
     }
 
-    struct CompareFailure: Error {
-        let message: String
-    }
-
-    /// Off the main actor. Each comparison gets a folder of its own,
-    /// `<temporary>/Blitter-Git/<unique>/<short revision>/<file name>`: two files of the same
-    /// name, or a later comparison, never write over files a diff tool still shows. Nil when
-    /// cancelled (nothing more is read or written then).
+    /// Off the main actor: both versions as files, in a folder of the comparison's own
+    /// (`CompareCopies`), named by the short revision. Nil when cancelled (nothing more is read or
+    /// written then).
     private nonisolated static func writeVersions(
         of change: GitChange, in commit: GitCommit, root: String, access: GitHistoryAccess, cancelled: CancellationFlag
-    ) -> Result<(before: String, after: String), CompareFailure>? {
+    ) -> Result<(before: String, after: String), GitFailure>? {
         let name = (change.path as NSString).lastPathComponent
-        let base = NSTemporaryDirectory() + "Blitter-Git/" + UUID().uuidString
+        let folder = CompareCopies.newFolder()
         let beforeIsAbsent = change.status == "A" || commit.parent == nil
         let afterIsAbsent = change.status == "D"
-        func read(_ path: String, at revision: String?, absent: Bool) -> Result<Data, CompareFailure>? {
+        func read(_ path: String, at revision: String?, absent: Bool) -> Result<Data, GitFailure>? {
             guard !absent, let revision else {
                 return .success(Data())
             }
@@ -219,18 +213,10 @@ public final class GitLog {
                 return nil
             }
             return data.map { .success($0) }
-                ?? .failure(CompareFailure(message: "“\(path)” could not be read at \(revision.prefix(10))."))
+                ?? .failure(GitFailure(message: "“\(path)” could not be read at \(revision.prefix(10))."))
         }
-        func write(_ data: Data, revision: String) -> Result<String, CompareFailure> {
-            let folder = base + "/" + String(revision.prefix(10))
-            do {
-                try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
-                try data.write(to: URL(fileURLWithPath: folder + "/" + name))
-                return .success(folder + "/" + name)
-            } catch {
-                return .failure(CompareFailure(message: "A copy to compare could not be written: "
-                        + error.localizedDescription))
-            }
+        func write(_ data: Data, revision: String) -> Result<String, GitFailure> {
+            CompareCopies.write(data, name: name, label: String(revision.prefix(10)), in: folder)
         }
         guard let before = read(change.oldPath ?? change.path, at: commit.parent, absent: beforeIsAbsent),
               let after = read(change.path, at: commit.hash, absent: afterIsAbsent), !cancelled.isSet
@@ -246,28 +232,13 @@ public final class GitLog {
         }
     }
 
-    // MARK: Background work
-
-    /// Runs `body` off the main actor under `key` (a newer one cancels it), then `apply` on the
-    /// main actor and tells the window.
+    /// Runs `body` in the background under `key`, then `apply` and tells the window.
     private func run<Result: Sendable>(_ key: String, _ body: @escaping @Sendable (CancellationFlag) -> Result,
                                        then apply: @escaping @MainActor (Result) -> Void)
     {
-        work[key]?.cancel()
-        work[key] = Task { [weak self] in
-            let cancelled = CancellationFlag()
-            let worker = Task.detached(priority: .userInitiated) { body(cancelled) }
-            let result = await withTaskCancellationHandler {
-                await worker.value
-            } onCancel: {
-                cancelled.set()
-            }
-            guard !Task.isCancelled, let self else {
-                return
-            }
-            work[key] = nil
+        work.run(key, body) { [weak self] result in
             apply(result)
-            onChange?()
+            self?.onChange?()
         }
     }
 }

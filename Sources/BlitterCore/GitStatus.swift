@@ -168,7 +168,7 @@ public enum Git {
     }
 
     /// A `# branch.…` header: the branch (#43), its upstream (#43), ahead and behind.
-    private static func readHeader(_ record: String, into status: inout GitRepoStatus) {
+    static func readHeader(_ record: String, into status: inout GitRepoStatus) {
         if record.hasPrefix("# branch.head ") {
             let head = String(record.dropFirst("# branch.head ".count))
             status.branch = head == "(detached)" ? nil : head
@@ -183,21 +183,39 @@ public enum Git {
         }
     }
 
-    /// Parses `git status --porcelain=v2 --branch -z`.
-    static func parse(_ data: Data) -> GitRepoStatus {
-        var status = GitRepoStatus()
-        let records = data.split(separator: 0, omittingEmptySubsequences: true)
+    /// A change record of `git status --porcelain=v2 -z`: ordinary (1), renamed or copied (2),
+    /// unmerged (u), untracked (?) or ignored (!).
+    struct PorcelainRecord {
+        let kind: Character
+        /// The index and worktree letters ("M.", ".D", …); "??" or "!!" for the last two kinds.
+        let letters: Substring
+        /// The submodule field ("N..." for no submodule); empty for the last two kinds.
+        let submodule: Substring
+        let path: String
+        /// A rename's or copy's original path.
+        let oldPath: String?
+
+        /// A submodule whose only change is untracked files in it (".M" with "S..U": no new
+        /// commit, no tracked modification): not a tracked change.
+        var isUntrackedInSubmodule: Bool {
+            kind == "1" && letters == ".M" && submodule.hasPrefix("S") && submodule.dropFirst().prefix(2) == ".."
+        }
+    }
+
+    /// The records of `git status --porcelain=v2 -z`, and each `# ` header handed to `header`.
+    static func records(_ data: Data, header: (String) -> Void = { _ in }) -> [PorcelainRecord] {
+        let fields = data.split(separator: 0, omittingEmptySubsequences: true)
             .map { String(bytes: $0, encoding: .utf8) ?? "" } // not UTF-8: skipped, the pairing kept
+        var result: [PorcelainRecord] = []
         var index = 0
-        while index < records.count {
-            let record = records[index]
+        while index < fields.count {
+            let record = fields[index]
             index += 1
             if record.hasPrefix("# ") {
-                readHeader(record, into: &status)
+                header(record)
                 continue
             }
-            // Ordinary (1), renamed or copied (2), unmerged (u), untracked (?), ignored (!); the
-            // path is the last field. A rename is followed by a record with the original path.
+            // The path is the last field. A rename is followed by a field with the original path.
             let fieldsBeforePath = switch record.first {
             case "1": 8
             case "2": 9
@@ -205,28 +223,36 @@ public enum Git {
             case "?", "!": 1
             default: -1
             }
-            guard fieldsBeforePath >= 0 else {
+            guard fieldsBeforePath >= 0, let kind = record.first else {
                 continue
             }
-            let fields = record.split(separator: " ", maxSplits: fieldsBeforePath, omittingEmptySubsequences: false)
-            // A submodule whose only change is untracked files in it (".M" with "S..U": no new
-            // commit, no tracked modification) is not a tracked change.
-            if record.first == "1", fields.count > 2, fields[1] == ".M", fields[2].hasPrefix("S"),
-               fields[2].dropFirst().prefix(2) == ".."
-            {
-                continue
-            }
-            if fields.count == fieldsBeforePath + 1 {
-                let path = String(fields[fieldsBeforePath])
-                switch record.first {
-                case "?": status.untracked.append(path)
-                case "!": status.ignored.append(path)
-                default: status.changed.append(path)
-                }
-            }
-            if record.first == "2", index < records.count {
-                status.changed.append(records[index]) // the original path: it changed too
+            var oldPath: String?
+            if kind == "2", index < fields.count {
+                oldPath = fields[index]
                 index += 1
+            }
+            let parts = record.split(separator: " ", maxSplits: fieldsBeforePath, omittingEmptySubsequences: false)
+            guard parts.count == fieldsBeforePath + 1 else {
+                continue
+            }
+            let short = fieldsBeforePath == 1
+            result.append(PorcelainRecord(kind: kind, letters: short ? Substring(String(repeating: kind, count: 2))
+                    : parts[1], submodule: short ? "" : parts[2], path: String(parts[fieldsBeforePath]),
+                oldPath: oldPath.flatMap { $0.isEmpty ? nil : $0 }))
+        }
+        return result
+    }
+
+    /// Parses `git status --porcelain=v2 --branch -z`.
+    static func parse(_ data: Data) -> GitRepoStatus {
+        var status = GitRepoStatus()
+        for record in records(data, header: { readHeader($0, into: &status) }) where !record.isUntrackedInSubmodule {
+            switch record.kind {
+            case "?": status.untracked.append(record.path)
+            case "!": status.ignored.append(record.path)
+            default:
+                status.changed.append(record.path)
+                record.oldPath.map { status.changed.append($0) } // the original path: it changed too
             }
         }
         return status

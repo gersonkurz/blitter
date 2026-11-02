@@ -68,7 +68,9 @@ struct GitLogActionTests {
         #expect(!sides.workspace.canRun("git-sync", on: .left))
         sides.workspace.gitRepositories[sides.left] = KnownRepository(GitRepoStatus(), checked: Date())
         sides.workspace.perform(.runAction("git-sync", .left))
-        #expect(presented == [DialogRequest(kind: DialogRequest.gitSync, path: sides.left)])
+        sides.workspace.perform(.runAction("git-commit", .left)) // #44, the same way
+        #expect(presented == [DialogRequest(kind: DialogRequest.gitSync, path: sides.left),
+                              DialogRequest(kind: DialogRequest.gitCommit, path: sides.left)])
 
         var ended: [Job] = []
         sides.workspace.perform(.runCommand(["sh", "-c", "echo fine"], folder: sides.left))

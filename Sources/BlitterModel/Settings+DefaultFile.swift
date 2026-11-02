@@ -48,19 +48,20 @@ public extension Settings {
     # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
     # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
     # delete-immediately-without-asking, new-folder, copy-folder-path, compare-files,
-    # compare-folders, git-log and git-sync (only inside a git working copy), and the tools above.
+    # compare-folders, git-log, git-commit and git-sync (only inside a git working copy), and the
+    # tools above.
     [context_menu]
     # For the clicked or selected items.
     items = [
         "open", "quick-look", "-",
         "copy-path", "copy-name", "-",
         "rename", "move-to-trash", "delete-immediately", "-",
-        "compare-files", "git-log", "git-sync", "-",
+        "compare-files", "git-log", "git-commit", "git-sync", "-",
         "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
     ]
     # For the folder itself (a click on empty space).
     folder = [
-        "new-folder", "-", "copy-folder-path", "compare-folders", "git-log", "git-sync", "-",
+        "new-folder", "-", "copy-folder-path", "compare-folders", "git-log", "git-commit", "git-sync", "-",
         "open-in-terminal", "open-in-code",
     ]
 

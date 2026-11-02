@@ -14,65 +14,7 @@ private final class Silent: FolderWatching {
 @MainActor
 @Suite(.serialized)
 struct GitSyncTests {
-    /// The remote, and clones "a" and "b" of it, both on main with its upstream.
-    private final class Remote {
-        let root: String
-        let git: String
-
-        init() throws {
-            let folder = NSTemporaryDirectory() + "BlitterGitTests-" + UUID().uuidString
-            try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: false)
-            root = FolderWatcher.realPath(folder)
-            git = try #require(Git.executable, "no git on this Mac")
-            try run(["init", "-q", "--bare", "-b", "main", root + "/remote.git"], in: root)
-            try run(["clone", "-q", root + "/remote.git", root + "/a"], in: root)
-            try commit("README.md", "hello", in: "a")
-            try run(["push", "-q", "-u", "origin", "main"], in: root + "/a")
-            try run(["clone", "-q", root + "/remote.git", root + "/b"], in: root)
-        }
-
-        deinit {
-            try? FileManager.default.removeItem(atPath: root)
-        }
-
-        func path(_ clone: String) -> String {
-            root + "/" + clone
-        }
-
-        func commit(_ file: String, _ text: String, in clone: String) throws {
-            try text.write(toFile: path(clone) + "/" + file, atomically: true, encoding: .utf8)
-            try run(["add", file], in: path(clone))
-            try run(["-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", file],
-                    in: path(clone))
-        }
-
-        /// What git prints, trimmed.
-        func output(_ arguments: [String], in folder: String) throws -> String {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: git)
-            process.arguments = ["-C", folder] + arguments
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            try process.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            return (String(bytes: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        func run(_ arguments: [String], in folder: String) throws {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: git)
-            process.arguments = ["-C", folder] + arguments
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
-            try process.run()
-            process.waitUntilExit()
-            #expect(process.terminationStatus == 0, "git \(arguments.joined(separator: " "))")
-        }
-    }
-
-    private func sync(_ remote: Remote, _ clone: String, access: GitSyncAccess = .real) -> GitSync {
+    private func sync(_ remote: GitTestRemote, _ clone: String, access: GitSyncAccess = .real) -> GitSync {
         let workspace = Workspace(initialLocation: "/", home: "/", lister: { _ in [] }, directoryCheck: { _ in false },
                                   volumes: { [] }, watcher: { _ in Silent() })
         workspace.gitRepositories[remote.path(clone)] = KnownRepository(GitRepoStatus(), checked: Date())
@@ -86,7 +28,7 @@ struct GitSyncTests {
     }
 
     @Test func pushThenFetchAndPullOnTheOtherClone() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         let alice = sync(remote, "a")
         await settle(alice)
         #expect(alice.root == remote.path("a"))
@@ -98,7 +40,7 @@ struct GitSyncTests {
         await settle(alice)
         #expect(alice.status?.ahead == 1)
         alice.perform(.run(.push))
-        #expect(alice.running?.operation == .push) // a job in the strip
+        #expect(alice.running == .push) // a job in the strip
         await settle(alice)
         #expect(alice.outcome == .succeeded(.push))
         #expect(alice.output.contains("main -> main"))
@@ -119,7 +61,7 @@ struct GitSyncTests {
     }
 
     @Test func aRejectedPushIsShownNotForced() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         try remote.commit("from-a.txt", "a", in: "a")
         try remote.run(["push", "-q"], in: remote.path("a"))
         try remote.commit("from-b.txt", "b", in: "b") // b has not pulled: its push is rejected
@@ -141,7 +83,7 @@ struct GitSyncTests {
     /// #43 review: Pull rewrites local history (rebase): with commits on both sides, the local
     /// one ends up on top of the remote's, both files are there, and nothing is left to pull.
     @Test func aPullRebasesLocalCommitsOntoTheRemotes() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         try remote.commit("from-a.txt", "a", in: "a")
         try remote.run(["push", "-q"], in: remote.path("a"))
         try remote.commit("from-b.txt", "b", in: "b")
@@ -165,7 +107,7 @@ struct GitSyncTests {
 
     /// #43 review: a worktree's `.git` is a file; its last fetch is still found.
     @Test func theLastFetchOfAWorktreeIsFound() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         let worktree = remote.root + "/tree"
         try remote.run(["worktree", "add", "-q", "-b", "side", worktree], in: remote.path("a"))
         var isFolder: ObjCBool = false
@@ -186,7 +128,7 @@ struct GitSyncTests {
 
     /// #43 review: a status read that is replaced stops its last-fetch lookup too.
     @Test func aReplacedRefreshStopsItsLastFetchLookup() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         let started = Mutex(0)
         let sawCancel = Mutex(false)
         let access = GitSyncAccess(status: { _, _ in GitRepoStatus() }, lastFetch: { _, cancelled in
@@ -216,7 +158,7 @@ struct GitSyncTests {
     }
 
     @Test func aRunningOperationCanBeCancelled() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         let script = remote.root + "/slow-git"
         try "#!/bin/sh\necho starting\nsleep 30\n".write(toFile: script, atomically: true, encoding: .utf8)
         chmod(script, 0o755)
@@ -240,7 +182,7 @@ struct GitSyncTests {
     }
 
     @Test func withoutGitOrAWorkingCopyItSaysWhy() async throws {
-        let remote = try Remote()
+        let remote = try GitTestRemote()
         let noGit = sync(
             remote,
             "a",

@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         DialogHost.register(DialogRequest.gitSync) { [workspace] request in
             GitSyncWindowController(workspace: workspace, path: request.path)
         }
+        DialogHost.register(DialogRequest.gitCommit) { [workspace] request in
+            GitCommitWindowController(workspace: workspace, path: request.path)
+        }
         controller.afterRender = { [weak self] in
             guard let self else {
                 return
