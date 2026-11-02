@@ -51,12 +51,29 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
+  # Git's dialogs (#23): their models and the git commands behind them. No AppKit; the windows
+  # are the app's.
+  BlitterGit:
+    type: framework.static
+    platform: macOS
+    sources: [Sources/BlitterGit]
+    dependencies:
+      - target: BlitterModel
+      - target: BlitterCore
+      # BlitterModel's interface refers to TOMLKit.
+      - package: TOMLKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
   Blitter:
     type: application
     platform: macOS
     sources: [Sources/BlitterApp]
     dependencies:
       # Static frameworks are linked into the executable, so there is nothing to embed.
+      - target: BlitterGit
+        embed: false
       - target: BlitterModel
         embed: false
       - target: BlitterCore
@@ -97,6 +114,18 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
+  BlitterGitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/BlitterGitTests]
+    dependencies:
+      - target: BlitterGit
+      - target: BlitterModel
+      - target: BlitterCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
   # Hosted in the app, so view controllers run in a real window with the real main menu.
   BlitterAppTests:
     type: bundle.unit-test
@@ -122,6 +151,7 @@ schemes:
       targets:
         - BlitterCoreTests
         - BlitterModelTests
+        - BlitterGitTests
         - BlitterAppTests
     archive:
       config: Release

@@ -18,15 +18,19 @@ public enum ActionScope: Equatable, Sendable {
     /// Both sides' folders (#40), each read and showing the folder it is at: never the folder a
     /// side is leaving while the next one is still being read.
     case bothFolders
+    /// The side's folder, or its one selected item, inside a git working copy (#42).
+    case workingCopy
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
     var worksOnFolder: Bool {
-        self == .folder || self == .selectionOrFolder || self == .bothFolders
+        [.folder, .selectionOrFolder, .bothFolders, .workingCopy].contains(self)
     }
 
-    func fits(_ state: SideState, other: SideState) -> Bool {
+    /// `inWorkingCopy`: the side's folder is in a git working copy the workspace knows.
+    func fits(_ state: SideState, other: SideState, inWorkingCopy: Bool = false) -> Bool {
         switch self {
+        case .workingCopy: inWorkingCopy && state.status == .loaded && state.selection.count <= 1
         case .filePair: Self.pair(state, other, on: .left) != nil // the order does not matter here
         case .bothFolders: [state, other].allSatisfy { $0.status == .loaded && $0.entriesLocation == $0.location }
         case .folder, .selectionOrFolder: state.status == .loaded
@@ -151,6 +155,10 @@ public struct ActionRegistry: Sendable {
             let pair = ActionScope.pair(workspace.state(of: side), workspace.state(of: side.opposite), on: side)
             return .compare(left: pair?.0 ?? "", right: pair?.1 ?? "")
         },
+        // #42: the history of the selected item, or of the side's folder.
+        Action("git-log", "Git Log…", scope: .workingCopy) { workspace, side in
+            .present(DialogRequest(kind: DialogRequest.gitLog, path: workspace.workingCopyTarget(on: side)))
+        },
         Action("compare-folders", "Compare Folders", scope: .bothFolders) { workspace, _ in
             .compare(
                 left: workspace.state(of: .left).entriesLocation,
@@ -164,12 +172,17 @@ public extension Workspace {
     /// The actions whose scope fits the side as it is now: what a menu for it offers.
     func actions(for side: Side) -> [Action] {
         let (here, other) = (state(of: side), state(of: side.opposite))
-        return actionRegistry.all.filter { $0.scope.fits(here, other: other) }
+        let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
+        return actionRegistry.all.filter { $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy) }
     }
 
     /// Whether `perform(.runAction(id, side))` would run the action now.
     func canRun(_ id: String, on side: Side) -> Bool {
-        actionRegistry.action(id)?.scope.fits(state(of: side), other: state(of: side.opposite)) == true
+        let state = state(of: side)
+        return actionRegistry.action(id)?.scope.fits(
+            state, other: self.state(of: side.opposite),
+            inWorkingCopy: workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
+        ) == true
     }
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {

@@ -48,15 +48,21 @@ lint: check-boundaries
     swiftformat --lint .
     swiftlint lint --strict --quiet
 
-# BlitterCore and BlitterModel must not depend on UI frameworks
+# BlitterCore, BlitterModel and BlitterGit must not depend on UI frameworks; Core and Model
+# not on BlitterGit either
 check-boundaries:
     #!/usr/bin/env bash
     set -euo pipefail
     # Covers attributes (@testable, @preconcurrency), access levels (public import), kind imports
     # (import class AppKit.NSView), submodules and several imports on one line separated by ';'.
     pattern='(^|;)\s*((@[A-Za-z_]+(\([^)]*\))?|open|public|package|internal|fileprivate|private)\s+)*import\s+((typealias|struct|class|enum|protocol|let|var|func)\s+)?(AppKit|Cocoa|SwiftUI)\b'
-    if grep -rnE "$pattern" Sources/BlitterCore Sources/BlitterModel; then
-        echo "error: BlitterCore and BlitterModel must not import AppKit, Cocoa or SwiftUI" >&2
+    if grep -rnE "$pattern" Sources/BlitterCore Sources/BlitterModel Sources/BlitterGit; then
+        echo "error: BlitterCore, BlitterModel and BlitterGit must not import AppKit, Cocoa or SwiftUI" >&2
+        exit 1
+    fi
+    git_pattern="${pattern/(AppKit|Cocoa|SwiftUI)/BlitterGit}"
+    if grep -rnE "$git_pattern" Sources/BlitterCore Sources/BlitterModel; then
+        echo "error: BlitterCore and BlitterModel must not import BlitterGit" >&2
         exit 1
     fi
     echo "Module boundaries OK"

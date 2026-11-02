@@ -140,20 +140,20 @@ struct KnownRepository: Sendable {
     }
 }
 
-extension Workspace {
-    public func gitState(ofFolder path: String) -> GitState? {
+public extension Workspace {
+    func gitState(ofFolder path: String) -> GitState? {
         gitState(of: path, isFolder: true)
     }
 
     /// The git state (color) of a file or folder: see `gitStatus`.
-    public func gitState(of path: String, isFolder: Bool) -> GitState? {
+    func gitState(of path: String, isFolder: Bool) -> GitState? {
         gitStatus(of: path, isFolder: isFolder)?.state
     }
 
     /// The git status of a file or folder: a working copy's root shows the repository's status;
     /// inside one, tracked changes are modified, other tracked items unchanged, and untracked
     /// and ignored items say so (#35, #25). Outside working copies, or with git off: none.
-    public func gitStatus(of path: String, isFolder: Bool) -> GitItemStatus? {
+    func gitStatus(of path: String, isFolder: Bool) -> GitItemStatus? {
         guard settings.gitColors else {
             return nil
         }
@@ -173,8 +173,31 @@ extension Workspace {
         }
     }
 
+    /// What a working-copy action (#42) acts on: the one selected item, else the side's folder.
+    /// Whether the action fits is decided for this same path, so a working copy selected in the
+    /// folder that holds it is offered too.
+    func workingCopyTarget(on side: Side) -> String {
+        let state = state(of: side)
+        guard state.selection.count == 1, let item = selectedItems(on: side).first else {
+            return state.entriesLocation
+        }
+        return item.path
+    }
+
+    /// The top folder of the known working copy `path` is in (#42), if any.
+    func workingCopyRoot(containing path: String) -> String? {
+        var root = path
+        while gitRepositories[root] == nil {
+            guard root != "/", let parent = Paths.parent(of: root) else {
+                return nil
+            }
+            root = parent
+        }
+        return root
+    }
+
     /// What follows every listing: a folder action chosen while it was read (#20), and git (#22).
-    func listingArrived(_ side: Side) {
+    internal func listingArrived(_ side: Side) {
         updateHighlights(side) // the fast filter (#39)
         runPendingAction(on: side)
         updateGit(side)
@@ -188,7 +211,7 @@ extension Workspace {
     /// git process included.
     /// `periodic`: the regular re-read leaves a scan that is still running alone, so a slow one
     /// still finishes; a new listing replaces it.
-    func updateGit(_ side: Side, periodic: Bool = false) {
+    internal func updateGit(_ side: Side, periodic: Bool = false) {
         guard settings.gitColors, let state = sides[side], state.status == .loaded,
               !(periodic && gitWork[side] != nil)
         else {
@@ -291,7 +314,7 @@ extension Workspace {
         }
     }
 
-    func stopGit() {
+    internal func stopGit() {
         for task in gitWork.values {
             task.cancel()
         }

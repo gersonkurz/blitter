@@ -18,12 +18,13 @@ public struct ContextMenus: Equatable, Sendable {
             .action("open"), .action("quick-look"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
             .action("rename"), .action("move-to-trash"), .action("delete-immediately"), .separator,
-            .action("compare-files"), .separator,
+            .action("compare-files"), .action("git-log"), .separator,
             .action("reveal-in-finder"), .action("open-in-terminal"), .action("open-in-code"),
             .action("open-in-text-editor"),
         ],
         folder: [
-            .action("new-folder"), .separator, .action("copy-folder-path"), .action("compare-folders"), .separator,
+            .action("new-folder"), .separator, .action("copy-folder-path"), .action("compare-folders"),
+            .action("git-log"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]
     )
@@ -88,10 +89,14 @@ public extension Workspace {
         shown(folder ? settings.contextMenus.folder : settings.contextMenus.items) { canRun($0.id, on: side) }
     }
 
-    /// The tree's menu for a folder (#20): the folder menu's folder actions. They fit any folder,
-    /// and run once the side shows it (`Command.runFolderAction`).
-    func treeContextMenu() -> [ShownMenuEntry] {
-        shown(settings.contextMenus.folder) { $0.scope.worksOnFolder }
+    /// The tree's menu for `folder` (#20): the folder menu's folder actions. They fit any folder,
+    /// and run once the side shows it (`Command.runFolderAction`); a working-copy action only a
+    /// folder inside a known working copy (#42).
+    func treeContextMenu(for folder: String) -> [ShownMenuEntry] {
+        let inWorkingCopy = workingCopyRoot(containing: folder) != nil
+        return shown(settings.contextMenus.folder) {
+            $0.scope.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy)
+        }
     }
 
     private func shown(_ entries: [MenuEntry], where fits: (Action) -> Bool) -> [ShownMenuEntry] {

@@ -18,6 +18,8 @@ public struct SystemServices {
     /// back on the main actor with a message if the app cannot be found or refuses the items.
     public var openWithApp: (_ app: String, _ paths: [String], _ failed: @escaping @MainActor (String) -> Void)
         -> Void = { _, _, _ in }
+    /// Show a dialog or window (#42); the app knows which kinds it has.
+    public var present: (DialogRequest) -> Void = { _ in }
     /// Put plain text on the clipboard (paths or names, #16).
     public var copyText: (String) -> Void = { _ in }
 

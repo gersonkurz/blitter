@@ -93,8 +93,8 @@ public enum Git {
     }
 
     /// Runs git and returns its output; nil if it fails, passes `deadline` or is cancelled.
-    private static func run(_ git: String, _ arguments: [String], in root: String, until deadline: Date,
-                            cancelled: CancellationFlag) -> Data?
+    static func run(_ git: String, _ arguments: [String], in root: String, until deadline: Date,
+                    cancelled: CancellationFlag) -> Data?
     {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)

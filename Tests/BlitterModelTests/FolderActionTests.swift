@@ -12,7 +12,7 @@ struct FolderActionTests {
     @Test func theTreeMenuHasTheFolderMenusFolderActions() async throws {
         let sides = try SidesOnDisk()
         try await sides.settle()
-        #expect(ids(sides.workspace.treeContextMenu()) == [
+        #expect(ids(sides.workspace.treeContextMenu(for: sides.left)) == [
             "new-folder",
             "-",
             "copy-folder-path",
@@ -23,7 +23,7 @@ struct FolderActionTests {
         ])
         // A selection action in the folder menu does not fit a tree folder.
         sides.workspace.settings.contextMenus.folder = [.action("move-to-trash"), .action("open-in-code")]
-        #expect(ids(sides.workspace.treeContextMenu()) == ["open-in-code"])
+        #expect(ids(sides.workspace.treeContextMenu(for: sides.left)) == ["open-in-code"])
     }
 
     @Test func onTheShownFolderItRunsAtOnce() async throws {
@@ -100,7 +100,7 @@ struct FolderActionTests {
         var opened: [[String]] = []
         sides.workspace.system.openWithApp = { _, paths, _ in opened.append(paths) }
         sides.workspace.perform(.select(.left, ["a.txt"]))
-        #expect(ids(sides.workspace.treeContextMenu()).contains("open-in-code"))
+        #expect(ids(sides.workspace.treeContextMenu(for: sides.left)).contains("open-in-code"))
         var changes = 0
         sides.workspace.onChange = { changes += 1 }
         sides.workspace.perform(.runFolderAction("open-in-code", .left, folder: sides.left))

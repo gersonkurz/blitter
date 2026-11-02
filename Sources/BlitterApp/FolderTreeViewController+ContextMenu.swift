@@ -34,7 +34,7 @@ extension FolderTreeViewController: NSMenuDelegate {
         workspace.perform(.activate(side))
         workspace.perform(.selectTreeNode(side, node))
         menuFolder = node.path
-        menu.fill(with: workspace.treeContextMenu(), target: self, action: #selector(runTreeAction(_:)))
+        menu.fill(with: workspace.treeContextMenu(for: node.path), target: self, action: #selector(runTreeAction(_:)))
     }
 
     @objc private func runTreeAction(_ sender: NSMenuItem) {

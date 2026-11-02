@@ -24,6 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
         let controller = MainWindowController(workspace: workspace)
         workspace.system = .appKit(window: controller)
+        DialogHost.register(DialogRequest.gitLog) { [workspace] request in
+            GitLogWindowController(workspace: workspace, path: request.path)
+        }
         controller.afterRender = { [weak self] in
             guard let self else {
                 return

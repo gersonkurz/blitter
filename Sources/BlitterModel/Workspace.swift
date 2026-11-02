@@ -167,6 +167,7 @@ public final class Workspace {
         case let .openWithApp(app, paths, title): openWithApp(app, paths, title: title)
         case let .runCommand(arguments, folder): runCommand(arguments, in: folder)
         case let .compare(left, right): compare(left, right)
+        case let .present(request): present(request)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }
