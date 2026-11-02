@@ -162,7 +162,7 @@ public final class Workspace {
         case let .selectQuickFilterMatch(side, forward): selectQuickFilterMatch(side, forward: forward)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
-        case let .find(side, pattern): find(side, pattern)
+        case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)

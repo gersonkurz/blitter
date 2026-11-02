@@ -156,6 +156,75 @@ struct FindReviewTests {
     }
 }
 
+/// Content search (#49): files holding a text, with the name as a pre-filter.
+@MainActor
+@Suite(.serialized)
+struct FindContentsTests {
+    @Test func filesContainingATextAreFound() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.left + "/hello", withIntermediateDirectories: false)
+        sides.file("left/a.txt", "Hello world")
+        sides.file("left/hello/b.md", "say HELLO")
+        sides.file("left/c.txt", "nothing here")
+        FileManager.default.createFile(atPath: sides.left + "/d.bin", contents: Data([0x68, 0x00]) + Data("hello".utf8))
+        try await sides.settle()
+        sides.workspace.perform(.find(.left, pattern: "*.txt", containing: "hello"))
+        try await sides.settle()
+        #expect(sides.names(.left) == ["a.txt"])
+        #expect(sides.workspace.state(of: .left).find?.filesRead == 2) // only the names that match are read
+        #expect(sides.workspace.state(of: .left).find?.displayLocation
+            == "search://" + sides.left + "?name=*.txt&contains=hello")
+
+        sides.workspace.perform(.find(.left, pattern: "", containing: "hello")) // any name
+        try await sides.settle()
+        // Not the folder "hello" (a folder holds no text), not the binary file.
+        #expect(sides.names(.left).sorted() == ["a.txt", "hello/b.md"])
+        #expect(sides.workspace.state(of: .left).find?.filesRead == 4)
+
+        sides.workspace.perform(.find(.left, pattern: "a*", containing: "   ")) // only spaces: names only
+        try await sides.settle()
+        #expect(sides.names(.left) == ["a.txt"] && sides.workspace.state(of: .left).find?.contents == "")
+    }
+}
+
+/// #49 review: inside one folder, results and counts come as the files are read, and Stop
+/// opens no further file.
+struct FindContentsStreamingTests {
+    private func folder(files: Int) throws -> String {
+        let path = FileManager.default.temporaryDirectory.path + "/BlitterContents-" + UUID().uuidString
+        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: false)
+        for index in 0 ..< files {
+            FileManager.default.createFile(atPath: path + "/f\(index).txt", contents: Data("needle \(index)".utf8))
+        }
+        return path
+    }
+
+    @Test func resultsComeBetweenTheFilesOfOneFolder() throws {
+        let path = try folder(files: 5)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        var batches: [FindBatch] = []
+        FileFind.walk(root: path, matcher: QuickFilter.Matcher("*", wholeName: true), contents: "needle",
+                      includeHidden: false, cancelled: CancellationFlag(), interval: 0) { batches.append($0) }
+        #expect(batches.map(\.filesRead) == [1, 2, 3, 4, 5, 5, 5]) // after each file, the folder, the end
+        #expect(batches[0].entries.count == 1 && batches[0].foldersSearched == 1) // the first before the rest
+        #expect(batches.flatMap(\.entries).count == 5)
+    }
+
+    @Test func stopOpensNoFurtherFile() throws {
+        let path = try folder(files: 50)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let cancelled = CancellationFlag()
+        var batches: [FindBatch] = []
+        FileFind.walk(root: path, matcher: QuickFilter.Matcher("*", wholeName: true), contents: "needle",
+                      includeHidden: false, cancelled: cancelled, interval: 0)
+        { batch in
+            batches.append(batch)
+            cancelled.set() // Stop, once the first file was read
+        }
+        #expect(batches.last?.filesRead == 1)
+    }
+}
+
 /// A small APFS volume, mounted below a temporary folder for one test and detached afterwards.
 final class FindDiskImage {
     let folder: String

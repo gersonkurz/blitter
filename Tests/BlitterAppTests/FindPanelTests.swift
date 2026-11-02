@@ -80,6 +80,24 @@ final class FindPanelTests {
         #expect(list.pathField.stringValue == shown)
     }
 
+    /// #49: the Containing field goes with the search.
+    @Test func theContainingFieldSearchesFileContents() async throws {
+        FileManager.default.createFile(atPath: folder + "/sub/three.txt", contents: Data("needle".utf8))
+        let workspace = Workspace(initialLocation: folder, home: folder, volumes: { [] }, watcher: FakeWatcher.factory)
+        let controller = MainWindowController(workspace: workspace)
+        controller.showWindow(nil)
+        defer { controller.window?.close() }
+        controller.showFind(nil)
+        let panel = controller.findController
+        panel.field.stringValue = "*.txt"
+        panel.contentsField.stringValue = "needle"
+        _ = panel.contentsField.sendAction(panel.contentsField.action, to: panel.contentsField.target) // Return there
+        try await waitUntil { workspace.state(of: .left).find?.isRunning == false }
+        try await waitUntil { workspace.state(of: .left).visibleEntries.count == 1 }
+        #expect(workspace.state(of: .left).visibleEntries.first?.entry.name == "sub/three.txt")
+        #expect(panel.statusLabel.stringValue == "1 found in 2 folders, 3 files read")
+    }
+
     @Test func theStatusSaysHowItGoes() {
         var find = FindState(root: "/r", pattern: "x")
         find.foldersSearched = 1

@@ -8,21 +8,26 @@ import Foundation
 /// busy tree (the home folder) would walk it again and again; its results are a snapshot.
 extension Workspace {
     /// Searches below the side's folder (or the folder its search was in) for names matching
-    /// `pattern` (as the fast filter does; with a wildcard, the whole name). Back returns to the
-    /// folder. An empty pattern ends the search.
-    func find(_ side: Side, _ pattern: String) -> Bool {
+    /// `pattern` (as the fast filter does; with a wildcard, the whole name), and if given, files
+    /// containing `contents` (#49; any name then if the pattern is empty). Back returns to the
+    /// folder. Neither given ends the search.
+    func find(_ side: Side, _ pattern: String, containing contents: String = "") -> Bool {
         guard var state = sides[side] else {
             return false
         }
-        let text = pattern.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else {
+        var text = pattern.trimmingCharacters(in: .whitespaces)
+        let contents = contents.trimmingCharacters(in: .whitespaces).isEmpty ? "" : contents // as typed, else none
+        guard !text.isEmpty || !contents.isEmpty else {
             return endFind(side)
+        }
+        if text.isEmpty {
+            text = "*"
         }
         if state.find == nil { // Back leaves the results for the folder
             state.backStack.append(state.location)
             state.forwardStack.removeAll()
         }
-        state.find = FindState(root: state.location, pattern: text)
+        state.find = FindState(root: state.location, pattern: text, contents: contents)
         state.selection = []
         state.renameRequest = nil
         state.quickFilter = nil
@@ -78,19 +83,13 @@ extension Workspace {
             sides[side]?.visibleIndex = [:]
             sides[side]?.entriesVersion += 1
         }
-        let (root, matcher, includeHidden) = (find.root, QuickFilter.Matcher(find.pattern, wholeName: true),
-                                              showsHiddenFiles)
+        let (root, matcher, contents) = (find.root, QuickFilter.Matcher(find.pattern, wholeName: true), find.contents)
+        let includeHidden = showsHiddenFiles
         let stop = CancellationFlag()
         findStops[side] = stop
         findWork[side] = Task { [weak self] in
-            let batches = AsyncStream<FindBatch> { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    FileFind.walk(root: root, matcher: matcher, includeHidden: includeHidden, cancelled: stop) {
-                        continuation.yield($0)
-                    }
-                    continuation.finish()
-                }
-            }
+            let batches = FileFind.batches(root: root, matcher: matcher, contents: contents,
+                                           includeHidden: includeHidden, cancelled: stop)
             var found: [DirectoryEntry] = []
             var last = FindBatch()
             await withTaskCancellationHandler {
@@ -124,6 +123,7 @@ extension Workspace {
         }
         sides[side]?.find?.foldersSearched = batch.foldersSearched
         sides[side]?.find?.unreadableFolders = batch.unreadableFolders
+        sides[side]?.find?.filesRead = batch.filesRead
         guard let found, final || pendingWork[side] == nil else {
             notifyChange()
             return

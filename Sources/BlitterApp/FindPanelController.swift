@@ -2,12 +2,14 @@ import AppKit
 import BlitterModel
 
 /// The Find panel (#48), docked below both sides: a name to search for below the active side's
-/// folder, and how the search is going. The results show on that side, as a folder of their own.
+/// folder, a text the files contain (#49, optional), and how the search is going. The results show on that side, as a
+/// folder of their own.
 /// ⌘F shows it and puts the cursor in the field; Escape (or ✕) hides it again, the results stay.
 @MainActor
 final class FindPanelController: NSViewController, NSSearchFieldDelegate {
     private let workspace: Workspace
     let field = NSSearchField()
+    let contentsField = NSSearchField()
     let scopeLabel = NSTextField(labelWithString: "")
     let statusLabel = NSTextField(labelWithString: "")
     let stopButton = NSButton(title: "Stop", target: nil, action: nil)
@@ -26,10 +28,13 @@ final class FindPanelController: NSViewController, NSSearchFieldDelegate {
 
     override func loadView() {
         field.placeholderString = "Name, or a pattern such as *.swift"
-        field.sendsWholeSearchString = true
-        field.target = self
-        field.action = #selector(search(_:))
-        field.delegate = self
+        contentsField.placeholderString = "Text in the file (optional)"
+        for input in [field, contentsField] {
+            input.sendsWholeSearchString = true
+            input.target = self
+            input.action = #selector(search(_:))
+            input.delegate = self
+        }
         stopButton.target = self
         stopButton.action = #selector(stop(_:))
         let close = NSButton(title: "✕", target: self, action: #selector(close(_:)))
@@ -40,11 +45,13 @@ final class FindPanelController: NSViewController, NSSearchFieldDelegate {
             label.lineBreakMode = .byTruncatingMiddle
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        let row = NSStackView(views: [NSTextField(labelWithString: "Find:"), field, scopeLabel, NSView(), statusLabel,
-                                      stopButton, close])
+        let row = NSStackView(views: [NSTextField(labelWithString: "Find:"), field,
+                                      NSTextField(labelWithString: "Containing:"), contentsField, scopeLabel, NSView(),
+                                      statusLabel, stopButton, close])
         row.spacing = 8
         row.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-        field.widthAnchor.constraint(equalToConstant: 280).isActive = true
+        field.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        contentsField.widthAnchor.constraint(equalToConstant: 200).isActive = true
         view = row
         view.isHidden = true
     }
@@ -80,6 +87,9 @@ final class FindPanelController: NSViewController, NSSearchFieldDelegate {
     static func status(_ find: FindState, found: Int) -> String {
         let folders = find.foldersSearched == 1 ? "1 folder" : "\(find.foldersSearched.formatted()) folders"
         var text = (find.isRunning ? "Searching… " : "") + "\(found.formatted()) found in \(folders)"
+        if !find.contents.isEmpty {
+            text += find.filesRead == 1 ? ", 1 file read" : ", \(find.filesRead.formatted()) files read"
+        }
         if find.unreadableFolders > 0 {
             text += " (\(find.unreadableFolders.formatted()) could not be read)"
         }
@@ -89,7 +99,11 @@ final class FindPanelController: NSViewController, NSSearchFieldDelegate {
     // MARK: Input
 
     @objc private func search(_: Any?) {
-        workspace.perform(.find(workspace.activeSide, pattern: field.stringValue))
+        workspace.perform(.find(
+            workspace.activeSide,
+            pattern: field.stringValue,
+            containing: contentsField.stringValue
+        ))
     }
 
     @objc private func stop(_: Any?) {
