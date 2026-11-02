@@ -43,6 +43,8 @@ public enum Command: Sendable {
     case find(Side, pattern: String, containing: String = "")
     /// Stop the side's search; its results so far stay.
     case stopFind(Side)
+    /// Measure the side's selected folders, or all its folders when nothing is selected (#52).
+    case measureFolderSizes(Side)
     /// Copy the active side's selection into the other side's folder.
     case copyToOtherSide
     /// Move the active side's selection into the other side's folder.

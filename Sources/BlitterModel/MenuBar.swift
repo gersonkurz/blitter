@@ -82,7 +82,7 @@ public struct MenuBarSettings: Equatable, Sendable {
         file: [
             item("new-folder", "shift+cmd+n"), item("rename", "f2"), .separator,
             item("copy-to-other-side", "f5"), item("move-to-other-side", "f6"),
-            item("reveal-in-finder", "opt+cmd+r"), .separator,
+            item("reveal-in-finder", "opt+cmd+r"), item("folder-sizes", "opt+cmd+s"), .separator,
             item("compare-files", "opt+cmd+d"), item("compare-folders", "shift+opt+cmd+d"), .separator,
             item("move-to-trash", "cmd+backspace"), item("delete-immediately", "opt+cmd+backspace"),
             item("delete-immediately-without-asking", "shift+opt+cmd+backspace", alternate: true),

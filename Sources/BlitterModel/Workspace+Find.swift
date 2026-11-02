@@ -37,6 +37,7 @@ extension Workspace {
         state.pendingAction = nil
         sides[side] = state
         cancelHighlightSearch(side)
+        dropFolderSizes(side) // they were for other names
         runFind(side, fresh: true)
         return true
     }
@@ -129,10 +130,10 @@ extension Workspace {
             notifyChange()
             return
         }
-        let (showHidden, sort, filter) = (showsHiddenFiles, state.sort, state.listFilter)
+        let (showHidden, sort, filter, sizes) = (showsHiddenFiles, state.sort, state.listFilter, state.measuredSizes)
         startWork(on: side, location: state.location) {
             Listing.Result(all: found, visible: Listing.visibleEntries(found, showHidden: showHidden, sort: sort,
-                                                                       filter: filter))
+                                                                       filter: filter, folderSizes: sizes))
         }
         notifyChange()
     }

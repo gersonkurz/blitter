@@ -54,8 +54,9 @@ enum Listing {
     /// Filters and sorts a folder's entries for display. Folders always come first, in both sort
     /// directions; ties are broken by name so the order is stable. Runs off the main thread.
     /// `filter` is the fast filter's text in filter mode (#39): only matching names are listed.
+    /// `folderSizes` (#52): folders measured so far sort by their size.
     static func visibleEntries(_ entries: [DirectoryEntry], showHidden: Bool, sort: ListSort,
-                               filter: String? = nil) -> [ListedEntry]
+                               filter: String? = nil, folderSizes: [String: Int64] = [:]) -> [ListedEntry]
     {
         var types = ContentTypes()
         let matcher = filter.flatMap { $0.isEmpty ? nil : QuickFilter.Matcher($0) }
@@ -80,6 +81,8 @@ enum Listing {
             }
             var order: ComparisonResult = switch sort.column {
             case .name: .orderedSame // compared below
+            case .size where lhsIsFolder:
+                compareValues(folderSizes[lhs.entry.name] ?? 0, folderSizes[rhs.entry.name] ?? 0)
             case .size: compareValues(lhs.entry.size, rhs.entry.size)
             case .modified: compareValues(lhs.entry.modificationDate, rhs.entry.modificationDate)
             case .kind: compareValues(kindRank[lhs.kindDescription] ?? 0, kindRank[rhs.kindDescription] ?? 0)

@@ -15,7 +15,7 @@ public struct ContextMenus: Equatable, Sendable {
 
     static let defaults = ContextMenus(
         items: [
-            .action("open"), .action("quick-look"), .separator,
+            .action("open"), .action("quick-look"), .action("folder-sizes"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
             .action("rename"), .action("move-to-trash"), .action("delete-immediately"), .separator,
             .action("compare-files"), .action("git-log"), .action("git-commit"), .action("git-sync"),
@@ -24,7 +24,8 @@ public struct ContextMenus: Equatable, Sendable {
             .action("open-in-text-editor"),
         ],
         folder: [
-            .action("new-folder"), .separator, .action("copy-folder-path"), .action("compare-folders"),
+            .action("new-folder"), .action("folder-sizes"), .separator, .action("copy-folder-path"),
+            .action("compare-folders"),
             .action("git-log"), .action("git-commit"), .action("git-sync"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]

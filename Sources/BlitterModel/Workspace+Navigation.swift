@@ -47,6 +47,7 @@ extension Workspace {
             return false // nowhere to go: a search shown stays as it is (#48 review)
         }
         leaveFind(side) // any navigation ends a search, even to the folder it searched (#48)
+        dropFolderSizes(side) // and forgets folder sizes (#52)
         guard var state = sides[side] else {
             return false
         }

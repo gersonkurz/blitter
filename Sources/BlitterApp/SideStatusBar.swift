@@ -15,6 +15,7 @@ final class SideStatusBar: NSView {
         let version: Int
         let status: LoadStatus
         let selection: Set<String>
+        let folderSizes: [String: FolderSize]
     }
 
     private static let sizeFormatter: ByteCountFormatter = {
@@ -56,7 +57,8 @@ final class SideStatusBar: NSView {
         if freeSpaceLabel.stringValue != free {
             freeSpaceLabel.stringValue = free
         }
-        let key = Key(version: state.entriesVersion, status: state.status, selection: state.selection)
+        let key = Key(version: state.entriesVersion, status: state.status, selection: state.selection,
+                      folderSizes: state.folderSizes)
         guard key != rendered else {
             return
         }
@@ -70,7 +72,7 @@ final class SideStatusBar: NSView {
             return ""
         }
         guard !state.selection.isEmpty else {
-            return state.totals.count == 0 ? "No items" : describe(state.totals)
+            return state.totals.count == 0 ? "No items" : describe(state.shownTotals)
         }
         let selected = state.selectedTotals
         return "\(selected.count.formatted()) of \(state.totals.count.formatted()) selected: " + describe(selected)
@@ -91,6 +93,8 @@ final class SideStatusBar: NSView {
         }
         if totals.files > 0 {
             parts.append(totals.files == 1 ? "1 file" : "\(totals.files.formatted()) files")
+        }
+        if totals.files > 0 || totals.bytes > 0 { // measured folders have a size too (#52)
             parts.append(sizeFormatter.string(fromByteCount: totals.bytes))
         }
         return parts.joined(separator: ", ")

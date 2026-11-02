@@ -6,20 +6,26 @@ public struct EntryTotals: Equatable, Sendable {
     public private(set) var folders = 0
     /// Everything that is not a folder: files, links and the rest.
     public private(set) var files = 0
-    /// The files' sizes added up. Folders add nothing: their size is not known.
+    /// The files' sizes added up, and those of measured folders (#52); other folders add
+    /// nothing: their size is not known.
     public private(set) var bytes: Int64 = 0
 
     public init() {}
 
-    init(_ entries: some Sequence<ListedEntry>) {
+    init(_ entries: some Sequence<ListedEntry>, folderSizes: [String: Int64] = [:]) {
         for listed in entries {
             if listed.entry.kind == .directory {
                 folders += 1
+                bytes += folderSizes[listed.entry.name] ?? 0
             } else {
                 files += 1
                 bytes += listed.entry.size
             }
         }
+    }
+
+    mutating func addFolderBytes(_ more: Int64) {
+        bytes += more
     }
 
     public var count: Int {

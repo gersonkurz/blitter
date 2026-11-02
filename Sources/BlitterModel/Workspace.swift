@@ -75,6 +75,11 @@ public final class Workspace {
     /// Free space (#51): the read running per side, the sides whose listing changed meanwhile,
     /// and how it is read (tests replace it).
     var freeSpaceWork: [Side: Task<Void, Never>] = [:]
+    /// Folder sizes being measured (#52), and the flag that stops the walk.
+    var folderSizeWork: [Side: Task<Void, Never>] = [:]
+    var folderSizeStops: [Side: CancellationFlag] = [:]
+    /// How a folder is measured (tests hold it back).
+    var measureFolder: @Sendable (String, CancellationFlag) -> Int64? = { FolderSizes.measure($0, cancelled: $1) }
     var freeSpaceWanted: Set<Side> = []
     public var readFreeSpace: @Sendable (String) async -> Int64? = BlitterCore.freeSpace(at:)
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
@@ -169,6 +174,7 @@ public final class Workspace {
         case .toggleHiddenFiles: toggleHiddenFiles()
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)
+        case let .measureFolderSizes(side): measureFolders(side)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
@@ -248,7 +254,7 @@ extension Workspace {
         startWork(on: side, location: state.location) {
             let entries = try await lister(state.location)
             let visible = Listing.visibleEntries(entries, showHidden: showHidden, sort: state.sort,
-                                                 filter: state.listFilter)
+                                                 filter: state.listFilter, folderSizes: state.measuredSizes)
             return Listing.Result(all: entries, visible: visible)
         }
     }
@@ -265,7 +271,8 @@ extension Workspace {
         let showHidden = showsHiddenFiles
         startWork(on: side, location: state.entriesLocation) {
             Listing.Result(all: state.allEntries, visible: Listing.visibleEntries(
-                state.allEntries, showHidden: showHidden, sort: state.sort, filter: state.listFilter
+                state.allEntries, showHidden: showHidden, sort: state.sort, filter: state.listFilter,
+                folderSizes: state.measuredSizes
             ))
         }
     }
@@ -314,6 +321,7 @@ extension Workspace {
             state.status = .loaded
             // Keep only selected names that still exist (looked up, not searched: #47).
             state.selection = state.selection.filter { listing.index[$0] != nil }
+            state.folderSizes = Self.keepingListedFolders(state.folderSizes, in: listing.all)
             if let pending = state.pendingSelection, pending.folder == location, listing.index[pending.name] != nil {
                 state.selection = [pending.name]
                 state.pendingSelection = nil

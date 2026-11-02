@@ -14,6 +14,7 @@ struct FolderActionTests {
         try await sides.settle()
         #expect(ids(sides.workspace.treeContextMenu(for: sides.left)) == [
             "new-folder",
+            "folder-sizes",
             "-",
             "copy-folder-path",
             "compare-folders",

@@ -47,13 +47,13 @@ public extension Settings {
     # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
     # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
     # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
-    # delete-immediately-without-asking, new-folder, copy-folder-path, compare-files,
+    # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, compare-files,
     # compare-folders, git-log, git-commit and git-sync (only inside a git working copy), and the
     # tools above.
     [context_menu]
     # For the clicked or selected items.
     items = [
-        "open", "quick-look", "-",
+        "open", "quick-look", "folder-sizes", "-",
         "copy-path", "copy-name", "-",
         "rename", "move-to-trash", "delete-immediately", "-",
         "compare-files", "git-log", "git-commit", "git-sync", "-",
@@ -61,7 +61,8 @@ public extension Settings {
     ]
     # For the folder itself (a click on empty space).
     folder = [
-        "new-folder", "-", "copy-folder-path", "compare-folders", "git-log", "git-commit", "git-sync", "-",
+        "new-folder", "folder-sizes", "-",
+        "copy-folder-path", "compare-folders", "git-log", "git-commit", "git-sync", "-",
         "open-in-terminal", "open-in-code",
     ]
 
@@ -77,6 +78,7 @@ public extension Settings {
         { action = "copy-to-other-side", key = "f5" },
         { action = "move-to-other-side", key = "f6" },
         { action = "reveal-in-finder", key = "opt+cmd+r" },
+        { action = "folder-sizes", key = "opt+cmd+s" },
         "-",
         { action = "compare-files", key = "opt+cmd+d" },
         { action = "compare-folders", key = "shift+opt+cmd+d" },

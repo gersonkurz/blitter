@@ -42,6 +42,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var highlightedNames: Set<String> = []
     let quickFilterBar = QuickFilterBar()
     let statusBar = SideStatusBar()
+    var shownFolderSizes: [String: FolderSize] = [:]
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
@@ -209,6 +210,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             }
         }
         renderGit() // after `entries` and `location` are the new listing's
+        renderFolderSizes(state.folderSizes)
         renderQuickFilter()
         applySelection(state.selection)
         if folderChanged, !entries.isEmpty {
@@ -357,7 +359,10 @@ extension FileListViewController {
                 self?.iconLoaded(for: name, in: folder)
             }
         case Self.sizeColumn:
-            cell.textField?.stringValue = Formatting.size(of: listed.entry)
+            cell.textField?.stringValue = Formatting.size(
+                of: listed.entry,
+                folderSize: shownFolderSizes[listed.entry.name]
+            )
         case Self.modifiedColumn:
             cell.textField?.stringValue = dateFormatter.string(from: listed.entry.modificationDate)
         default:

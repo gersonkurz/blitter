@@ -1,5 +1,6 @@
 import AppKit
 import BlitterCore
+import BlitterModel
 
 @MainActor
 enum Formatting {
@@ -9,8 +10,16 @@ enum Formatting {
         return formatter
     }()
 
-    static func size(of entry: DirectoryEntry) -> String {
-        entry.kind == .directory ? "--" : sizeFormatter.string(fromByteCount: entry.size)
+    /// A folder shows its size once measured (#52), "…" while it is being measured.
+    static func size(of entry: DirectoryEntry, folderSize: FolderSize? = nil) -> String {
+        guard entry.kind == .directory else {
+            return sizeFormatter.string(fromByteCount: entry.size)
+        }
+        return switch folderSize {
+        case let .measured(bytes): sizeFormatter.string(fromByteCount: bytes)
+        case .measuring: "…"
+        case nil: "--"
+        }
     }
 
     /// A formatter for the settings' date pattern (#12): exactly the pattern, never "Yesterday"

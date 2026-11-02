@@ -20,11 +20,13 @@ public enum ActionScope: Equatable, Sendable {
     case bothFolders
     /// The side's folder, or its one selected item, inside a git working copy (#42).
     case workingCopy
+    /// The selected folders, or every folder listed when nothing is selected (#52): at least one.
+    case folders
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
     var worksOnFolder: Bool {
-        [.folder, .selectionOrFolder, .bothFolders, .workingCopy].contains(self)
+        [.folder, .selectionOrFolder, .bothFolders, .workingCopy, .folders].contains(self)
     }
 
     /// `inWorkingCopy`: the side's folder is in a git working copy the workspace knows.
@@ -35,6 +37,9 @@ public enum ActionScope: Equatable, Sendable {
         case .bothFolders: [state, other].allSatisfy { $0.status == .loaded && $0.entriesLocation == $0.location }
         case .folder, .selectionOrFolder: state.status == .loaded
         case .selection: !state.selection.isEmpty
+        case .folders:
+            state.status == .loaded && (state.selection.isEmpty ? state.totals.folders > 0
+                : !state.selectedEntriesAllSatisfy { $0.entry.kind != .directory })
         case .single: state.selection.count == 1
         case .files:
             !state.selection.isEmpty && state.selectedEntriesAllSatisfy { [.file, .symlink].contains($0.entry.kind) }
@@ -148,6 +153,7 @@ public struct ActionRegistry: Sendable {
         Action("delete-immediately", "Delete Immediately", scope: .selection) { _, side in .deleteSelection(side) },
         Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
                scope: .selection) { _, side in .deleteSelectionWithoutAsking(side) },
+        Action("folder-sizes", "Calculate Folder Sizes", scope: .folders) { _, side in .measureFolderSizes(side) },
         Action("new-folder", "New Folder", scope: .folder, worksInFind: false) { _, side in .newFolder(side) },
         Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard) { _, side in
             .copyFolderPath(side)

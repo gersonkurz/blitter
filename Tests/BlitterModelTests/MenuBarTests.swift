@@ -27,7 +27,7 @@ struct MenuBarTests {
             }
         }
         #expect(file == ["new-folder", "rename", "copy-to-other-side", "move-to-other-side", "reveal-in-finder",
-                         "compare-files", "compare-folders", "move-to-trash", "delete-immediately",
+                         "folder-sizes", "compare-files", "compare-folders", "move-to-trash", "delete-immediately",
                          "delete-immediately-without-asking"])
         #expect(bar.file.last == .action("delete-immediately-without-asking",
                                          shortcut: Shortcut(.backspace, [.shift, .option, .command]), alternate: true))

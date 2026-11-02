@@ -38,8 +38,11 @@ public struct SideState: Sendable {
     public internal(set) var sort = ListSort()
     /// Names of the selected entries. Names stay valid across reloads, row indexes do not.
     public internal(set) var selection: Set<String> = []
-    /// What `visibleEntries` holds, counted with the listing in the background (#51).
+    /// What `visibleEntries` holds, counted with the listing in the background (#51); folder
+    /// sizes not included.
     public internal(set) var totals = EntryTotals()
+    /// Folders measured or being measured (#52), by name.
+    public internal(set) var folderSizes: [String: FolderSize] = [:]
     /// The free space last read for the side, and the folder it was read for (#51): it is current
     /// only while that folder is `entriesLocation`.
     public internal(set) var freeSpace: FreeSpace?
@@ -105,9 +108,27 @@ public struct SideState: Sendable {
         return selection.allSatisfy { name in listed(name).map(test) ?? true }
     }
 
-    /// What is selected (#51). Looks the names up, or makes one pass when many are selected.
+    /// What is selected (#51), measured folders' sizes included (#52). Looks the names up, or
+    /// makes one pass when many are selected.
     public var selectedTotals: EntryTotals {
-        EntryTotals(selectedEntries)
+        EntryTotals(selectedEntries, folderSizes: measuredSizes)
+    }
+
+    /// What the list shows, the sizes of its measured folders included (#52): only those listed
+    /// now, not those the fast filter or the hidden toggle leaves out. Looks each up.
+    public var shownTotals: EntryTotals {
+        var shown = totals
+        for (name, size) in folderSizes {
+            if let bytes = size.bytes, listed(name)?.entry.kind == .directory {
+                shown.addFolderBytes(bytes)
+            }
+        }
+        return shown
+    }
+
+    /// The sizes of the folders measured so far (#52).
+    var measuredSizes: [String: Int64] {
+        folderSizes.compactMapValues(\.bytes)
     }
 
     /// The selected entries, in list order.

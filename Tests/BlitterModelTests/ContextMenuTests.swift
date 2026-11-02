@@ -13,13 +13,15 @@ struct ContextMenuSettingsTests {
                 nil
             }
         } == [
-            "open", "quick-look", "copy-path", "copy-name", "rename", "move-to-trash", "delete-immediately",
+            "open", "quick-look", "folder-sizes", "copy-path", "copy-name", "rename", "move-to-trash",
+            "delete-immediately",
             "compare-files", "git-log", "git-commit", "git-sync", "reveal-in-finder", "open-in-terminal",
             "open-in-code",
             "open-in-text-editor",
         ])
         #expect(menus.folder == [
             .action("new-folder"),
+            .action("folder-sizes"),
             .separator,
             .action("copy-folder-path"),
             .action("compare-folders"),
@@ -104,6 +106,7 @@ struct ContextMenuTests {
             } else {
                 "-"
             }
-        } == ["new-folder", "-", "copy-folder-path", "compare-folders", "-", "open-in-terminal", "open-in-code"])
+        } == ["new-folder", "folder-sizes", "-", "copy-folder-path", "compare-folders", "-", "open-in-terminal",
+              "open-in-code"])
     }
 }
