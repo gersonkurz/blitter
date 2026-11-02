@@ -100,6 +100,7 @@ public extension Settings {
     symlink = "base0C"
     cloud = "base04"
     package = "base0E"
+    executable = "base0B"
     error = "base08"
     git_clean = "base0B"
     git_modified = "base08"

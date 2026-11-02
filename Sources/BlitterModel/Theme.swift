@@ -86,6 +86,8 @@ public enum ThemeRole: String, CaseIterable, Sendable {
     /// A cloud placeholder whose contents are not on this Mac.
     case cloud
     case package
+    /// A file with an execute bit (#31).
+    case executable
     /// An entry the file system could not read, and problems in the jobs strip.
     case error
     /// Git (#22): a clean working copy; changes in it or below a folder; ahead of or behind its
@@ -98,7 +100,7 @@ public enum ThemeRole: String, CaseIterable, Sendable {
     /// 03 comments, 04 dark foreground, 05 foreground; 08 red … 0D blue, 0E purple.
     static let defaultSlots: [ThemeRole: Int] = [
         .background: 0x0, .stripe: 0x1, .selection: 0x2, .text: 0x5, .dimText: 0x4,
-        .folder: 0xD, .hidden: 0x3, .symlink: 0xC, .cloud: 0x4, .package: 0xE, .error: 0x8,
+        .folder: 0xD, .hidden: 0x3, .symlink: 0xC, .cloud: 0x4, .package: 0xE, .executable: 0xB, .error: 0x8,
         .gitClean: 0xB, .gitModified: 0x8, .gitAheadOrBehind: 0xA,
     ]
 }
@@ -222,7 +224,8 @@ public struct ThemeSettings: Equatable, Sendable {
 
 public extension ListedEntry {
     /// The role an entry's name is drawn in. A problem reading it wins, then hidden (as the owner
-    /// asked: hidden items get their own color), then what kind of item it is.
+    /// asked: hidden items get their own color), then what kind of item it is; a file that can
+    /// be run is executable (#31).
     var themeRole: ThemeRole {
         if entry.error != 0 {
             return .error
@@ -238,7 +241,9 @@ public extension ListedEntry {
             return .symlink
         case .directory:
             return contentType.conforms(to: .package) ? .package : .folder
-        case .file, .other:
+        case .file:
+            return entry.isExecutable ? .executable : .text
+        case .other:
             return .text
         }
     }

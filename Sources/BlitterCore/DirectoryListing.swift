@@ -28,6 +28,11 @@ public struct DirectoryEntry: Equatable, Sendable {
     /// for the Permissions column (#25).
     public var permissions: UInt16 = 0
 
+    /// A regular file that someone may run: any execute bit (#31).
+    public var isExecutable: Bool {
+        kind == .file && permissions & 0o111 != 0
+    }
+
     public init(name: String, kind: Kind, size: Int64, modificationDate: Date, isHidden: Bool, isDataless: Bool,
                 error: Int32, permissions: UInt16 = 0)
     {

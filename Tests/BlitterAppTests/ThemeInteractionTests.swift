@@ -16,7 +16,9 @@ final class ThemeInteractionTests {
     init() async throws {
         var hidden = file(".hidden")
         hidden.isHidden = true
-        let entries = [folder("sub"), file("a.txt"), hidden]
+        var script = file("run.sh")
+        script.permissions = 0o755
+        let entries = [folder("sub"), file("a.txt"), hidden, script]
         workspace = Workspace(initialLocation: "/fake", home: "/fake", lister: { path in
             guard path == "/fake" else {
                 throw POSIXError(.EACCES)
@@ -38,7 +40,7 @@ final class ThemeInteractionTests {
             jobs.render()
         }
         window.makeKeyAndOrderFront(nil)
-        for _ in 0 ..< 200 where workspace.state(of: .left).visibleEntries.count < 3 {
+        for _ in 0 ..< 200 where workspace.state(of: .left).visibleEntries.count < 4 {
             try await Task.sleep(for: .milliseconds(10))
         }
         workspace.onChange?()
@@ -55,6 +57,7 @@ final class ThemeInteractionTests {
         #expect(table.backgroundColor == .controlBackgroundColor)
         #expect(table.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ThemedRowView } == false)
         #expect(try textColor(".hidden") == .secondaryLabelColor && textColor("sub") == .labelColor)
+        #expect(try textColor("run.sh") == .labelColor) // executables are colored only by a theme (#31)
     }
 
     @Test func aSchemeColorsTheListTreeAndJobsStripAndCanBeTurnedOffAgain() throws {
@@ -66,6 +69,7 @@ final class ThemeInteractionTests {
         #expect(try hex(textColor("sub")) == "268bd2") // folder: base0D
         #expect(try hex(textColor(".hidden")) == "657b83") // hidden: base03
         #expect(try hex(textColor("a.txt")) == "93a1a1") // text: base05
+        #expect(try hex(textColor("run.sh")) == "859900") // executable: base0B (#31)
 
         // A dark scheme draws controls, icons and headers dark, whatever the window's mode.
         #expect(list.view.appearance?.name == .darkAqua)

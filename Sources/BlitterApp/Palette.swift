@@ -73,7 +73,7 @@ struct Palette: Equatable {
         case .stripe: NSColor.alternatingContentBackgroundColors.last ?? .controlBackgroundColor
         case .selection: .selectedContentBackgroundColor
         case .dimText, .hidden: .secondaryLabelColor
-        case .text, .folder, .symlink, .cloud, .package, .error: .labelColor
+        case .text, .folder, .symlink, .cloud, .package, .executable, .error: .labelColor
         // Git colors show without a theme too: they carry information.
         case .gitClean: .systemGreen
         case .gitModified: .systemRed

@@ -85,11 +85,11 @@ struct ThemeTests {
         func role(_ entry: DirectoryEntry, _ type: UTType = .data) -> ThemeRole {
             ListedEntry(entry: entry, contentType: type, kindDescription: "").themeRole
         }
-        func entry(_ kind: DirectoryEntry.Kind, hidden: Bool = false, dataless: Bool = false, error: Int32 = 0)
-            -> DirectoryEntry
+        func entry(_ kind: DirectoryEntry.Kind, hidden: Bool = false, dataless: Bool = false, error: Int32 = 0,
+                   mode: UInt16 = 0o644) -> DirectoryEntry
         {
             DirectoryEntry(name: "x", kind: kind, size: 0, modificationDate: .distantPast, isHidden: hidden,
-                           isDataless: dataless, error: error)
+                           isDataless: dataless, error: error, permissions: mode)
         }
         #expect(role(entry(.file)) == .text)
         #expect(role(entry(.directory), .folder) == .folder)
@@ -98,5 +98,19 @@ struct ThemeTests {
         #expect(role(entry(.file, dataless: true)) == .cloud)
         #expect(role(entry(.directory, hidden: true), .folder) == .hidden) // hidden wins over the kind
         #expect(role(entry(.file, hidden: true, error: EACCES)) == .error) // a problem wins over all
+        // #31: any execute bit makes a file executable; hidden, cloud and errors still win, and
+        // folders and links keep their own roles whatever their x bits.
+        for mode: UInt16 in [0o755, 0o700, 0o610, 0o601, 0o4711] {
+            #expect(role(entry(.file, mode: mode)) == .executable, "\(String(mode, radix: 8))")
+        }
+        #expect(role(entry(.file, mode: 0o666)) == .text)
+        #expect(role(entry(.file, hidden: true, mode: 0o755)) == .hidden)
+        #expect(role(entry(.file, dataless: true, mode: 0o755)) == .cloud)
+        #expect(role(entry(.file, error: EIO, mode: 0o755)) == .error)
+        #expect(role(entry(.directory, mode: 0o755), .folder) == .folder)
+        #expect(role(entry(.symlink, mode: 0o755)) == .symlink)
+        #expect(ThemeRole.defaultSlots[.executable] == 0xB)
+        let (settings, problems) = Settings.parse("[theme.roles]\nexecutable = \"base0E\"\n")
+        #expect(problems.isEmpty && settings.theme.slots[.executable] == 0xE)
     }
 }
