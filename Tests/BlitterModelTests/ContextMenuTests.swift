@@ -14,12 +14,13 @@ struct ContextMenuSettingsTests {
             }
         } == [
             "open", "quick-look", "copy-path", "copy-name", "rename", "move-to-trash", "delete-immediately",
-            "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
+            "compare-files", "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
         ])
         #expect(menus.folder == [
             .action("new-folder"),
             .separator,
             .action("copy-folder-path"),
+            .action("compare-folders"),
             .separator,
             .action("open-in-terminal"),
             .action("open-in-code"),
@@ -98,6 +99,6 @@ struct ContextMenuTests {
             } else {
                 "-"
             }
-        } == ["new-folder", "-", "copy-folder-path", "-", "open-in-terminal", "open-in-code"])
+        } == ["new-folder", "-", "copy-folder-path", "compare-folders", "-", "open-in-terminal", "open-in-code"])
     }
 }

@@ -18,11 +18,12 @@ public struct ContextMenus: Equatable, Sendable {
             .action("open"), .action("quick-look"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
             .action("rename"), .action("move-to-trash"), .action("delete-immediately"), .separator,
+            .action("compare-files"), .separator,
             .action("reveal-in-finder"), .action("open-in-terminal"), .action("open-in-code"),
             .action("open-in-text-editor"),
         ],
         folder: [
-            .action("new-folder"), .separator, .action("copy-folder-path"), .separator,
+            .action("new-folder"), .separator, .action("copy-folder-path"), .action("compare-folders"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]
     )

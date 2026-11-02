@@ -57,6 +57,13 @@ public final class Workspace {
     private(set) var pendingWork: [Side: Task<Void, Never>] = [:]
     /// The fast filter's search for highlighted names (#39). A newer one cancels it.
     var highlightWork: [Side: Task<Void, Never>] = [:]
+    /// Starting the diff tool (#40): finding it and launching it; tests replace both.
+    var compareWork: Task<Void, Never>?
+    public var findDiffTool: @Sendable () -> DiffTool? = { DiffTool.detect() }
+    public var launchTool: @Sendable ([String], [String: String]) throws -> Void = { try Launcher.launch(
+        $0,
+        environment: $1
+    ) }
     /// Color schemes being fetched, by the name the settings give them (#34), and how.
     var schemeWork: [String: Task<Void, Never>] = [:]
     public var fetch: @Sendable (URL) async throws -> Data = Downloads.fetch
@@ -159,6 +166,7 @@ public final class Workspace {
         case let .revealInFinder(side): withSelection(side, system.reveal)
         case let .openWithApp(app, paths, title): openWithApp(app, paths, title: title)
         case let .runCommand(arguments, folder): runCommand(arguments, in: folder)
+        case let .compare(left, right): compare(left, right)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }

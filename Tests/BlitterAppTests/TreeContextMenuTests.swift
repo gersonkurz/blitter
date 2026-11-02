@@ -47,7 +47,7 @@ final class TreeContextMenuTests {
 
     @Test func aRightClickOnAFolderGoesThereAndOffersItsFolderActions() async throws {
         let shown = try open(rightClickOn: "Documents")
-        #expect(shown == ["New Folder", "-", "Copy Path", "-", "Open in Terminal", "Open in Code"])
+        #expect(shown == ["New Folder", "-", "Copy Path", "Compare Folders", "-", "Open in Terminal", "Open in Code"])
         #expect(workspace.state(of: .left).location == "/home/Documents")
         try choose("Open in Terminal")
         try await waitUntil { !self.opened.isEmpty }

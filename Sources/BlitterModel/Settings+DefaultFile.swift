@@ -47,17 +47,21 @@ public extension Settings {
     # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
     # Actions: open, quick-look, copy, copy-path, copy-name, rename, copy-to-other-side,
     # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
-    # delete-immediately-without-asking, new-folder, copy-folder-path, and the tools above.
+    # delete-immediately-without-asking, new-folder, copy-folder-path, compare-files,
+    # compare-folders, and the tools above.
     [context_menu]
     # For the clicked or selected items.
     items = [
         "open", "quick-look", "-",
         "copy-path", "copy-name", "-",
         "rename", "move-to-trash", "delete-immediately", "-",
+        "compare-files", "-",
         "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
     ]
     # For the folder itself (a click on empty space).
-    folder = ["new-folder", "-", "copy-folder-path", "-", "open-in-terminal", "open-in-code"]
+    folder = [
+        "new-folder", "-", "copy-folder-path", "compare-folders", "-", "open-in-terminal", "open-in-code",
+    ]
 
     # The menu bar's action items: the File menu, and the Edit menu after its own items. An entry
     # is an action name, "-" for a separator, or { action = "…", key = "…" } with a shortcut such
@@ -72,6 +76,9 @@ public extension Settings {
         { action = "move-to-other-side", key = "f6" },
         { action = "reveal-in-finder", key = "opt+cmd+r" },
         "-",
+        { action = "compare-files", key = "opt+cmd+d" },
+        { action = "compare-folders", key = "shift+opt+cmd+d" },
+        "-",
         { action = "move-to-trash", key = "cmd+backspace" },
         { action = "delete-immediately", key = "opt+cmd+backspace" },
         { action = "delete-immediately-without-asking", key = "shift+opt+cmd+backspace", alternate = true },
@@ -80,6 +87,12 @@ public extension Settings {
         { action = "copy-path", key = "opt+cmd+c" },
         { action = "copy-name", key = "shift+opt+cmd+c" },
     ]
+
+    # Compare Files and Compare Folders show the two side by side in a visual diff tool. "auto"
+    # takes Beyond Compare if it is installed, else FileMerge (which comes with Xcode). Or a
+    # command line with {left} and {right}, e.g. ["bcomp", "{left}", "{right}"].
+    [diff]
+    tool = "auto"
 
     # Colors: a Base16 or Base24 scheme for light mode and one for dark mode; "system" keeps
     # macOS's colors. Built in: default-dark, default-light, solarized-dark, solarized-light.

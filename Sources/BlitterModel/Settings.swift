@@ -8,6 +8,8 @@ public struct Settings: Equatable, Sendable {
     public var dateFormat = "dd.MM.yyyy HH:mm"
     /// The file list's columns for a side whose columns the user has not changed (#25).
     public var columns = ListColumn.defaults
+    /// The diff tool's command line with {left} and {right} (#40); nil finds one that is installed.
+    public var diffTool: [String]?
     /// Whether Delete Immediately asks first (#17). Delete Immediately Without Asking never does.
     public var confirmDelete = true
     /// Whether folders show their git state as a color (#22).
@@ -161,6 +163,23 @@ public struct Settings: Equatable, Sendable {
     /// value keeps its TOML type: a date is not a string, a float is not an integer.
     private typealias Entry = @Sendable (inout Settings, TOMLValueConvertible) -> String?
     private static let schema: [String: [String: Entry]] = [
+        "diff": [
+            "tool": { settings, value in
+                if value.string == "auto" {
+                    settings.diffTool = nil
+                    return nil
+                }
+                let words = value.array?.compactMap(\.string)
+                guard let words, words.count == value.array?.count, let program = words.first, !program.isEmpty,
+                      words.contains(where: { $0.contains("{left}") }),
+                      words.contains(where: { $0.contains("{right}") })
+                else {
+                    return "expected \"auto\" or a command line such as [\"bcomp\", \"{left}\", \"{right}\"]."
+                }
+                settings.diffTool = words
+                return nil
+            },
+        ],
         "files": [
             "date_format": { settings, value in
                 guard let format = value.string, !format.isEmpty else {

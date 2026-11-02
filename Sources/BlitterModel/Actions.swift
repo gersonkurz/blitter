@@ -13,15 +13,22 @@ public enum ActionScope: Equatable, Sendable {
     case files
     /// The selected items, or the side's folder when nothing is selected (#37).
     case selectionOrFolder
+    /// Two files to compare (#40): two selected on this side, or one here and one on the other.
+    case filePair
+    /// Both sides' folders (#40), each read and showing the folder it is at: never the folder a
+    /// side is leaving while the next one is still being read.
+    case bothFolders
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
     var worksOnFolder: Bool {
-        self == .folder || self == .selectionOrFolder
+        self == .folder || self == .selectionOrFolder || self == .bothFolders
     }
 
-    func fits(_ state: SideState) -> Bool {
+    func fits(_ state: SideState, other: SideState) -> Bool {
         switch self {
+        case .filePair: Self.pair(state, other, on: .left) != nil // the order does not matter here
+        case .bothFolders: [state, other].allSatisfy { $0.status == .loaded && $0.entriesLocation == $0.location }
         case .folder, .selectionOrFolder: state.status == .loaded
         case .selection: !state.selection.isEmpty
         case .single: state.selection.count == 1
@@ -30,6 +37,36 @@ public enum ActionScope: Equatable, Sendable {
                 !state.selection.contains(listed.entry.name) || [.file, .symlink].contains(listed.entry.kind)
             }
         }
+    }
+}
+
+extension ActionScope {
+    /// The two files a `.filePair` action compares: two selected files on `side` (whose state is
+    /// `state`), in list order, or its one selected file and the other side's one, the left
+    /// side's first.
+    static func pair(_ state: SideState, _ other: SideState, on side: Side) -> (String, String)? {
+        // Counts first: menus ask this on the main thread, and most of the time no listing needs
+        // to be looked at (#40 review).
+        let twoHere = state.selection.count == 2
+        guard twoHere || (state.selection.count == 1 && other.selection.count == 1) else {
+            return nil
+        }
+        func files(_ state: SideState) -> [String] {
+            state.visibleEntries.filter { state.selection.contains($0.entry.name) && $0.entry.kind != .directory }
+                .map { Paths.appending($0.entry.name, to: state.entriesLocation) }
+        }
+        let here = files(state)
+        guard here.count == state.selection.count else {
+            return nil // a folder is among them
+        }
+        if here.count == 2 {
+            return (here[0], here[1])
+        }
+        let there = files(other)
+        guard here.count == 1, there.count == 1, other.selection.count == 1 else {
+            return nil
+        }
+        return side == .left ? (here[0], there[0]) : (there[0], here[0])
     }
 }
 
@@ -109,19 +146,30 @@ public struct ActionRegistry: Sendable {
         Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard) { _, side in
             .copyFolderPath(side)
         },
+        // #40: in the configured diff tool. The pair is the scope's, so menus and running agree.
+        Action("compare-files", "Compare Files", scope: .filePair) { workspace, side in
+            let pair = ActionScope.pair(workspace.state(of: side), workspace.state(of: side.opposite), on: side)
+            return .compare(left: pair?.0 ?? "", right: pair?.1 ?? "")
+        },
+        Action("compare-folders", "Compare Folders", scope: .bothFolders) { workspace, _ in
+            .compare(
+                left: workspace.state(of: .left).entriesLocation,
+                right: workspace.state(of: .right).entriesLocation
+            )
+        },
     ])
 }
 
 public extension Workspace {
     /// The actions whose scope fits the side as it is now: what a menu for it offers.
     func actions(for side: Side) -> [Action] {
-        let state = state(of: side)
-        return actionRegistry.all.filter { $0.scope.fits(state) }
+        let (here, other) = (state(of: side), state(of: side.opposite))
+        return actionRegistry.all.filter { $0.scope.fits(here, other: other) }
     }
 
     /// Whether `perform(.runAction(id, side))` would run the action now.
     func canRun(_ id: String, on side: Side) -> Bool {
-        actionRegistry.action(id)?.scope.fits(state(of: side)) == true
+        actionRegistry.action(id)?.scope.fits(state(of: side), other: state(of: side.opposite)) == true
     }
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {
@@ -164,7 +212,7 @@ public extension Workspace {
     }
 
     internal func runAction(_ id: String, on side: Side) -> Bool {
-        guard let action = actionRegistry.action(id), action.scope.fits(state(of: side)) else {
+        guard let action = actionRegistry.action(id), canRun(id, on: side) else {
             return false
         }
         return apply(action.command(self, side))

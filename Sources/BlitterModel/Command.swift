@@ -54,6 +54,8 @@ public enum Command: Sendable {
     case revealInFinder(Side)
     /// Open items with an app (an external tool, #18); a failure becomes a notice naming `title`.
     case openWithApp(String, paths: [String], title: String)
+    /// Show two files or two folders side by side in the diff tool (#40).
+    case compare(left: String, right: String)
     /// Run a command line in a folder as a job (a tool, #30): the program, then its arguments.
     case runCommand([String], folder: String)
     /// Show or hide Quick Look for the side's selection.

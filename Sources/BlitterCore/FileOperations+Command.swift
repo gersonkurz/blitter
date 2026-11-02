@@ -73,9 +73,45 @@ extension FileOperations {
     }
 }
 
+/// Starting a program that goes on by itself, such as a diff tool's window (#40): not a job,
+/// nothing waits for it. A thread of its own collects its exit, so it leaves no zombie, without
+/// using any CPU meanwhile. Its exit code means nothing here: diff tools report differences
+/// with it.
+public enum Launcher {
+    public enum Failure: Error, LocalizedError, Equatable {
+        case empty
+        case notFound(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .empty: "the command is empty"
+            case let .notFound(name): "“\(name)” was not found"
+            }
+        }
+    }
+
+    /// `arguments`: the program, then its arguments; never through a shell. `environment` is
+    /// added to Blitter's own (with the search path as PATH).
+    public static func launch(_ arguments: [String], environment extra: [String: String] = [:]) throws {
+        guard let name = arguments.first else {
+            throw Failure.empty
+        }
+        let path = FileOperations.searchPath()
+        guard let program = FileOperations.executable(name, in: "/", searching: path) else {
+            throw Failure.notFound(name)
+        }
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = path.joined(separator: ":")
+        environment.merge(extra) { $1 }
+        let child = try SpawnedProcess(program, arguments: [name] + arguments.dropFirst(), folder: "/",
+                                       environment: environment, keepErrors: false)
+        Thread.detachNewThread { child.reap() }
+    }
+}
+
 /// A process started with `posix_spawn` in a group of its own, stdin and stdout on /dev/null,
-/// stderr on a pipe, every other descriptor closed.
-private final class SpawnedProcess {
+/// stderr on a pipe (or /dev/null), every other descriptor closed. Used by one thread at a time.
+private final class SpawnedProcess: @unchecked Sendable {
     struct Status {
         /// Nil if it was ended by a signal.
         let exitCode: Int32?
@@ -86,7 +122,9 @@ private final class SpawnedProcess {
     private let errorsRead: Int32
     private(set) var errorTail = Data()
 
-    init(_ program: String, arguments: [String], folder: String, environment: [String: String]) throws {
+    init(_ program: String, arguments: [String], folder: String, environment: [String: String],
+         keepErrors: Bool = true) throws
+    {
         var fds: [Int32] = [-1, -1]
         guard pipe(&fds) == 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
@@ -103,7 +141,11 @@ private final class SpawnedProcess {
         defer { posix_spawn_file_actions_destroy(&actions) }
         posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
         posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0)
-        posix_spawn_file_actions_adddup2(&actions, fds[1], 2)
+        if keepErrors {
+            posix_spawn_file_actions_adddup2(&actions, fds[1], 2)
+        } else {
+            posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0)
+        }
         if #available(macOS 26, *) {
             posix_spawn_file_actions_addchdir(&actions, folder)
         } else {
@@ -142,6 +184,12 @@ private final class SpawnedProcess {
 
     deinit {
         close(errorsRead)
+    }
+
+    /// Blocks until the program exits and collects it (a launched program, stderr discarded).
+    func reap() {
+        var status: Int32 = 0
+        while waitpid(pid, &status, 0) == -1, errno == EINTR {}
     }
 
     /// Waits for the program, reading stderr as it comes. Nil if it was cancelled.

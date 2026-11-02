@@ -16,6 +16,7 @@ struct FolderActionTests {
             "new-folder",
             "-",
             "copy-folder-path",
+            "compare-folders",
             "-",
             "open-in-terminal",
             "open-in-code",
