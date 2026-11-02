@@ -37,7 +37,7 @@ extension Workspace {
         state.pendingAction = nil
         sides[side] = state
         cancelHighlightSearch(side)
-        dropFolderSizes(side) // they were for other names
+        dropViewWork(side) // they were for other names
         runFind(side, fresh: true)
         return true
     }

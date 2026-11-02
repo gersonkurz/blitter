@@ -198,6 +198,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                                         keyEquivalent: "v")
         moveHere.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+        let byPattern = editMenu.addItem(withTitle: "Select by Pattern…",
+                                         action: #selector(MainWindowController.showSelectByPattern(_:)),
+                                         keyEquivalent: "a")
+        byPattern.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(.separator())
         // The main window's controller answers it (#48): it is in the window's responder chain.
         editMenu.addItem(withTitle: "Find…", action: #selector(MainWindowController.showFind(_:)), keyEquivalent: "f")

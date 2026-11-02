@@ -36,6 +36,9 @@ public enum Command: Sendable {
     case selectQuickFilterMatch(Side, forward: Bool)
     /// Replace the side's selection with these entry names.
     case select(Side, Set<String>)
+    /// Add the items whose names match a pattern ("*.jpg; *.png") to the side's selection, or
+    /// remove them from it.
+    case selectByPattern(Side, String, PatternSelectionMode)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
     /// Search below the side's folder for names matching the pattern (#48), and files containing

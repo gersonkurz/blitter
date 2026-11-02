@@ -99,6 +99,14 @@ final class MainWindowController: NSWindowController {
         findController.show()
     }
 
+    /// Select by Pattern… (⌥⌘A): a sheet for the active side.
+    @objc func showSelectByPattern(_: Any?) {
+        guard let content = window?.contentViewController, content.presentedViewControllers?.isEmpty != false else {
+            return
+        }
+        content.presentAsSheet(PatternSelectionSheet(workspace: workspace, side: workspace.activeSide))
+    }
+
     func focusPathField(of side: Side) {
         sideControllers.first { $0.side == side }?.focusPathField()
     }

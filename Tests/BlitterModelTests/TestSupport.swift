@@ -13,7 +13,7 @@ extension Workspace {
                 + [settingsWork].compactMap(\.self) + Array(gitWork.values)
                 + treeWork.values.flatMap(\.values) + Array(highlightWork.values)
                 + Array(schemeWork.values) + Array(findWork.values) + Array(freeSpaceWork.values)
-                + Array(folderSizeWork.values)
+                + Array(folderSizeWork.values) + Array(patternWork.values)
             guard !pending.isEmpty else {
                 return
             }

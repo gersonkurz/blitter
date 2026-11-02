@@ -78,6 +78,8 @@ public final class Workspace {
     /// Folder sizes being measured (#52), and the flag that stops the walk.
     var folderSizeWork: [Side: Task<Void, Never>] = [:]
     var folderSizeStops: [Side: CancellationFlag] = [:]
+    /// Matching a pattern for the selection, per side.
+    var patternWork: [Side: Task<Void, Never>] = [:]
     /// How a folder is measured (tests hold it back).
     var measureFolder: @Sendable (String, CancellationFlag) -> Int64? = { FolderSizes.measure($0, cancelled: $1) }
     var freeSpaceWanted: Set<Side> = []
@@ -175,6 +177,7 @@ public final class Workspace {
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)
         case let .measureFolderSizes(side): measureFolders(side)
+        case let .selectByPattern(side, pattern, mode): selectByPattern(side, pattern, mode)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)
