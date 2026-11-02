@@ -178,11 +178,13 @@ public extension Workspace {
 
     /// Whether `perform(.runAction(id, side))` would run the action now.
     func canRun(_ id: String, on side: Side) -> Bool {
-        let state = state(of: side)
-        return actionRegistry.action(id)?.scope.fits(
-            state, other: self.state(of: side.opposite),
-            inWorkingCopy: workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
-        ) == true
+        guard let scope = actionRegistry.action(id)?.scope else {
+            return false
+        }
+        // Menus ask this for every item: only a working-copy action needs to know whether its
+        // target is in a working copy (#46).
+        let inWorkingCopy = scope == .workingCopy && workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
+        return scope.fits(state(of: side), other: state(of: side.opposite), inWorkingCopy: inWorkingCopy)
     }
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {

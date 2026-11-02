@@ -178,10 +178,11 @@ public extension Workspace {
     /// folder that holds it is offered too.
     func workingCopyTarget(on side: Side) -> String {
         let state = state(of: side)
-        guard state.selection.count == 1, let item = selectedItems(on: side).first else {
+        // The selection holds names of the listed folder: no need to look through the listing.
+        guard state.selection.count == 1, let name = state.selection.first else {
             return state.entriesLocation
         }
-        return item.path
+        return Paths.appending(name, to: state.entriesLocation)
     }
 
     /// The top folder of the known working copy `path` is in (#42), if any.
