@@ -38,7 +38,8 @@ public enum Command: Sendable {
     case select(Side, Set<String>)
     /// Add the items whose names match a pattern ("*.jpg; *.png") to the side's selection, or
     /// remove them from it.
-    case selectByPattern(Side, String, PatternSelectionMode)
+    /// `includesFolders` false: only files (and links) are matched (#56).
+    case selectByPattern(Side, String, PatternSelectionMode, includesFolders: Bool = true)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
     /// Search below the side's folder for names matching the pattern (#48), and files containing

@@ -184,7 +184,8 @@ public final class Workspace {
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)
         case let .measureFolderSizes(side): measureFolders(side)
-        case let .selectByPattern(side, pattern, mode): selectByPattern(side, pattern, mode)
+        case let .selectByPattern(side, pattern, mode, folders):
+            selectByPattern(side, pattern, mode, includesFolders: folders)
         case let .requestBatchRename(side): requestBatchRename(side)
         case let .batchRename(side, preview): batchRename(side, preview)
         case .cancelBatchRename: cancelBatchRename()

@@ -18,8 +18,10 @@ struct PatternSelectionTests {
         return workspace
     }
 
-    private func select(_ workspace: Workspace, _ pattern: String, _ mode: PatternSelectionMode = .select) async {
-        workspace.perform(.selectByPattern(.left, pattern, mode))
+    private func select(_ workspace: Workspace, _ pattern: String, _ mode: PatternSelectionMode = .select,
+                        folders: Bool = true) async
+    {
+        workspace.perform(.selectByPattern(.left, pattern, mode, includesFolders: folders))
         await workspace.settle()
     }
 
@@ -35,12 +37,43 @@ struct PatternSelectionTests {
         #expect(selection(workspace) == ["notes.txt", "todo.txt", "readme.md", "Résumé.pdf"])
         await select(workspace, "NOTES*", .deselect)
         #expect(selection(workspace) == ["todo.txt", "readme.md", "Résumé.pdf"])
+        await select(workspace, "arch", folders: false) // files only: the folder stays out
+        #expect(!selection(workspace).contains("Archive"))
         await select(workspace, "arch") // without a wildcard: anywhere in the name, folders too
         #expect(selection(workspace).contains("Archive"))
+        await select(workspace, "*", .deselect, folders: false) // files leave, the folder stays
+        #expect(selection(workspace) == ["Archive"])
+        await select(workspace, "*.txt; *.md; resume*")
         await select(workspace, " ; ", .deselect) // no pattern: nothing changes
-        #expect(selection(workspace).count == 4)
+        #expect(selection(workspace).count == 5) // Archive and the four files
         await select(workspace, "*", .deselect)
         #expect(selection(workspace).isEmpty)
+    }
+
+    /// A reload lands while the match runs and "notes.txt" is now a folder: without folders, it is
+    /// neither selected nor deselected (#56 review).
+    @Test func aFileThatBecameAFolderMeanwhileStaysOut() async {
+        let workspace = await makeWorkspace()
+        func reload(notesAs kind: DirectoryEntry.Kind) {
+            var entries = workspace.state(of: .left).allEntries
+            entries[entries.firstIndex { $0.name == "notes.txt" } ?? 0] = entry("notes.txt", kind)
+            let listing = Listing.Result(all: entries, visible: Listing.visibleEntries(entries, showHidden: false,
+                                                                                       sort: ListSort()))
+            workspace.sides[.left]?.allEntries = listing.all
+            workspace.sides[.left]?.visibleEntries = listing.visible
+            workspace.sides[.left]?.visibleIndex = listing.index
+        }
+        workspace.perform(.selectByPattern(.left, "*.txt", .select, includesFolders: false))
+        reload(notesAs: .directory) // before the match is applied
+        await workspace.settle()
+        #expect(selection(workspace) == ["todo.txt"])
+
+        reload(notesAs: .file)
+        workspace.perform(.select(.left, ["notes.txt", "todo.txt"]))
+        workspace.perform(.selectByPattern(.left, "*.txt", .deselect, includesFolders: false))
+        reload(notesAs: .directory)
+        await workspace.settle()
+        #expect(selection(workspace) == ["notes.txt"]) // the folder stays selected
     }
 
     @Test func aMatchFinishingAfterTheSideLeftIsNotApplied() async {

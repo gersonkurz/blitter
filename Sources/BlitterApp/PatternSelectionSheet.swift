@@ -2,15 +2,17 @@ import AppKit
 import BlitterModel
 
 /// Select by Pattern…: a sheet asking for name patterns ("*.jpg; *.png"); Select adds the
-/// matching items of the active side to its selection, Deselect removes them. The last pattern
-/// is offered again.
+/// matching items of the active side to its selection, Deselect removes them. Folders take part
+/// only with "Include folders" (#56). The last pattern and choice are offered again.
 @MainActor
 final class PatternSelectionSheet: NSViewController, NSTextFieldDelegate {
     private let workspace: Workspace
     private let side: Side
     let field = NSTextField()
-    /// What was typed last time, for this run of the app.
+    let includesFolders = NSButton(checkboxWithTitle: "Include folders", target: nil, action: nil)
+    /// What was typed and chosen last time, for this run of the app.
     static var lastPattern = ""
+    static var lastIncludesFolders = false
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -34,7 +36,8 @@ final class PatternSelectionSheet: NSViewController, NSTextFieldDelegate {
         let select = NSButton(title: "Select", target: self, action: #selector(select(_:)))
         select.keyEquivalent = "\r"
         let buttons = NSStackView(views: [cancel, NSView(), deselect, select])
-        let stack = NSStackView(views: [label, field, buttons])
+        includesFolders.state = Self.lastIncludesFolders ? .on : .off
+        let stack = NSStackView(views: [label, field, includesFolders, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -57,7 +60,8 @@ final class PatternSelectionSheet: NSViewController, NSTextFieldDelegate {
 
     private func finish(_ mode: PatternSelectionMode) {
         Self.lastPattern = field.stringValue
-        workspace.perform(.selectByPattern(side, field.stringValue, mode))
+        Self.lastIncludesFolders = includesFolders.state == .on
+        workspace.perform(.selectByPattern(side, field.stringValue, mode, includesFolders: Self.lastIncludesFolders))
         dismiss(nil)
     }
 }

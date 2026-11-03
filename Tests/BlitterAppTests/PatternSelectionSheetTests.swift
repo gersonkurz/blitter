@@ -38,6 +38,7 @@ final class PatternSelectionSheetTests {
 
     @Test func selectAndDeselectApplyThePatternAndCloseTheSheet() async throws {
         PatternSelectionSheet.lastPattern = ""
+        PatternSelectionSheet.lastIncludesFolders = false
         let sheet = PatternSelectionSheet(workspace: workspace, side: .left)
         content.presentAsSheet(sheet)
         #expect(content.presentedViewControllers?.count == 1)
@@ -62,5 +63,23 @@ final class PatternSelectionSheetTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(workspace.state(of: .left).selection == ["notes.txt"])
         #expect(PatternSelectionSheet.lastPattern == "todo*")
+
+        // "Include folders" (#56): off, "*" selects the files only; on, the folder too, and it is
+        // offered on again next time.
+        let files = PatternSelectionSheet(workspace: workspace, side: .left)
+        content.presentAsSheet(files)
+        #expect(files.includesFolders.state == .off)
+        files.field.stringValue = "*"
+        files.select(nil)
+        try await waitUntil { self.workspace.state(of: .left).selection == ["notes.txt", "readme.md", "todo.txt"] }
+        let all = PatternSelectionSheet(workspace: workspace, side: .left)
+        content.presentAsSheet(all)
+        all.includesFolders.state = .on
+        all.select(nil)
+        try await waitUntil { self.workspace.state(of: .left).selection.contains("docs") }
+        let remembered = PatternSelectionSheet(workspace: workspace, side: .left)
+        content.presentAsSheet(remembered)
+        #expect(remembered.includesFolders.state == .on)
+        remembered.cancel(nil)
     }
 }
