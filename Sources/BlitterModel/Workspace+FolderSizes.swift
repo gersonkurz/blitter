@@ -98,9 +98,8 @@ extension Workspace {
         for (name, bytes) in batch where state.folderSizes[name] == .measuring {
             sides[side]?.folderSizes[name] = .measured(bytes)
         }
-        if state.sort.column == .size {
-            relist(side) // the order depends on them
-        }
+        // The rows stay where they are, even when sorted by size: nothing moves under the cursor
+        // (#57). Sorting again, or a reload, puts the folders in size order.
         notifyChange()
     }
 

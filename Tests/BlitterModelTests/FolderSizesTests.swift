@@ -117,6 +117,13 @@ struct FolderSizesTests {
         #expect(sides.names(.left) == ["small", "empty", "big", "file.txt"]) // no size known: by name, descending
         workspace.perform(.measureFolderSizes(.left))
         try await sides.settle()
+        #expect(sides.names(.left) == ["small", "empty", "big", "file.txt"]) // nothing moves under the cursor (#57)
+        #expect(sizes(sides)["big"] == .measured(3000))
+        workspace.perform(.sort(.left, ListSort(column: .size, ascending: false))) // sorted again
+        try await sides.settle()
+        #expect(sides.names(.left) == ["big", "small", "empty", "file.txt"])
+        workspace.reload(showing: [sides.left]) // a reload keeps that order
+        try await sides.settle()
         #expect(sides.names(.left) == ["big", "small", "empty", "file.txt"])
     }
 

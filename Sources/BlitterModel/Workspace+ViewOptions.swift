@@ -13,9 +13,11 @@ extension Workspace {
         return true
     }
 
+    /// The same order again sorts the listing again, e.g. by folder sizes measured since (#57).
     func sort(_ side: Side, _ order: ListSort) -> Bool {
         guard sides[side]?.sort != order else {
-            return false
+            relist(side)
+            return false // the listing changes when the sort is done
         }
         sides[side]?.sort = order
         relist(side)
