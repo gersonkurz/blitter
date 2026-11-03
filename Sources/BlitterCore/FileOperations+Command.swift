@@ -57,6 +57,8 @@ extension FileOperations {
         environment["PATH"] = path.joined(separator: ":")
         // No terminal to ask in: git fails at once instead of waiting for a password (#43).
         environment["GIT_TERMINAL_PROMPT"] = "0"
+        // A script run as a tool reaches this Blitter (#28), whatever its own environment says.
+        environment["BLITTER_SOCKET"] = UserPaths.automationSocket
         let child: SpawnedProcess
         do {
             child = try SpawnedProcess(program, arguments: [name] + arguments.dropFirst(), folder: folder,

@@ -131,3 +131,38 @@ args = ["mcp"]
 If Blitter isn't running, a tool call says so and returns an error result. The server keeps one
 connection to Blitter and reconnects once if Blitter was restarted. A `run` that needs Allow
 waits for the answer; other calls wait behind it.
+
+## Python
+
+`Blitter.app/Contents/Resources/python/blitter.py` is a single module that uses only the
+standard library (#28). **Copy it next to your script.** Importing it from inside the app would
+make Python write a `__pycache__` folder into the signed app. If you point `PYTHONPATH` there
+anyway, set `PYTHONDONTWRITEBYTECODE=1`.
+
+```python
+import blitter
+
+with blitter.Blitter() as app:
+    names = [e["name"] for e in app.all_entries("left") if e["name"].endswith(".log")]
+    app.select("left", names)
+    print(app.preview("move-to-trash", "left"))
+    app.run("move-to-trash", "left")      # waits for Allow in Blitter
+```
+
+**Methods:** `Blitter` has a method per request: `state`, `listing`, `actions`, `navigate`,
+`select`, `activate`, `preview`, `run`, plus `call` for any request. A param left as `None` is
+not sent. `listing` is one page (1000 items by default); `all_entries(side)` goes through every
+page.
+
+**Errors:** an error from Blitter raises `BlitterError` (with `code` and `message`), and a
+missing Blitter raises `NotRunning`.
+
+**Scripts as actions:** a script becomes an action of its own as a tool in the settings file.
+Tools' command lines get `BLITTER_SOCKET`, so the script reaches the Blitter that ran it:
+
+```toml
+[tools.tidy-logs]
+title = "Tidy Logs"
+command = ["python3", "/Users/me/scripts/tidy_logs.py", "{paths}"]
+on = "selection"
+```

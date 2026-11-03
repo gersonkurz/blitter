@@ -84,7 +84,12 @@ targets:
   Blitter:
     type: application
     platform: macOS
-    sources: [Sources/BlitterApp]
+    sources:
+      - Sources/BlitterApp
+      # The Python module (#28), at Contents/Resources/python/blitter.py.
+      - path: python
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: BlitterCLI
         embed: true
