@@ -37,7 +37,8 @@ public struct Tool: Equatable, Sendable {
     ]
 
     var action: Action {
-        Action(id, title, scope: scope) { [app, scope, title, command] workspace, side in
+        let effect: ActionEffect = command.isEmpty ? .opens : .changes
+        return Action(id, title, scope: scope, effect: effect) { [app, scope, title, command] workspace, side in
             let folder = workspace.state(of: side).entriesLocation
             let selected = workspace.selectedItems(on: side).map(\.path)
             let usesFolder = scope == .folder || (scope == .selectionOrFolder && selected.isEmpty)

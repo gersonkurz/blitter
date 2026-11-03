@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
         : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
     private(set) var windowController: MainWindowController?
+    /// The automation socket (#58), while the app runs.
+    private var automationServer: LineSocketServer?
     /// The menus whose action items come from the settings (#24), and what they were built from.
     var fileMenuItems: NSMenu?
     var editMenuItems: NSMenu?
@@ -43,7 +45,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         controller.showWindow(nil)
         windowController = controller
         observeVolumes()
+        startAutomation()
         NSApp.activate()
+    }
+
+    /// Serves the automation socket; requests go to the workspace on the main actor. A second
+    /// Blitter leaves the socket to the first one and says so.
+    private func startAutomation() {
+        let workspace = workspace
+        let server = LineSocketServer(path: UserPaths.automationSocket) { line, client in
+            await workspace.handleAutomation(line, client: "\(client.name) (pid \(client.pid))")
+        }
+        automationServer = server // stopped at quit, started or not
+        Task.detached { // starting touches the disk: off the main thread (#58 review)
+            do {
+                try server.start()
+            } catch {
+                let text = "Automation is off: \(Self.describe(error))"
+                await MainActor.run { workspace.perform(.showNotice(text)) }
+            }
+        }
+    }
+
+    private nonisolated static func describe(_ error: Error) -> String {
+        switch error as? LineSocketServer.Failure {
+        case .inUse?: "another Blitter already serves the automation socket."
+        case .notASocket?: "something that is not a socket is in its place (\(UserPaths.automationSocket))."
+        case .unsafeFolder?: "its folder is not a private folder of yours."
+        case let .system(call, code)?: "\(call) failed (\(String(cString: strerror(code))))."
+        case nil: error.localizedDescription
+        }
+    }
+
+    func applicationWillTerminate(_: Notification) {
+        automationServer?.stop()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {

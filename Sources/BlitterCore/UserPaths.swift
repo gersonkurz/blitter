@@ -11,4 +11,9 @@ public enum UserPaths {
     public static var settingsFile: String {
         home + "/.config/blitter/settings.toml"
     }
+
+    /// The automation socket (#58), private to the user: the CLI, MCP and Python reach Blitter here.
+    public static var automationSocket: String {
+        home + "/Library/Application Support/Blitter/automation.sock"
+    }
 }

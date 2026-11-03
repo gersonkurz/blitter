@@ -112,6 +112,11 @@ extension Workspace {
         return notice
     }
 
+    func showNotice(_ text: String) -> Bool {
+        _ = addNotice(text)
+        return true
+    }
+
     func dismissNotice(_ id: Int) -> Bool {
         guard notices.contains(where: { $0.id == id }) else {
             return false

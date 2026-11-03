@@ -12,6 +12,8 @@ final class MainWindowController: NSWindowController {
     let findController: FindPanelController
     /// The delete request the window has already asked about.
     private var askedDeleteToken: Int?
+    /// Asks about changes automation clients want (#58).
+    let automationPrompt = AutomationPrompt()
     /// The Batch Rename request the window has already shown.
     private var shownBatchRenameToken: Int?
     /// The Batch Rename sheet's model while it is open, kept up to date on every render.
@@ -123,6 +125,7 @@ final class MainWindowController: NSWindowController {
         jobsController.render()
         findController.render()
         askToDeleteIfNeeded()
+        automationPrompt.render(workspace, in: window)
         showBatchRenameIfNeeded()
         batchRename?.refresh()
         afterRender?()

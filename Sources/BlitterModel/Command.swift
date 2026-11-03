@@ -59,6 +59,8 @@ public enum Command: Sendable {
     case moveItems([String], toFolder: String)
     /// Open the settings file for editing, creating it with commented defaults if there is none.
     case openSettingsFile
+    /// Show a notice in the window until it is dismissed (e.g. that automation is off).
+    case showNotice(String)
     /// Remove a notice (e.g. a settings problem) from the window.
     case dismissNotice(Int)
     /// Show the side's selection in Finder.
@@ -93,6 +95,8 @@ public enum Command: Sendable {
     /// Give an item a new name. The path, not a name in whatever the side shows by then, so a
     /// rename always hits the item it was started for. `side` selects the result.
     case rename(Side, path: String, newName: String)
+    /// The user's answer to `Workspace.automationConfirmation` (#58): run the change or not.
+    case answerAutomation(token: Int, allow: Bool)
     /// Add a folder to the end of the tree's Favorites; one already there stays where it is.
     case addFavorite(String)
     case removeFavorite(String)

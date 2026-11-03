@@ -100,6 +100,11 @@ public final class Workspace {
     /// Items waiting for the user to confirm that they are deleted for good; the window asks.
     public internal(set) var deleteRequest: DeleteRequest?
     var nextDeleteToken = 0
+    /// A change an automation client asked for, waiting for the user's answer in Blitter (#58),
+    /// and how the waiting request is resumed.
+    public internal(set) var automationConfirmation: AutomationConfirmation?
+    var automationAnswer: CheckedContinuation<Bool, Never>?
+    var nextAutomationToken = 0
     /// Batch Rename asked for, waiting for the window to show it.
     public internal(set) var batchRenameRequest: BatchRenameRequest?
     var nextBatchRenameToken = 0
@@ -189,6 +194,8 @@ public final class Workspace {
         case let .requestBatchRename(side): requestBatchRename(side)
         case let .batchRename(side, preview): batchRename(side, preview)
         case .cancelBatchRename: cancelBatchRename()
+        case let .answerAutomation(token, allow): answerAutomation(token, allow: allow)
+        case let .showNotice(text): showNotice(text)
         case let .addFavorite(path): addFavorite(path)
         case let .removeFavorite(path): removeFavorite(path)
         case let .moveFavorite(path, offset): moveFavorite(path, by: offset)

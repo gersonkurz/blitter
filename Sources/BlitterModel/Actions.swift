@@ -85,6 +85,20 @@ public enum ActionOutput: Equatable, Sendable {
     case clipboard
 }
 
+/// What running an action does, for the automation socket (#58): view actions run when asked,
+/// those that open something or change files only once the user allows it in Blitter, and some
+/// are not offered there at all.
+public enum ActionEffect: String, Sendable {
+    /// Changes only what Blitter shows or opens one of its own windows.
+    case view
+    /// Opens an app or a file with one, or shows something in the Finder.
+    case opens
+    /// Changes files (copies, moves, the Trash, a new folder) or runs a command line.
+    case changes
+    /// The clipboard, an edit in place, a dialog of its own, or a delete that skips the Trash.
+    case notAutomated
+}
+
 /// A function the user can run on a side: from a menu, a shortcut, or later the MCP server. The
 /// settings file and the menus refer to it by `id`. Built-in actions are thin wrappers around
 /// commands, so nothing is implemented twice; running one goes through `Command.runAction`.
@@ -96,17 +110,20 @@ public struct Action: Sendable {
     /// Whether it is offered on a side that shows search results (#48): not for what names an
     /// entry in the folder itself (rename, new folder).
     let worksInFind: Bool
+    /// What running it does; unknown means it may change files.
+    public let effect: ActionEffect
     /// The command that carries the action out on a side whose state fits the scope.
     let command: @MainActor @Sendable (Workspace, Side) -> Command
 
     init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
-         command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
+         effect: ActionEffect = .changes, command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
         self.id = id
         self.title = title
         self.scope = scope
         self.output = output
         self.worksInFind = worksInFind
+        self.effect = effect
         self.command = command
     }
 }
@@ -132,15 +149,25 @@ public struct ActionRegistry: Sendable {
 
     /// The built-in actions; later tickets add their own here (copy path, tools, git, ...).
     static let builtIn = ActionRegistry([
-        Action("open", "Open", scope: .single) { workspace, side in
+        Action("open", "Open", scope: .single, effect: .opens) { workspace, side in
             .open(side, name: workspace.state(of: side).selection.first ?? "")
         },
-        Action("quick-look", "Quick Look", scope: .selection) { _, side in .togglePreview(side) },
-        Action("copy", "Copy", scope: .selection, output: .clipboard) { _, side in .copyToPasteboard(side) },
-        Action("copy-path", "Copy Path", scope: .selection, output: .clipboard) { _, side in .copyPaths(side) },
-        Action("copy-name", "Copy Name", scope: .selection, output: .clipboard) { _, side in .copyNames(side) },
-        Action("rename", "Rename", scope: .single, worksInFind: false) { _, side in .requestRename(side) },
-        Action("batch-rename", "Batch Rename…", scope: .selection, worksInFind: false) { _, side in
+        Action("quick-look", "Quick Look", scope: .selection, effect: .view) { _, side in .togglePreview(side) },
+        Action("copy", "Copy", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
+            .copyToPasteboard(side)
+        },
+        Action("copy-path", "Copy Path", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
+            .copyPaths(side)
+        },
+        Action("copy-name", "Copy Name", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
+            .copyNames(side)
+        },
+        Action("rename", "Rename", scope: .single, worksInFind: false, effect: .notAutomated) { _, side in
+            .requestRename(side)
+        },
+        Action("batch-rename", "Batch Rename…", scope: .selection, worksInFind: false,
+               effect: .notAutomated)
+        { _, side in
             .requestBatchRename(side)
         },
         Action("copy-to-other-side", "Copy to Other Side", scope: .selection) { workspace, side in
@@ -151,32 +178,38 @@ public struct ActionRegistry: Sendable {
             .moveItems(workspace.selectedItems(on: side).map(\.path),
                        toFolder: workspace.state(of: side.opposite).location)
         },
-        Action("reveal-in-finder", "Reveal in Finder", scope: .selection) { _, side in .revealInFinder(side) },
+        Action("reveal-in-finder", "Reveal in Finder", scope: .selection, effect: .opens) { _, side in
+            .revealInFinder(side)
+        },
         Action("move-to-trash", "Move to Trash", scope: .selection) { _, side in .trashSelection(side) },
-        Action("delete-immediately", "Delete Immediately", scope: .selection) { _, side in .deleteSelection(side) },
+        Action("delete-immediately", "Delete Immediately", scope: .selection, effect: .notAutomated) { _, side in
+            .deleteSelection(side)
+        },
         Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
-               scope: .selection) { _, side in .deleteSelectionWithoutAsking(side) },
-        Action("folder-sizes", "Calculate Folder Sizes", scope: .folders) { _, side in .measureFolderSizes(side) },
+               scope: .selection, effect: .notAutomated) { _, side in .deleteSelectionWithoutAsking(side) },
+        Action("folder-sizes", "Calculate Folder Sizes", scope: .folders, effect: .view) { _, side in
+            .measureFolderSizes(side)
+        },
         Action("new-folder", "New Folder", scope: .folder, worksInFind: false) { _, side in .newFolder(side) },
-        Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard) { _, side in
+        Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard, effect: .notAutomated) { _, side in
             .copyFolderPath(side)
         },
         // #40: in the configured diff tool. The pair is the scope's, so menus and running agree.
-        Action("compare-files", "Compare Files", scope: .filePair) { workspace, side in
+        Action("compare-files", "Compare Files", scope: .filePair, effect: .opens) { workspace, side in
             let pair = ActionScope.pair(workspace.state(of: side), workspace.state(of: side.opposite), on: side)
             return .compare(left: pair?.0 ?? "", right: pair?.1 ?? "")
         },
         // #42: the history of the selected item, or of the side's folder.
-        Action("git-log", "Git Log…", scope: .workingCopy) { workspace, side in
+        Action("git-log", "Git Log…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitLog, path: workspace.workingCopyTarget(on: side)))
         },
-        Action("git-sync", "Git Sync…", scope: .workingCopy) { workspace, side in
+        Action("git-sync", "Git Sync…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitSync, path: workspace.workingCopyTarget(on: side)))
         },
-        Action("git-commit", "Git Commit…", scope: .workingCopy) { workspace, side in
+        Action("git-commit", "Git Commit…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitCommit, path: workspace.workingCopyTarget(on: side)))
         },
-        Action("compare-folders", "Compare Folders", scope: .bothFolders) { workspace, _ in
+        Action("compare-folders", "Compare Folders", scope: .bothFolders, effect: .opens) { workspace, _ in
             .compare(
                 left: workspace.state(of: .left).entriesLocation,
                 right: workspace.state(of: .right).entriesLocation
