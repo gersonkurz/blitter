@@ -91,3 +91,43 @@ Blitter's own codes:
 | 3 | denied in Blitter, or the client disconnected while asked |
 | 4 | the side changed while Blitter asked |
 | 5 | Blitter is already asking about another change |
+
+## The blitter tool and MCP
+
+The app carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`. Each call is one
+request, and the result is printed as JSON. Exit status:
+- 0: done;
+- 1: an error from Blitter, or a wrong command line;
+- 2: Blitter is not running.
+
+`BLITTER_SOCKET` points it at another socket.
+
+```
+blitter state
+blitter listing left --limit 50
+blitter select left notes.txt todo.txt
+blitter preview move-to-trash left
+blitter run move-to-trash left        # waits for Allow in Blitter
+blitter call navigate '{"side": "right", "path": "~/Downloads"}'
+```
+
+`blitter mcp` is an MCP server on stdin and stdout, with one tool per method above. Each tool's
+arguments are that method's params.
+
+To register it with Claude Code:
+
+```
+claude mcp add blitter -- /Applications/Blitter.app/Contents/Helpers/blitter mcp
+```
+
+With Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.blitter]
+command = "/Applications/Blitter.app/Contents/Helpers/blitter"
+args = ["mcp"]
+```
+
+If Blitter isn't running, a tool call says so and returns an error result. The server keeps one
+connection to Blitter and reconnects once if Blitter was restarted. A `run` that needs Allow
+waits for the answer; other calls wait behind it.

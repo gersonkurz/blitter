@@ -52,6 +52,8 @@ struct AutomationTests {
         workspace.perform(.select(.left, []))
         #expect(try await errorCode(call(workspace, "format-disk")) == -32601)
         #expect(try await errorCode(call(workspace, "listing", ["side": "up"])) == -32602)
+        #expect(try await errorCode(call(workspace, "listing", ["side": 123])) == -32602) // not the active side
+        #expect(try await errorCode(call(workspace, "select", ["side": "left", "names": [1, "a.txt"]])) == -32602)
         #expect(try await errorCode(call(workspace, "run", ["action": "delete-immediately"])) == 1)
         #expect(try await errorCode(call(workspace, "run", ["action": "copy-path"])) == 1)
         #expect(try await errorCode(call(workspace, "run", ["action": "move-to-trash"])) == 2) // nothing selected

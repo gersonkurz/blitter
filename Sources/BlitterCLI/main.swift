@@ -16,8 +16,25 @@ func pretty(_ value: JSONValue) -> String {
     return (try? encoder.encode(value)).flatMap { String(bytes: $0, encoding: .utf8) } ?? value.line
 }
 
+/// `blitter mcp` (#60): MCP over stdin and stdout until stdin ends, on one session with Blitter
+/// (`AutomationSession`). Only protocol lines go to stdout.
+func serveMCP() -> Int32 {
+    let session = AutomationSession()
+    let server = MCPServer(call: session.call)
+    while let line = readLine(strippingNewline: true) {
+        if let reply = server.handle(line) {
+            print(reply)
+            fflush(stdout)
+        }
+    }
+    return 0
+}
+
 func main() -> Int32 {
     let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments == ["mcp"] {
+        return serveMCP()
+    }
     let request: (method: String, params: JSONValue)
     do {
         request = try AutomationCommandLine.request(arguments)

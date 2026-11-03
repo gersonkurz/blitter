@@ -179,7 +179,9 @@ extension Workspace {
     /// Selects exactly the given names among those listed; names not listed are returned apart.
     func select(_ params: JSONValue) throws(AutomationError) -> JSONValue {
         let side = try sideParameter(params)
-        guard let names = params["names"]?.array?.compactMap(\.string) else {
+        guard let list = params["names"]?.array, case let names = list.compactMap(\.string),
+              names.count == list.count
+        else {
             throw .invalidParams("select needs names, a list of names in the side's listing.")
         }
         let state = state(of: side)
@@ -203,9 +205,9 @@ extension Workspace {
     }
 
     static func side(_ params: JSONValue, active: Side? = nil) throws(AutomationError) -> Side {
-        switch params["side"]?.string {
-        case "left": return .left
-        case "right": return .right
+        switch params["side"] {
+        case "left"?: return .left
+        case "right"?: return .right
         case nil:
             guard let active else {
                 throw .invalidParams("side must be “left” or “right”.")

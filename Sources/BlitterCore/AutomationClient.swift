@@ -6,7 +6,10 @@ public final class AutomationClient {
     public enum Failure: Error, Equatable {
         /// Nothing serves at the path: Blitter is not running (or has automation off).
         case notRunning(String)
-        /// The connection ended before an answer came.
+        /// The connection was gone before the request was sent: Blitter never got it.
+        case notSent
+        /// The connection ended after the request was sent, before its answer: whether Blitter
+        /// carried it out is not known.
         case closed
         case system(String, Int32)
     }
@@ -75,7 +78,8 @@ public final class AutomationClient {
         while !bytes.isEmpty {
             let written = bytes.withUnsafeBytes { write(socket, $0.baseAddress, $0.count) }
             guard written > 0 else {
-                throw Failure.closed
+                // Nothing of a line Blitter has not seen whole counts: it answers lines only.
+                throw Failure.notSent
             }
             bytes = bytes.dropFirst(written)
         }
@@ -117,6 +121,7 @@ public enum AutomationCommandLine {
       preview ACTION [SIDE]          what an action would do now; nothing happens
       run ACTION [SIDE]              run it; changes wait for Allow in Blitter
       call METHOD [JSON]             any request, with params as a JSON object
+      mcp                            an MCP server on stdin/stdout, for Claude Code or Codex
     SIDE is left or right (the active side if left out). The socket is
     BLITTER_SOCKET, or ~/Library/Application Support/Blitter/automation.sock.
     """
