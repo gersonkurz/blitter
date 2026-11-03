@@ -66,11 +66,32 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
+  # The command-line tool on the automation socket (#59), inside the app at Contents/Helpers
+  # (not next to the app's executable: "blitter" and "Blitter" are one name on most volumes).
+  # The target and module are BlitterCLI (a module "blitter" would be found for "Blitter"); the
+  # executable is blitter.
+  BlitterCLI:
+    type: tool
+    platform: macOS
+    sources: [Sources/BlitterCLI]
+    dependencies:
+      - target: BlitterCore
+    settings:
+      base:
+        PRODUCT_NAME: blitter
+        PRODUCT_MODULE_NAME: BlitterCLI
+
   Blitter:
     type: application
     platform: macOS
     sources: [Sources/BlitterApp]
     dependencies:
+      - target: BlitterCLI
+        embed: true
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
       # Static frameworks are linked into the executable, so there is nothing to embed.
       - target: BlitterGit
         embed: false
@@ -99,6 +120,9 @@ targets:
     sources: [Tests/BlitterCoreTests]
     dependencies:
       - target: BlitterCore
+      # The tool's tests run the built tool (#59).
+      - target: BlitterCLI
+        link: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
