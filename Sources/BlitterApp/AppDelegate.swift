@@ -195,6 +195,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         addItem(to: viewMenu, title: "Show Hidden Files", action: #selector(toggleHiddenFiles(_:)),
                 key: ".", modifiers: [.command, .shift])
         addItem(to: viewMenu, title: "Refresh", action: #selector(refresh(_:)), key: "r", modifiers: [.command])
+        viewMenu.addItem(.separator())
+        // The lists' font (#63); Ctrl+mouse wheel over a list or tree does the same.
+        addItem(to: viewMenu, title: "Zoom In", action: #selector(zoomIn(_:)), key: "+", modifiers: [.command])
+        addItem(to: viewMenu, title: "Zoom Out", action: #selector(zoomOut(_:)), key: "-", modifiers: [.command])
+        addItem(to: viewMenu, title: "Actual Size", action: #selector(actualSize(_:)), key: "0", modifiers: [.command])
         mainMenu.addItem(submenu: viewMenu)
 
         let goMenu = NSMenu(title: "Go")

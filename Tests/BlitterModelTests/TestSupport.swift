@@ -10,7 +10,7 @@ extension Workspace {
     func settle() async {
         for _ in 0 ..< 20 {
             let pending = Array(rootsWork.values) + Array(pendingOpen.values) + Array(pendingWork.values)
-                + [settingsWork].compactMap(\.self) + Array(gitWork.values)
+                + [settingsWork, fontSizeSave].compactMap(\.self) + Array(gitWork.values)
                 + treeWork.values.flatMap(\.values) + Array(highlightWork.values)
                 + Array(schemeWork.values) + Array(findWork.values) + Array(freeSpaceWork.values)
                 + Array(folderSizeWork.values) + Array(patternWork.values)

@@ -42,6 +42,9 @@ public enum Command: Sendable {
     case selectByPattern(Side, String, PatternSelectionMode, includesFolders: Bool = true)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
+    /// The lists' and trees' font one point larger or smaller, or back to the default size
+    /// (#63). Saved as `[font] size` in the settings file.
+    case zoomFont(FontZoom)
     /// Search below the side's folder for names matching the pattern (#48), and files containing
     /// a text (#49); neither: stop showing the results.
     case find(Side, pattern: String, containing: String = "")

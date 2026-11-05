@@ -53,6 +53,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         outlineView.autoresizesOutlineColumn = false
         outlineView.dataSource = self
         outlineView.delegate = self
+        outlineView.onZoom = { [weak self] zoom in self?.workspace.perform(.zoomFont(zoom)) }
         configureContextMenu()
         outlineView.onBecomeFirstResponder = { [weak self] in
             guard let self else {

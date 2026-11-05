@@ -144,6 +144,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.allowsColumnReordering = true
         tableView.allowsTypeSelect = false // the fast filter takes the keys (#39)
         tableView.onKey = { [weak self] event in self?.handleQuickFilterKey(event) ?? false }
+        tableView.onZoom = { [weak self] zoom in self?.workspace.perform(.zoomFont(zoom)) }
         // A wider list gives the room to the names.
         tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         tableView.dataSource = self
