@@ -179,7 +179,7 @@ struct FontSizeSaveSafetyTests {
         try "[font]\nsize = 11\n".write(toFile: path, atomically: true, encoding: .utf8)
         let workspace = await makeWorkspace(settingsFile: path)
         let editorSaves = Mutex(1)
-        workspace.fontSizeBeforeReplace = {
+        workspace.settingsFileBeforeReplace = {
             editorSaves.withLock { remaining in
                 if remaining > 0 {
                     remaining -= 1
@@ -203,7 +203,7 @@ struct FontSizeSaveSafetyTests {
         try "[font]\nsize = 11\n".write(toFile: path, atomically: true, encoding: .utf8)
         let workspace = await makeWorkspace(settingsFile: path)
         let saves = Mutex(0)
-        workspace.fontSizeBeforeReplace = {
+        workspace.settingsFileBeforeReplace = {
             let count = saves.withLock { $0 += 1; return $0 }
             try? "# save \(count)\n[font]\nsize = 11\n".write(toFile: path, atomically: true, encoding: .utf8)
         }
@@ -228,7 +228,7 @@ struct FontSizeSaveSafetyTests {
         let workspace = await makeWorkspace(settingsFile: path)
         let notText = Data([0x23, 0xFF, 0xFE, 0x0A])
         let once = Mutex(true)
-        workspace.fontSizeBeforeReplace = {
+        workspace.settingsFileBeforeReplace = {
             if once.withLock({ let first = $0; $0 = false; return first }) {
                 try? notText.write(to: URL(fileURLWithPath: path))
             }
@@ -247,7 +247,7 @@ struct FontSizeSaveSafetyTests {
         try "kept before".write(toFile: path + ".conflict-1", atomically: true, encoding: .utf8)
         let workspace = await makeWorkspace(settingsFile: path)
         let once = Mutex(true)
-        workspace.fontSizeBeforeReplace = {
+        workspace.settingsFileBeforeReplace = {
             if once.withLock({ let first = $0; $0 = false; return first }) {
                 try? "# editor\n[font]\nsize = 11\n".write(toFile: path, atomically: true, encoding: .utf8)
             }

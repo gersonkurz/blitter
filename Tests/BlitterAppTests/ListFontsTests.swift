@@ -178,7 +178,7 @@ struct QuitSavesTheFontSizeTests {
                                   directoryCheck: { _ in false }, volumes: { [] }, watcher: FakeWatcher.factory,
                                   settingsFile: path)
         let stall = DispatchSemaphore(value: 0)
-        workspace.fontSizeBeforeReplace = { _ = stall.wait(timeout: .now() + 5) }
+        workspace.settingsFileBeforeReplace = { _ = stall.wait(timeout: .now() + 5) }
         workspace.fontSizeSaveDelay = .zero
         workspace.perform(.zoomFont(.larger))
         var replies = 0

@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
             stateStore.save(workspace.savedState)
             updateMenuBar() // the settings file may have changed the menus
+            SettingsWindowController.current?.model.workspaceChanged()
         }
         controller.showWindow(nil)
         windowController = controller
@@ -120,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func openSettings(_: Any?) {
-        workspace.perform(.openSettingsFile)
+        SettingsWindowController.show(workspace)
     }
 
     /// A menu item whose `representedObject` is an action id runs that action on the active side.

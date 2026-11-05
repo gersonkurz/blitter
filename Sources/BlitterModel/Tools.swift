@@ -58,9 +58,14 @@ public struct Tool: Equatable, Sendable {
     }
 
     /// The words for `on` in the settings file.
-    private static let scopes: [String: ActionScope] = [
+    static let scopes: [String: ActionScope] = [
         "folder": .folder, "selection": .selection, "files": .files, "selection-or-folder": .selectionOrFolder,
     ]
+
+    /// The settings file's word for a tool's scope (a tool has only these four).
+    static func word(for scope: ActionScope) -> String {
+        scopes.first { $0.value == scope }?.key ?? "selection"
+    }
 
     /// Applies `[tools.<id>]` to the tools: a known id changes only the entries given, a new id
     /// needs at least `app`. Problems are listed; a tool with one keeps its previous definition.

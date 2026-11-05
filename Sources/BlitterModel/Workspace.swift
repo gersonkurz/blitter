@@ -33,8 +33,15 @@ public final class Workspace {
     var fontSizeSaveGeneration = 0
     /// How long zooming must pause before the size is saved: a wheel zooms in many steps.
     var fontSizeSaveDelay: Duration = .milliseconds(500)
-    /// Tests: runs between reading the settings file and replacing it, as an editor's save might.
-    var fontSizeBeforeReplace: (@Sendable () -> Void)?
+    /// Tests: runs between reading the settings file and replacing it (a zoom's or the Settings
+    /// window's save), as an editor's save might.
+    var settingsFileBeforeReplace: (@Sendable () -> Void)?
+    /// The Settings window's save (#64), and how often the settings were read: the window reads
+    /// the file again when it changed and nothing is edited.
+    var settingsSave: Task<Void, Never>?
+    var settingsSaveGeneration = 0
+    var lastSettingsSaveProblem: String?
+    public internal(set) var settingsReads = 0
     /// Git (#22): the working copies whose status is known, by root; reading them; and how.
     var gitRepositories: [String: KnownRepository] = [:]
     var gitWork: [Side: Task<Void, Never>] = [:]
@@ -195,6 +202,7 @@ public final class Workspace {
         case let .selectQuickFilterMatch(side, forward): selectQuickFilterMatch(side, forward: forward)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
+        case let .saveSettings(original, edited): saveSettings(from: original, to: edited)
         case let .zoomFont(zoom): zoomFont(zoom)
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)

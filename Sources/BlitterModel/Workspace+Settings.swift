@@ -69,6 +69,7 @@ extension Workspace {
 
     private func apply(_ newSettings: Settings, problems: [String]) {
         var newSettings = newSettings
+        settingsReads += 1
         if let pendingFontSize { // zoomed, not yet saved: the file still has the old size (#63)
             newSettings.font.size = pendingFontSize
         }

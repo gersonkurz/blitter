@@ -18,6 +18,14 @@ public struct Base24Scheme: Equatable, Sendable {
         self.colors = colors.count == 24 ? colors : colors + Self.fallbacks.map { colors[$0] }
     }
 
+    /// The schemes that come with Blitter, by name.
+    public static var builtInNames: [String] {
+        builtIn.keys.sorted()
+    }
+
+    /// "base00" … "base0F", "base10" … "base17": what a role can take.
+    public static let slotNames = (0 ..< 24).map(slotName)
+
     static func slotName(_ index: Int) -> String {
         (index < 16 ? "base0" : "base1") + String(index % 16, radix: 16, uppercase: true)
     }
