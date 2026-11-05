@@ -93,6 +93,33 @@ struct SettingsParsingTests {
         #expect(settings == Settings())
         #expect(problems.count == 1 && problems[0].hasPrefix("Line 2"))
     }
+
+    /// #62: the lists' fonts by family name (any case), sizes as integer or float.
+    @Test func fontsAreFamiliesThatAreInstalled() {
+        let (settings, problems) = Settings.parse("[font]\nface = \"helvetica\"\nmono = \"Menlo\"\nsize = 13.5\n")
+        #expect(problems.isEmpty)
+        #expect(settings.font == FontSettings(face: "Helvetica", mono: "Menlo", size: 13.5))
+        #expect(Settings.parse("[font]\nsize = 14\n").settings.font.size == 14)
+        #expect(Settings.parse("[font]\nface = \"system\"\n").settings.font.face == nil)
+    }
+
+    @Test func badFontsAreReportedAndKeepTheirDefaults() {
+        let text = """
+        [font]
+        face = "No Such Font Family"
+        mono = "Helvetica"
+        size = 99
+        weight = "bold"
+        """
+        let (settings, problems) = Settings.parse(text)
+        #expect(settings.font == FontSettings())
+        #expect(problems.count == 4)
+        #expect(problems.contains { $0.contains("“font.face”") && $0.contains("is installed") })
+        #expect(problems.contains { $0.contains("“font.mono”") && $0.contains("not a fixed-width font") })
+        #expect(problems.contains { $0.contains("“font.size”") })
+        #expect(problems.contains("Unknown setting “font.weight”."))
+        #expect(Settings.parse("[font]\nsize = \"11\"\n").problems.count == 1)
+    }
 }
 
 /// The settings file as the workspace uses it: read at launch, re-read on changes, problems as

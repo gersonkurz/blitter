@@ -30,11 +30,6 @@ enum Formatting {
         return formatter
     }
 
-    /// Digits of equal width, so dates and sizes line up from row to row.
-    static func tabularFont(like font: NSFont?) -> NSFont {
-        .monospacedDigitSystemFont(ofSize: font?.pointSize ?? NSFont.systemFontSize, weight: .regular)
-    }
-
     /// Dates that together show every month and every weekday name, with two-digit days and
     /// hours: the widest of them sizes the date column, whatever the pattern and language.
     static let wideSampleDates: [Date] = {

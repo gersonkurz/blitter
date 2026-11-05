@@ -22,6 +22,8 @@ public struct Settings: Equatable, Sendable {
     public var theme = ThemeSettings()
     /// The action items of the File and Edit menus, with their shortcuts (#24).
     public var menuBar = MenuBarSettings.defaults
+    /// The file lists' and folder trees' fonts (#62).
+    public var font = FontSettings()
 
     public init() {}
 
@@ -50,6 +52,8 @@ public struct Settings: Equatable, Sendable {
             switch section {
             case "context_menu":
                 problems += readContextMenus(table, into: &settings)
+            case "font":
+                problems += readFont(table, into: &settings)
             case "menu_bar":
                 problems += readMenuBar(table, into: &settings)
             case "theme":
@@ -108,6 +112,21 @@ public struct Settings: Equatable, Sendable {
             }
             if let problem = apply(&settings, value) {
                 problems.append("“\(section).\(key)”: \(problem)")
+            }
+        }
+        return problems
+    }
+
+    private static func readFont(_ table: TOMLTable, into settings: inout Settings) -> [String] {
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            let name = "font.\(key)"
+            guard let value, FontSettings.keys.contains(key) else {
+                problems.append(value == nil ? unreadableKey(name) : "Unknown setting “\(name)”.")
+                continue
+            }
+            if let problem = settings.font.apply(key: key, value: value) {
+                problems.append("“\(name)”: \(problem)")
             }
         }
         return problems

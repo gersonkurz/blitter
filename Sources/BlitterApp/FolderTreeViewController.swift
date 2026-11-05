@@ -24,6 +24,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     var palette: Palette?
     /// The git states the cells were drawn with (#22).
     var renderedGitVersion = -1
+    /// The fonts the tree was last drawn with: the file list's (#62).
+    private var fonts = ListFonts.current(FontSettings())
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace
@@ -45,7 +47,8 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         outlineView.style = .fullWidth
         outlineView.backgroundColor = .controlBackgroundColor
         outlineView.usesAlternatingRowBackgroundColors = true
-        outlineView.rowSizeStyle = .small
+        outlineView.rowSizeStyle = .custom // the fonts decide the height (#62)
+        outlineView.rowHeight = fonts.rowHeight
         outlineView.floatsGroupRows = false
         outlineView.autoresizesOutlineColumn = false
         outlineView.dataSource = self
@@ -75,6 +78,12 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         let tree = workspace.state(of: side).tree
         if renderPalette() {
             renderedVersion = -1 // rebuild: every row and cell in the new colors
+        }
+        let newFonts = ListFonts.current(workspace.settings.font)
+        if newFonts.settings != fonts.settings {
+            fonts = newFonts
+            outlineView.rowHeight = newFonts.rowHeight
+            renderedVersion = -1 // rebuild: every row in the new fonts and height
         }
         let gitChanged = gitColorsChanged()
         if tree.version != renderedVersion || workspace.treeRoots != renderedRoots {
@@ -241,12 +250,13 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
             ?? Self.makeCell(identifier: identifier, withImage: !isSection)
         cell.textField?.stringValue = item.title
         cell.textField?.textColor = textColor(isSection: isSection, isHidden: item.isHidden, folder: item.node?.path)
-        cell.textField?.font = isSection ? Self.sectionFont : nil
+        let font = isSection ? fonts.section : fonts.text
+        if cell.textField?.font !== font {
+            cell.textField?.font = font
+        }
         cell.imageView?.image = isSection ? nil : TreeIcons.icon(for: item.root?.kind)
         return cell
     }
-
-    private static let sectionFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
 
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier, withImage: Bool) -> NSTableCellView {
         let cell = NSTableCellView()

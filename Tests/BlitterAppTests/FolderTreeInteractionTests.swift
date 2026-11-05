@@ -128,7 +128,7 @@ final class FolderTreeInteractionTests {
         #expect(outlineView.style == .fullWidth)
         #expect(outlineView.backgroundColor == .controlBackgroundColor)
         #expect(outlineView.usesAlternatingRowBackgroundColors)
-        #expect(outlineView.rowSizeStyle == .small)
+        #expect(outlineView.rowHeight == ListFonts.current(FontSettings()).rowHeight)
         let favorites = try #require(row(titled: "Favorites"))
         let rowView = try #require(outlineView.rowView(atRow: favorites, makeIfNecessary: true))
         #expect(rowView is SectionRowView && !rowView.isGroupRowStyle)

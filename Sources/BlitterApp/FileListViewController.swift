@@ -34,6 +34,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var renderedDateFormat = ""
     /// The colors the list was last drawn with (#21); nil before the first render.
     var palette: Palette?
+    /// The fonts the list was last drawn with (#62).
+    var fonts = ListFonts.current(FontSettings())
     /// The git status of each shown item by name (#22, #35, #25), and what it was computed from.
     var gitStates: [String: GitItemStatus] = [:]
     var renderedGit: (version: Int, entries: Int) = (-1, -1)
@@ -45,7 +47,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     var shownFolderSizes: [String: FolderSize] = [:]
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
-    private static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
+    static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
     static let modifiedColumn = NSUserInterfaceItemIdentifier(SortColumn.modified.rawValue)
 
     init(workspace: Workspace, side: Side) {
@@ -135,7 +137,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.autosaveName = AppEnvironment.autosaveName(Self.columnsAutosaveName(side))
         tableView.autosaveTableColumns = !AppEnvironment.isHostedTest
         tableView.style = .fullWidth
-        tableView.rowSizeStyle = .small
+        tableView.rowSizeStyle = .custom // the fonts decide the height (#62)
+        tableView.rowHeight = fonts.rowHeight
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsMultipleSelection = true
         tableView.allowsColumnReordering = true
@@ -184,6 +187,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             pathField.addItems(withObjectValues: state.recentLocations)
         }
 
+        renderFonts()
         renderDateFormat(workspace.settings.dateFormat)
         renderColumns()
 
@@ -227,12 +231,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
-        let text = switch identifier {
-        case sizeColumn, modifiedColumn: TabularTextField(labelWithString: "")
-        case permissionsColumn: MonospacedTextField(labelWithString: "")
-        case nameColumn: NameTextField(labelWithString: "")
-        default: NSTextField(labelWithString: "")
-        }
+        let text = NSTextField(labelWithString: "")
         text.lineBreakMode = .byTruncatingMiddle
         text.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(text)
@@ -349,10 +348,10 @@ extension FileListViewController {
         let listed = entries[row]
         let cell = tableView.makeView(withIdentifier: column.identifier, owner: nil) as? NSTableCellView
             ?? Self.makeCell(identifier: column.identifier)
+        applyFont(to: cell, column: column.identifier, name: listed.entry.name)
         switch column.identifier {
         case Self.nameColumn:
             cell.textField?.stringValue = listed.entry.name
-            (cell.textField as? NameTextField)?.isBold = isHighlighted(listed.entry.name)
             let name = listed.entry.name
             let folder = location
             cell.imageView?.image = icons.icon(for: listed, in: folder) { [weak self] in

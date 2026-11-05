@@ -77,27 +77,6 @@ extension FileListViewController {
     }
 }
 
-/// The name column's text: bold for a fast-filter match. The table sets the font for its row
-/// size after the cell is made, so the weight is applied whenever the font is set.
-final class NameTextField: NSTextField {
-    var isBold = false {
-        didSet {
-            if isBold != oldValue {
-                font = font
-            }
-        }
-    }
-
-    override var font: NSFont? {
-        get { super.font }
-        set {
-            super.font = newValue.map {
-                NSFontManager.shared.convert($0, toHaveTrait: isBold ? .boldFontMask : .unboldFontMask)
-            }
-        }
-    }
-}
-
 /// The line under the list while the fast filter is on: what was typed, and how many match.
 final class QuickFilterBar: NSView {
     let label = NSTextField(labelWithString: "")
