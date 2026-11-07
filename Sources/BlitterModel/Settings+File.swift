@@ -65,6 +65,7 @@ public extension Settings {
         #   command = ["git", "fetch"]
         #   on = "folder"
         # {folder} stands for the side's folder; {paths}, an argument of its own, for each item.
+        # extensions = ["bin", "exe"] offers a tool only when every selected item is such a file.
         \(settings.tools.map(tool).joined(separator: "\n\n"))
         """
     }
@@ -176,6 +177,9 @@ public extension Settings {
         lines.append("title = \(quoted(tool.title))")
         lines.append(tool.command.isEmpty ? "app = \(quoted(tool.app))" : "command = \(list(tool.command.map(quoted)))")
         lines.append("on = \(quoted(Tool.word(for: tool.scope)))")
+        if !tool.extensions.isEmpty {
+            lines.append("extensions = \(list(tool.extensions.map(quoted)))")
+        }
         return lines.joined(separator: "\n")
     }
 

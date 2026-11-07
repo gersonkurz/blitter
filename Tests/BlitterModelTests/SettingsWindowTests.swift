@@ -17,7 +17,8 @@ struct SettingsFileTextTests {
         settings.tools[0].app = "Terminal"
         settings.tools.append(Tool(id: "git fetch", title: "Git \"Fetch\"", app: "", scope: .folder,
                                    command: ["git", "-C", "{folder}", "fetch"]))
-        settings.tools.append(Tool(id: "hex", title: "Hex", app: "Hex Fiend", scope: .files))
+        settings.tools.append(Tool(id: "hex", title: "Hex", app: "Hex Fiend", scope: .files,
+                                   extensions: ["bin", "tar.gz"]))
         settings.contextMenus.items = [
             .action("open"), .separator, .submenu("More", [.action("hex"), .separator, .action("copy-path")]),
             .action("git fetch"),

@@ -98,7 +98,7 @@ public extension Workspace {
     func treeContextMenu(for folder: String) -> [ShownMenuEntry] {
         let inWorkingCopy = workingCopyRoot(containing: folder) != nil
         return shown(settings.contextMenus.folder) {
-            $0.scope.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy)
+            $0.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy)
         }
     }
 

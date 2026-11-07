@@ -1,4 +1,5 @@
 import BlitterCore
+import Foundation
 
 /// What an action works on. Menus offer an action only where its scope fits, and running it
 /// checks again, so an action never runs on something it was not made for.
@@ -114,9 +115,13 @@ public struct Action: Sendable {
     public let effect: ActionEffect
     /// The command that carries the action out on a side whose state fits the scope.
     let command: @MainActor @Sendable (Workspace, Side) -> Command
+    /// File types (a tool's extensions, #65) as ".bin": then every selected item must be a file
+    /// whose name ends in one of them. Empty: any.
+    let fileTypes: [String]
 
     init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
-         effect: ActionEffect = .changes, command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
+         effect: ActionEffect = .changes, fileTypes: [String] = [],
+         command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
         self.id = id
         self.title = title
@@ -124,7 +129,29 @@ public struct Action: Sendable {
         self.output = output
         self.worksInFind = worksInFind
         self.effect = effect
+        self.fileTypes = fileTypes.map { "." + $0 }
         self.command = command
+    }
+
+    /// Whether it can work on a folder, as the tree's menu offers it (#20): not one for some file
+    /// types (#65), which a folder never is.
+    var worksOnFolder: Bool {
+        fileTypes.isEmpty && scope.worksOnFolder
+    }
+
+    /// Whether the side's selection is of the action's file types. Menus ask this for every
+    /// item: a suffix compare per selected name, nothing allocated.
+    func fitsFileTypes(_ state: SideState) -> Bool {
+        guard !fileTypes.isEmpty else {
+            return true
+        }
+        return !state.selection.isEmpty && state.selectedEntriesAllSatisfy { listed in
+            let name = listed.entry.name
+            return listed.entry.kind != .directory && fileTypes.contains { type in
+                name.count > type.count
+                    && name.range(of: type, options: [.caseInsensitive, .anchored, .backwards]) != nil
+            }
+        }
     }
 }
 
@@ -225,6 +252,7 @@ public extension Workspace {
         let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
         return actionRegistry.all.filter {
             (here.find == nil || $0.worksInFind) && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy)
+                && $0.fitsFileTypes(here)
         }
     }
 
@@ -238,11 +266,12 @@ public extension Workspace {
         // target is in a working copy (#46).
         let inWorkingCopy = scope == .workingCopy && workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
         return scope.fits(state(of: side), other: state(of: side.opposite), inWorkingCopy: inWorkingCopy)
+            && action.fitsFileTypes(state(of: side))
     }
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {
         let state = state(of: side)
-        guard actionRegistry.action(id)?.scope.worksOnFolder == true, state.location == folder else {
+        guard actionRegistry.action(id)?.worksOnFolder == true, state.location == folder else {
             return false // only folder actions, and only while the side still shows that folder
         }
         if state.entriesLocation == folder, state.status == .loaded {

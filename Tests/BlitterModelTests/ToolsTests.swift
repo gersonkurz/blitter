@@ -118,6 +118,40 @@ struct ToolSettingsTests {
         #expect(Tool.arguments(["ls", "{paths}"], folder: "/f", paths: []) == ["ls"])
     }
 
+    /// #65: a tool for some file types; endings without the dot, any case, written lowercase.
+    @Test func extensionsAreNameEndings() {
+        let (settings, problems) = Settings.parse("""
+        [tools.hex]
+        title = "Open in Hex Editor"
+        app = "Hex Fiend"
+        on = "files"
+        extensions = [".BIN", "exe", "tar.gz"]
+        """)
+        #expect(problems.isEmpty)
+        #expect(settings.tools.last?.extensions == ["bin", "exe", "tar.gz"])
+        for bad in ["[]", "\"bin\"", "[\"\"]", "[\"a/b\"]", "[1]", "[\"..bin\"]", "[\"..\"]", "[\".\"]"] {
+            let (read, problems) = Settings.parse("[tools.hex]\napp = \"Hex Fiend\"\nextensions = \(bad)\n")
+            #expect(problems.count == 1 && read.tools.count == 3, "\(bad)")
+        }
+        // Whatever is accepted reads back the same once the file is written (the window saves it).
+        for written in ["bin", ".bin", "BIN", "tar.gz", ".Tar.GZ", "bin.", "a.b.c", "ö"] {
+            let first = Settings.parse("[tools.hex]\napp = \"Hex Fiend\"\nextensions = [\"\(written)\"]\n")
+            #expect(first.problems.isEmpty, "\(written)")
+            let again = Settings.parse(Settings.fileText(first.settings))
+            #expect(again.problems.isEmpty && again.settings == first.settings, "\(written)")
+            #expect(first.settings.tools.last?.extensions.first?.hasPrefix(".") == false, "\(written)")
+        }
+        // The side's folder has no file type: a folder tool cannot have extensions.
+        let (folderTool, folderProblems) = Settings.parse("""
+        [tools.hex]
+        app = "Hex Fiend"
+        on = "folder"
+        extensions = ["bin"]
+        """)
+        #expect(folderTool.tools.count == 3 && folderProblems.count == 1)
+        #expect(folderProblems.first?.contains("extensions need") == true)
+    }
+
     @Test func toolsMustBeSections() {
         let (settings, problems) = Settings.parse("tools = 3\n[tools2]\n")
         #expect(settings.tools == Settings().tools)
@@ -154,6 +188,55 @@ struct ToolActionsTests {
         sides.workspace.perform(.runAction("open-in-terminal", .left))
         #expect(opened.map(\.0) == ["TextEdit", "iTerm"])
         #expect(opened.map(\.1) == [[sides.left + "/a.txt", sides.left + "/b.md"], [sides.left]])
+    }
+
+    /// #65: a tool with extensions is offered, and runs, only for files of those types.
+    @Test func aToolForSomeFileTypesIsOnlyOfferedForThem() async throws {
+        let sides = try SidesOnDisk()
+        try FileManager.default.createDirectory(atPath: sides.left + "/dump.bin", withIntermediateDirectories: false)
+        for name in ["a.BIN", "b.txt", "x.tar.gz", "y.gz", ".bin"] {
+            sides.file("left/" + name)
+        }
+        sides.workspace.settings.tools.append(Tool(id: "hex", title: "Hex", app: "Hex Fiend", scope: .selection,
+                                                   extensions: ["bin", "tar.gz"]))
+        sides.workspace.actionRegistry = ActionRegistry(tools: sides.workspace.settings.tools)
+        sides.workspace.perform(.toggleHiddenFiles) // ".bin" is listed, so its case is real
+        try await sides.settle()
+        var opened: [[String]] = []
+        sides.workspace.system.openWithApp = { _, paths, _ in opened.append(paths) }
+        func offered(_ names: Set<String>) -> Bool {
+            sides.workspace.perform(.select(.left, names))
+            let inMenu = sides.workspace.actions(for: .left).contains { $0.id == "hex" }
+            #expect(inMenu == sides.workspace.canRun("hex", on: .left), "\(names)")
+            return inMenu
+        }
+        #expect(!offered([])) // nothing selected
+        #expect(offered(["a.BIN"])) // any case
+        #expect(offered(["a.BIN", "x.tar.gz"])) // an ending of two parts
+        #expect(!offered(["a.BIN", "b.txt"])) // every item must be of the types
+        #expect(!offered(["y.gz"])) // "gz" is not "tar.gz"
+        #expect(!offered(["dump.bin"])) // a folder, whatever its name
+        #expect(!offered([".bin"])) // the whole name is not an ending
+
+        sides.workspace.perform(.select(.left, ["b.txt"]))
+        sides.workspace.perform(.runAction("hex", .left)) // not for this file: nothing runs
+        sides.workspace.perform(.select(.left, ["a.BIN"]))
+        sides.workspace.perform(.runAction("hex", .left))
+        #expect(opened == [[sides.left + "/a.BIN"]])
+    }
+
+    /// #65: the tree's menu acts on a folder, which is never of a file type: such a tool is left out.
+    @Test func theTreeMenuLeavesOutToolsForFileTypes() async throws {
+        let sides = try SidesOnDisk()
+        try await sides.settle()
+        sides.workspace.settings.tools.append(Tool(id: "hex", title: "Hex", app: "Hex Fiend",
+                                                   scope: .selectionOrFolder, extensions: ["bin"]))
+        sides.workspace.actionRegistry = ActionRegistry(tools: sides.workspace.settings.tools)
+        sides.workspace.settings.contextMenus.folder = [.action("open-in-code"), .action("hex")]
+        #expect(sides.workspace.treeContextMenu(for: sides.left) == [.action(
+            id: "open-in-code",
+            title: "Open in Code"
+        )])
     }
 
     @Test func aFailureBecomesANoticeNamingTheTool() async throws {

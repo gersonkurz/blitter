@@ -15,13 +15,20 @@ public struct Tool: Equatable, Sendable {
     /// the side's folder (also inside an argument); `{paths}`, an argument of its own, becomes
     /// one argument per item (the folder, for a folder tool). Never run through a shell.
     public var command: [String] = []
+    /// File types it is for (#65), as name endings without the dot, lowercase: "bin", "tar.gz".
+    /// Empty: any item. Otherwise it is offered, and runs, only when every selected item is a
+    /// file whose name ends in one of them.
+    public var extensions: [String] = []
 
-    public init(id: String, title: String, app: String, scope: ActionScope, command: [String] = []) {
+    public init(id: String, title: String, app: String, scope: ActionScope, command: [String] = [],
+                extensions: [String] = [])
+    {
         self.id = id
         self.title = title
         self.app = app
         self.scope = scope
         self.command = command
+        self.extensions = extensions
     }
 
     /// The text editor tool's app also opens the settings file (#36).
@@ -38,7 +45,8 @@ public struct Tool: Equatable, Sendable {
 
     var action: Action {
         let effect: ActionEffect = command.isEmpty ? .opens : .changes
-        return Action(id, title, scope: scope, effect: effect) { [app, scope, title, command] workspace, side in
+        let (app, scope, title, command) = (app, scope, title, command)
+        return Action(id, title, scope: scope, effect: effect, fileTypes: extensions) { workspace, side in
             let folder = workspace.state(of: side).entriesLocation
             let selected = workspace.selectedItems(on: side).map(\.path)
             let usesFolder = scope == .folder || (scope == .selectionOrFolder && selected.isEmpty)
@@ -97,6 +105,10 @@ public struct Tool: Equatable, Sendable {
                     valid = false
                 }
             }
+            if !tool.extensions.isEmpty, tool.scope == .folder {
+                problems.append("“\(name)”: extensions need on = \"files\", \"selection\" or \"selection-or-folder\".")
+                valid = false
+            }
             if tool.app.isEmpty, tool.command.isEmpty {
                 problems.append("“\(name)” needs an app, e.g. app = \"TextEdit\", "
                     + "or a command, e.g. command = [\"git\", \"fetch\"].")
@@ -140,6 +152,17 @@ public struct Tool: Equatable, Sendable {
             }
             tool.command = command
             tool.app = "" // a command replaces an app
+        case "extensions":
+            let words = value?.array?.compactMap(\.string) ?? []
+            // One leading dot may be written ("bin" or ".bin"); what is kept has none, so it is
+            // read back the same after the file is written: "..bin" and ".." are refused.
+            let types = words.map { ($0.hasPrefix(".") ? String($0.dropFirst()) : $0).lowercased() }
+            guard let array = value?.array, words.count == array.count, !types.isEmpty,
+                  types.allSatisfy({ !$0.isEmpty && !$0.hasPrefix(".") && !$0.contains("/") })
+            else {
+                return "expected a list of file name endings such as [\"bin\", \"exe\", \"tar.gz\"]."
+            }
+            tool.extensions = types
         case "on":
             guard let word = value?.string, let scope = scopes[word] else {
                 return "expected \"folder\", \"selection\", \"files\" or \"selection-or-folder\"."
