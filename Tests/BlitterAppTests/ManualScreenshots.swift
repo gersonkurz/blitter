@@ -35,6 +35,34 @@ final class ManualScreenshots {
         }
     }
 
+    /// The fast filter: "14" typed in the right list highlights the matching pictures.
+    @Test func fastFilter() async throws {
+        let scene = try await Self.mainScene()
+        let (workspace, controller, window) = (scene.workspace, scene.controller, scene.window)
+        defer { controller.close() }
+        workspace.perform(.activate(.right))
+        workspace.perform(.setQuickFilter(.right, QuickFilter("14", mode: .highlight)))
+        try await Self.waitUntil { !workspace.state(of: .right).highlighted.isEmpty }
+        try await Self.capture(window, as: "fast-filter-light.png")
+    }
+
+    /// Batch Rename over the selected pictures: a template with a counter, and the preview.
+    @Test func batchRename() async throws {
+        let scene = try await Self.mainScene()
+        let (workspace, controller, window) = (scene.workspace, scene.controller, scene.window)
+        defer { controller.close() }
+        let pictures = workspace.state(of: .right).visibleEntries.map(\.entry.name).filter { $0.hasPrefix("IMG") }
+        workspace.perform(.activate(.right))
+        workspace.perform(.select(.right, Set(pictures)))
+        workspace.perform(.requestBatchRename(.right))
+        try await Self.waitUntil { window.attachedSheet != nil }
+        let sheet = try #require(window.attachedSheet)
+        defer { window.endSheet(sheet) }
+        let model = try #require(controller.batchRename)
+        model.rule.template = "Iceland {n:2}"
+        try await Self.capture(sheet, as: "batch-rename-light.png")
+    }
+
     @Test func settingsWindow() async throws {
         for (appearance, name) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
             // A settings file of its own that does not exist yet: all defaults, nothing to warn about.
@@ -91,6 +119,25 @@ final class ManualScreenshots {
             DirectoryEntry(name: name, kind: .file, size: size, modificationDate: date(day, 14), isHidden: false,
                            isDataless: false, error: 0)
         }
+    }
+
+    /// The main window in light mode, both demo folders listed.
+    private struct Scene {
+        let workspace: Workspace
+        let controller: MainWindowController
+        let window: NSWindow
+    }
+
+    private static func mainScene() async throws -> Scene {
+        let workspace = demoWorkspace()
+        let controller = MainWindowController(workspace: workspace)
+        let window = try #require(controller.window)
+        window.appearance = NSAppearance(named: .aqua)
+        window.setContentSize(NSSize(width: 1280, height: 440))
+        controller.showWindow(nil)
+        workspace.perform(.navigate(.right, path: Demo.pictures))
+        try await waitUntil { Side.allCases.allSatisfy { workspace.state(of: $0).visibleEntries.count > 3 } }
+        return Scene(workspace: workspace, controller: controller, window: window)
     }
 
     private static func demoWorkspace(settingsFile: String? = nil) -> Workspace {

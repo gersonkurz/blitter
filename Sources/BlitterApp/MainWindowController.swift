@@ -17,7 +17,7 @@ final class MainWindowController: NSWindowController {
     /// The Batch Rename request the window has already shown.
     private var shownBatchRenameToken: Int?
     /// The Batch Rename sheet's model while it is open, kept up to date on every render.
-    private weak var batchRename: BatchRenameModel?
+    private(set) weak var batchRename: BatchRenameModel?
     /// Light and dark mode take different theme schemes (#21).
     private var appearanceObservation: NSKeyValueObservation?
     /// Runs after every render, e.g. to save the state for the next launch.

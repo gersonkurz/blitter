@@ -1,5 +1,50 @@
 # Git
 
-This page is being written ([#68](https://github.com/gersonkurz/blitter/issues/68)).
+Blitter shows where git working copies stand, and has windows for the log, a commit and syncing
+with the remote. It needs git from Xcode or the Command Line Tools
+(`xcode-select --install`); without it, Blitter shows nothing of git and never asks to install
+it.
+
+## Colors
+
+In the file list and the tree, items in a working copy are colored by their git state:
+
+| Color | Meaning |
+|---|---|
+| green | tracked and unchanged; a working copy with nothing to commit and in step with its upstream |
+| red | a tracked file that changed, or a folder with such a file somewhere below it |
+| orange | a working copy with nothing to commit, but commits ahead of or behind its upstream |
+
+Untracked and ignored items keep their usual color. The colors are the theme's `git_clean`,
+`git_modified` and `git_ahead_behind` [roles](settings.md#colors). Blitter reads the state
+after every listing and again from time to time, because changes deep inside a working copy
+reach no shown folder.
+
+The **Git** column (right-click the list's header) says it in words: Unchanged, Modified,
+Untracked, Ignored, or ↑2 ↓1 for commits ahead and behind.
+
+**Color git working copies by their state** in [Settings](settings.md) turns all of this off;
+then Blitter does not run git at all.
+
+## Git Log, Git Commit and Git Sync
+
+All three are in the context menus, inside a working copy. They act on the one selected item,
+or on the side's folder when nothing is selected. With several items selected they are not
+offered: select one, or clear the selection for the folder.
+
+- **Git Log…**: the commits, newest first, with a filter by message, author or hash. Select a
+  commit to see the files it changed; a double-click (or **Return**) on a file shows it before
+  and after in the [compare tool](file-operations.md#compare). For a file or a folder, the log
+  shows only the commits that changed it.
+- **Git Commit…**: the changed and untracked files, each with a checkbox. **Space** checks or
+  unchecks the selected files; **Check All** and **Uncheck All** do all of them. A
+  double-click shows a file's changes in the compare tool. Write the message, or pick one under
+  **Recent Messages**, then **Commit** or **Commit & Push**. Only the checked files are
+  committed.
+- **Git Sync…**: the branch, its upstream, how far ahead or behind it is, and the last fetch.
+  **Fetch**, **Pull (rebase)**, **Fetch & Rebase** and **Push** run as jobs; their output shows
+  in the window. Blitter never pushes with `--force`: a rejected push is shown, not retried. If
+  a rebase stops on a conflict, **Abort Rebase** undoes it, or **Open in Terminal** lets you
+  finish it there.
 
 [Back to the contents](index.md)

@@ -46,6 +46,45 @@ struct ManualReferenceTests {
         }
     }
 
+    /// Every link from one manual page to another leads to a page that exists, and a `#section`
+    /// to one of its headings (as GitHub and Jekyll name them).
+    @Test func everyLinkBetweenPagesLeadsSomewhere() throws {
+        let files = FileManager.default.enumerator(at: Self.manual, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "md" } ?? []
+        let link = #/\[[^\]]*\]\(([^)\s#:]+\.md)(?:#([^)\s]+))?\)/#
+        var checked = 0
+        for file in files {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for match in text.matches(of: link) {
+                checked += 1
+                let target = file.deletingLastPathComponent().appendingPathComponent(String(match.output.1))
+                guard let page = try? String(contentsOf: target, encoding: .utf8) else {
+                    Issue.record("\(file.lastPathComponent) links to \(match.output.1), which does not exist")
+                    continue
+                }
+                if let anchor = match.output.2 {
+                    #expect(Self.anchors(page).contains(String(anchor)),
+                            "\(file.lastPathComponent) links to \(match.output.1)#\(anchor): no such heading")
+                }
+            }
+        }
+        #expect(checked > 0)
+    }
+
+    /// The anchors of a page's headings: lowercased, punctuation dropped, spaces as "-".
+    static func anchors(_ page: String) -> Set<String> {
+        Set(page.split(separator: "\n").filter { $0.hasPrefix("#") }.map { line in
+            let title = line.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces).lowercased()
+            return String(title.unicodeScalars.compactMap { scalar -> Character? in
+                guard scalar != " " else {
+                    return "-"
+                }
+                let keeps = CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_"
+                return keeps ? Character(scalar) : nil
+            })
+        })
+    }
+
     // MARK: Pages
 
     private static let generated = """
