@@ -2,9 +2,9 @@
 
 Blazingly fast file manager for macOS.
 
-Blitter is a native macOS file manager in the spirit of Directory Opus: two side-by-side listers, each with a folder tree, built for keyboard-driven work and speed. The name comes from the Amiga's Blitter chip, whose job was moving blocks of memory around very fast.
+Blitter is a native macOS file manager: two side-by-side listers, each with a folder tree, built for keyboard-driven work and speed. The name comes from the Amiga's Blitter chip, whose job was moving blocks of memory around very fast.
 
-It exists because Path Finder became unusable, and nothing else on the Mac comes close to the DOpus workflow.
+It exists because Path Finder became unusable, and nothing else on the Mac offers a fast two-sided, keyboard-driven workflow.
 
 **Status:** planning. See [docs/PLAN.md](docs/PLAN.md).
 

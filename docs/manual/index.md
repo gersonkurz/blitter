@@ -1,8 +1,7 @@
 # Blitter
 
-Blitter is a file manager for macOS in the spirit of Directory Opus: two sides next to each
-other, each with a folder tree and a detailed file list, driven from the keyboard as much as
-with the mouse. The active side is the source, the other side the destination: copy, move and
+Blitter is a file manager for macOS: two sides next to each other, each with a folder tree and
+a detailed file list, driven from the keyboard as much as with the mouse. The active side is the source, the other side the destination: copy, move and
 compare work from one to the other.
 
 ![The main window: two sides, each with its folder tree and file list](images/main-window-light.png)

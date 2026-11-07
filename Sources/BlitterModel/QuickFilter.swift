@@ -1,8 +1,8 @@
 import Foundation
 
-/// The file list's fast filter (#39), as in Directory Opus: typing highlights the items that
-/// match; starting with `*` filters the list down to them. It belongs to the side and ends when
-/// the side goes to another folder.
+/// The file list's fast filter (#39): typing highlights the items that match; starting with `*`
+/// filters the list down to them. It belongs to the side and ends when the side goes to another
+/// folder.
 public struct QuickFilter: Equatable, Sendable {
     public enum Mode: Equatable, Sendable {
         /// Every item stays; the matching ones are marked and the first of them selected.

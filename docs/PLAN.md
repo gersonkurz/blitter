@@ -4,18 +4,18 @@ Last updated: 2026-11-07
 
 ## Goal
 
-Replace Path Finder for daily work with a native macOS file manager that works like Directory Opus. Get to a usable MVP fast, then let real use decide what comes next.
+Replace Path Finder for daily work with a native macOS file manager: two sides, keyboard first, fast. Get to a usable MVP fast, then let real use decide what comes next.
 
 ## Decisions
 
 | Topic | Decision | Reason |
 |---|---|---|
-| Platform | macOS only | DOpus already covers Windows. Most of the value is in macOS integration (APFS, FSEvents, File Provider, Quick Look, Spotlight), which wouldn't port anyway. |
+| Platform | macOS only | Most of the value is in macOS integration (APFS, FSEvents, File Provider, Quick Look, Spotlight), which wouldn't port anyway. |
 | UI toolkit | AppKit (`NSTableView`, `NSOutlineView`, `NSSplitView`) | Smooth with 100k+ rows and full keyboard control. SwiftUI is acceptable for preferences and dialogs only. |
 | Language | Swift | One language, no bridging layer. Speed comes from calling the kernel directly, not from the language. |
-| Automation | MCP server (post-MVP), no built-in scripting language | Claude or Codex can do more than DOpus-style scripting. A small `blitter` CLI on the same socket gives Python access for free. |
+| Automation | MCP server (post-MVP), no built-in scripting language | Claude or Codex can do more than a built-in scripting language. A small `blitter` CLI on the same socket gives Python access for free. |
 | Distribution | Developer ID, notarized, not sandboxed, no App Store | A sandboxed file manager isn't practical. Needs Full Disk Access. |
-| Name | Blitter | After the Amiga chip. "dupus" was too close to the DOpus trademark. |
+| Name | Blitter | After the Amiga chip. The earlier working name was too close to an existing trademark. |
 | Manual | English, Markdown in `docs/manual/`, published to GitHub Pages; screenshots generated from the app | Many features have no obvious path to discovery. The manual lives and is reviewed with the code, so it stays true. |
 
 ## Layout

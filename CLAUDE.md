@@ -1,6 +1,6 @@
 # Blitter
 
-A native macOS file manager in the spirit of Directory Opus. Read `docs/PLAN.md` for scope and decisions before starting any work.
+A native, keyboard-driven two-sided file manager for macOS. Read `docs/PLAN.md` for scope and decisions before starting any work.
 
 ## Ground rules
 

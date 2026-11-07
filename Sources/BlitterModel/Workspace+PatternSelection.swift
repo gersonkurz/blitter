@@ -8,10 +8,10 @@ public enum PatternSelectionMode: Sendable {
 
 // MARK: Select by pattern
 
-/// Selecting by name pattern, as Directory Opus's Select dialog does: "*.jpg", or several
-/// patterns separated by ";" ("*.jpg; *.png"). A pattern with a wildcard matches the whole name,
-/// one without matches anywhere in it, ignoring case and accents (as in Find, #48). For search
-/// results, the name of the item itself is matched, not its path below the folder.
+/// Selecting by name pattern: "*.jpg", or several patterns separated by ";" ("*.jpg; *.png").
+/// A pattern with a wildcard matches the whole name, one without matches anywhere in it,
+/// ignoring case and accents (as in Find, #48). For search results, the name of the item itself
+/// is matched, not its path below the folder.
 extension Workspace {
     /// Adds the matching items to the selection or removes them, after matching in the background.
     /// Any navigation or new search cancels it (`dropViewWork`); a reload meanwhile does

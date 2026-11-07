@@ -1,7 +1,7 @@
 import AppKit
 import BlitterModel
 
-/// Back, Up and Forward for one side, left of its path field, as in Directory Opus. Each button
+/// Back, Up and Forward for one side, left of its path field. Each button
 /// sends the same command as the Go menu and is enabled under the same rules.
 @MainActor
 final class NavigationButtons: NSStackView {

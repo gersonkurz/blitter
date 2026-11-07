@@ -2,7 +2,7 @@
 # .github/workflows/manual.yml). Links between pages are written as relative .md links; the
 # relative-links plugin turns them into page links, and they work on github.com as well.
 title: Blitter Manual
-description: A fast two-pane file manager for macOS, in the spirit of Directory Opus.
+description: A fast two-pane file manager for macOS.
 theme: jekyll-theme-primer
 plugins:
   - jekyll-relative-links
