@@ -114,20 +114,6 @@ struct ColorSettings: View {
 
 struct CompareSettings: View {
     @Binding var tool: [String]?
-    /// The editor's text, and the command it was last made from or turned into: only a change
-    /// the user typed is written back, so showing a command never changes it.
-    @State private var lines = ""
-    @State private var shown: [String]?
-
-    static func arguments(_ lines: String) -> [String] {
-        lines.components(separatedBy: "\n").filter { !$0.isEmpty }
-    }
-
-    /// One argument per line shows every command except one with an empty argument or a line
-    /// break in an argument; that one is left to the settings file.
-    static func fitsLines(_ command: [String]) -> Bool {
-        !command.contains { $0.isEmpty || $0.contains("\n") }
-    }
 
     var body: some View {
         Form {
@@ -139,54 +125,61 @@ struct CompareSettings: View {
                 Text("A command line").tag(false)
             }
             .pickerStyle(.radioGroup)
-            if let command = tool, !Self.fitsLines(command) {
-                Section("The command line") {
-                    Text(command.map { "“\($0)”" }.joined(separator: " ")).font(.body.monospaced())
-                    Text("It has an empty argument or one with a line break: change it in the settings file.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            } else if tool != nil {
+            if tool != nil {
                 Section("The command line, one argument per line; {left} and {right} are the two items") {
-                    TextEditor(text: $lines)
-                        .font(.body.monospaced())
-                        .frame(minHeight: 100)
-                        .onAppear { show(tool) }
-                        .onChange(of: lines) {
-                            // An empty line while typing is not yet an argument.
-                            guard Self.arguments(lines) != shown else {
-                                return
-                            }
-                            shown = Self.arguments(lines)
-                            tool = shown
-                        }
-                        .onChange(of: tool) {
-                            if tool != shown {
-                                show(tool)
-                            }
-                        }
+                    ArgumentLinesEditor(command: Binding(get: { tool ?? [] }, set: { tool = $0 }))
                 }
             }
         }
         .formStyle(.grouped)
     }
-
-    private func show(_ command: [String]?) {
-        shown = command
-        lines = command?.joined(separator: "\n") ?? ""
-    }
 }
 
-struct ToolsSettings: View {
-    let open: () -> Void
+/// A command line, one argument per line (#40, #65). Only a change the user typed is written
+/// back, so showing a command never changes it; one with an empty argument or a line break in an
+/// argument is shown, not edited: that one is left to the settings file.
+struct ArgumentLinesEditor: View {
+    @Binding var command: [String]
+    /// The editor's text, and the command it was last made from or turned into.
+    @State private var lines = ""
+    @State private var shown: [String]?
+
+    static func arguments(_ lines: String) -> [String] {
+        lines.components(separatedBy: "\n").filter { !$0.isEmpty }
+    }
+
+    static func fitsLines(_ command: [String]) -> Bool {
+        !command.contains { $0.isEmpty || $0.contains("\n") }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("External tools, the context menus and the menu bar's items are set in the settings file for "
-                + "now; an editor for them follows.")
-            Button("Open Settings File", action: open)
-            Spacer()
+        if Self.fitsLines(command) {
+            TextEditor(text: $lines)
+                .font(.body.monospaced())
+                .frame(minHeight: 80)
+                .onAppear { show(command) }
+                .onChange(of: lines) {
+                    // An empty line while typing is not yet an argument.
+                    guard Self.arguments(lines) != shown else {
+                        return
+                    }
+                    shown = Self.arguments(lines)
+                    command = Self.arguments(lines)
+                }
+                .onChange(of: command) {
+                    if command != shown {
+                        show(command)
+                    }
+                }
+        } else {
+            Text(command.map { "“\($0)”" }.joined(separator: " ")).font(.body.monospaced())
+            Text("It has an empty argument or one with a line break: change it in the settings file.")
+                .font(.caption).foregroundStyle(.secondary)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func show(_ command: [String]) {
+        shown = command
+        lines = command.joined(separator: "\n")
     }
 }

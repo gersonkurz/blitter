@@ -5,11 +5,46 @@ Everything Blitter does to files is an [action](reference/actions.md), with a na
 the menu bar's File and Edit menus list actions by name, so you decide what is in them and in
 what order.
 
-All of this is set in the [settings file](settings.md); **Open Settings File** in Settings…
-opens it. Blitter applies a change as soon as you save the file. A mistake is listed at the
-bottom of the window, and the rest of the file still applies.
+Edit them in **Settings…** (**⌘,**) → **Tools & Menus**, or in the [settings file](settings.md)
+itself. **Edit** at the top of the tab picks what to edit: the tools, the context menu for
+items, the context menu for the folder, the File menu or the Edit menu.
 
-## Tools
+## Tools in the Settings window
+
+![Editing a tool](images/settings-tools-light.png)
+
+- Type a title under the list and click **+** to add a tool; **−** removes the selected one, and
+  its entries in the menus. Blitter's own three tools can be changed, not removed.
+- **Works on**: the selected items, the selected files, the selection or the folder when nothing
+  is selected, or the side's folder.
+- **File types**: e.g. `bin, exe`. The tool is then offered only when every selected item is
+  such a file. Empty: any item.
+- **It** opens the items with an **app** (type its name, or **Choose…** it), or runs a
+  **command line**, one argument per line.
+
+A new tool has no app yet; the window says so, and **Save** waits until it has one.
+
+## Menus in the Settings window
+
+![Editing the File menu](images/settings-menus-file-light.png)
+
+- **Add** inserts an action (Blitter's own and your tools), a separator, or (in context menus) a
+  submenu after the selected entry. **↑** and **↓** move it, **−** removes it.
+- A submenu: give it a title below the list; double-click it (or **Open**) to edit its entries,
+  **Back** to return.
+- In the File and Edit menus, select an item to type its **Shortcut**, such as `shift+cmd+h` or
+  `f7`; the list shows it as the menu will (⇧⌘H). **Alternate** shows the item in place of the
+  one before it while the extra modifier key is held.
+
+**Save** writes the settings file. The sections below show what the same settings look like
+in the file.
+
+## In the settings file
+
+Blitter applies a change to the file as soon as you save it. A mistake is listed at the bottom
+of the window, and the rest of the file still applies.
+
+### Tools
 
 A tool opens items with an app, or runs a command line. Each one is a section
 `[tools.<name>]`:
@@ -31,10 +66,9 @@ only what differs:
 app = "Terminal"
 ```
 
-Every tool is in the menu bar's **Tools** menu. To have it in a context menu too, add its name
-there (see below).
+Every tool is in the menu bar's **Tools** menu. To have it in a context menu too, add it there.
 
-### Command lines
+#### Command lines
 
 A command line runs as a job in the side's folder, with Cancel in the jobs strip. It is never
 run through a shell, so `*`, `|` and `$HOME` mean nothing special.
@@ -44,7 +78,7 @@ run through a shell, so `*`, `|` and `$HOME` mean nothing special.
 - Programs are looked for in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, `/usr/bin`,
   `/bin`, `/usr/sbin` and `/sbin`, or give the full path.
 
-### Examples
+#### Examples
 
 Open binaries with a hex editor, offered only for `.bin` and `.exe` files:
 
@@ -69,7 +103,7 @@ on = "selection"
 To compare the two **sides'** folders, no tool is needed: **Compare Folders** (**⌥⇧⌘D**) uses
 Beyond Compare when it is installed.
 
-## Context menus
+### Context menus
 
 `[context_menu]` has two lists:
 
@@ -92,7 +126,7 @@ items = [
 ]
 ```
 
-## The menu bar
+### The menu bar
 
 `[menu_bar]` lists the File menu's items (`file`) and the items at the end of the Edit menu
 (`edit`). An entry is an action name, `"-"`, or an action with a shortcut:

@@ -82,6 +82,11 @@ final class ManualScreenshots {
                 controller.model.tab = tab
                 try await Self.capture(window, as: "settings-\(tab)-\(name).png")
             }
+            // The Tools & Menus tab's menu editors (#65).
+            for (pane, file) in [(ToolsSettings.Pane.itemsMenu, "items"), (.fileMenu, "file")] {
+                controller.model.toolsPane = pane
+                try await Self.capture(window, as: "settings-menus-\(file)-\(name).png")
+            }
         }
     }
 

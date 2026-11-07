@@ -3,7 +3,7 @@ import Foundation
 
 /// What an action works on. Menus offer an action only where its scope fits, and running it
 /// checks again, so an action never runs on something it was not made for.
-public enum ActionScope: Equatable, Sendable {
+public enum ActionScope: Hashable, Sendable {
     /// The side's folder itself, once it has been read; the selection does not matter.
     case folder
     /// One or more selected items.

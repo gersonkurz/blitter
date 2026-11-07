@@ -256,7 +256,7 @@ extension RGB {
     }
 }
 
-extension Shortcut {
+public extension Shortcut {
     /// As the settings file writes it: "shift+opt+cmd+backspace", "f2", "ctrl+plus".
     var text: String {
         let order: [(Modifier, String)] = [(.control, "ctrl"), (.shift, "shift"), (.option, "opt"), (.command, "cmd")]

@@ -35,7 +35,7 @@ public extension Settings {
         take(\.diffTool)
         take(\.confirmDelete)
         take(\.gitColors)
-        take(\.tools)
+        result.tools = Self.tools(tools, changesFrom: original.tools, to: edited.tools)
         take(\.contextMenus)
         take(\.menuBar)
         take(\.font.face)

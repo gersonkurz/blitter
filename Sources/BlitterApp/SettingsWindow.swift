@@ -20,10 +20,17 @@ final class SettingsWindowModel {
     }
 
     var tab = SettingsTab.files
+    /// What the Tools & Menus tab edits (#65).
+    var toolsPane = ToolsSettings.Pane.tools
+    /// The submenu a context menu editor shows: the positions of the submenus on the way.
+    var menuPath: [Int] = []
     /// The clock of the date preview; the manual's screenshots fix it (#67).
     var now: () -> Date = Date.init
     /// What the file could not hold, as entered: Save waits until there is none.
     private(set) var draftProblems: [String] = []
+    /// What a field holds that is not yet a value (a shortcut half typed, #65), by field: Save
+    /// waits for these too.
+    var inputProblems: [String: String] = [:]
     /// While a save runs: Save waits, and the file is not read again.
     private(set) var isSaving = false
     /// Why the last save failed; the draft keeps its changes, to save again.
@@ -44,7 +51,7 @@ final class SettingsWindowModel {
     }
 
     var canSave: Bool {
-        isDirty && !isSaving && draftProblems.isEmpty && document?.canBeSaved == true
+        isDirty && !isSaving && draftProblems.isEmpty && inputProblems.isEmpty && document?.canBeSaved == true
     }
 
     /// Reads the file and shows it. Edits made while it was being read are kept: they are applied
@@ -100,6 +107,7 @@ final class SettingsWindowModel {
 
     func revert() {
         draft = original
+        inputProblems = [:]
     }
 
     func openFile() {
@@ -144,12 +152,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private init(workspace: Workspace) {
         model = SettingsWindowModel(workspace: workspace)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 520),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
                               styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Settings"
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: SettingsView(model: model))
-        window.setContentSize(NSSize(width: 620, height: 520))
+        window.setContentSize(NSSize(width: 760, height: 600))
         window.center()
         super.init(window: window)
         window.delegate = self
@@ -185,14 +193,15 @@ struct SettingsView: View {
                 case .fonts: FontSettingsView(font: $model.draft.font)
                 case .colors: ColorSettings(theme: $model.draft.theme)
                 case .compare: CompareSettings(tool: $model.draft.diffTool)
-                case .tools: ToolsSettings(open: model.openFile)
+                case .tools: ToolsSettings(draft: $model.draft, inputProblems: $model.inputProblems,
+                                           pane: $model.toolsPane, menuPath: $model.menuPath)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider().padding(.top, 8)
             footer.padding()
         }
-        .frame(minWidth: 560, minHeight: 460)
+        .frame(minWidth: 700, minHeight: 540)
     }
 
     private var footer: some View {
@@ -208,7 +217,7 @@ struct SettingsView: View {
             if let problem = model.saveProblem {
                 Label(problem, systemImage: "xmark.octagon").foregroundStyle(.red)
             }
-            ForEach(model.draftProblems, id: \.self) { problem in
+            ForEach(model.draftProblems + model.inputProblems.values.sorted(), id: \.self) { problem in
                 Label(problem, systemImage: "xmark.octagon").foregroundStyle(.red)
             }
             HStack {

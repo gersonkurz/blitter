@@ -40,7 +40,7 @@ public struct Shortcut: Equatable, Hashable, Sendable {
     ]
 
     /// Nil if a part is not a modifier or the last part not a key.
-    init?(_ text: String) {
+    public init?(_ text: String) {
         let parts = text.lowercased().split(separator: "+", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
         guard let last = parts.last, !last.isEmpty else {
@@ -149,5 +149,31 @@ public struct MenuBarSettings: Equatable, Sendable {
             }
         }
         return (MenuBarSettings(file: filter(file, "menu_bar.file"), edit: filter(edit, "menu_bar.edit")), problems)
+    }
+}
+
+public extension Shortcut {
+    /// As macOS menus show it: ⌃⌥⇧⌘ in that order, then the key, e.g. "⇧⌘N", "⌥⌘⌫", "F2".
+    var glyphs: String {
+        let order: [(Modifier, String)] = [(.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘")]
+        let keyGlyph = switch key {
+        case let .character(character): String(character).uppercased()
+        case let .function(number): "F\(number)"
+        case .backspace: "⌫"
+        case .forwardDelete: "⌦"
+        case .returnKey: "↩"
+        case .tab: "⇥"
+        case .space: "Space"
+        case .escape: "⎋"
+        case .upArrow: "↑"
+        case .downArrow: "↓"
+        case .leftArrow: "←"
+        case .rightArrow: "→"
+        case .home: "↖"
+        case .end: "↘"
+        case .pageUp: "⇞"
+        case .pageDown: "⇟"
+        }
+        return order.filter { modifiers.contains($0.0) }.map(\.1).joined() + keyGlyph
     }
 }

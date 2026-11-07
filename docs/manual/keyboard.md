@@ -1,8 +1,8 @@
 # Keyboard
 
 Everything in Blitter works from the keyboard. Menu commands act on the active side. The File
-and Edit menus' action shortcuts can be changed in the settings file
-([Tools and menus](tools-and-menus.md#the-menu-bar)); the
+and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
+([Tools and menus](tools-and-menus.md#menus-in-the-settings-window)); the
 [default shortcuts](reference/shortcuts.md) page lists them as they come.
 
 ## Sides and navigation

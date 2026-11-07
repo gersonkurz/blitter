@@ -3,9 +3,7 @@
 Blitter keeps its settings in one text file, `~/.config/blitter/settings.toml`.
 
 - **Settings…** (**⌘,**) opens a window for the common settings.
-- Everything else (tools, context menus, menu bar shortcuts) is set in the file itself; see
-  [Tools and menus](tools-and-menus.md). **Open Settings File** in the window opens it in the
-  text editor tool.
+- **Open Settings File** in the window opens the file itself in the text editor tool.
 
 Blitter reads the file at launch and again whenever it changes, so an edit takes effect as soon
 as you save it. A setting that is missing or wrong falls back to its default. The problems are
@@ -84,7 +82,7 @@ bcomp
 
 ![The Tools & Menus tab](images/settings-tools-light.png)
 
-For now, tools and menus are set in the settings file; this tab opens it. See
+The tools, the context menus, and the File and Edit menus' items with their shortcuts. See
 [Tools and menus](tools-and-menus.md).
 
 [Back to the contents](index.md)

@@ -138,7 +138,7 @@ struct ManualReferenceTests {
                     return nil
                 }
                 let title = ActionRegistry.builtIn.action(id)?.title ?? id
-                let keys = shortcut.map { "`\(glyphs($0))`" } ?? ""
+                let keys = shortcut.map { "`\($0.glyphs)`" } ?? ""
                 return "| \(title) | \(keys) | `\(id)`\(alternate ? " (while the extra key is held)" : "") |"
             }
         }
@@ -180,29 +180,5 @@ struct ManualReferenceTests {
         case .workingCopy: "the folder or its one selected item, inside a git working copy"
         case .folders: "the selected folders, or every folder when nothing is selected"
         }
-    }
-
-    /// As macOS menus show shortcuts: ⌃⌥⇧⌘ in that order, then the key.
-    static func glyphs(_ shortcut: Shortcut) -> String {
-        let order: [(Shortcut.Modifier, String)] = [(.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘")]
-        let key = switch shortcut.key {
-        case let .character(character): String(character).uppercased()
-        case let .function(number): "F\(number)"
-        case .backspace: "⌫"
-        case .forwardDelete: "⌦"
-        case .returnKey: "↩"
-        case .tab: "⇥"
-        case .space: "Space"
-        case .escape: "⎋"
-        case .upArrow: "↑"
-        case .downArrow: "↓"
-        case .leftArrow: "←"
-        case .rightArrow: "→"
-        case .home: "↖"
-        case .end: "↘"
-        case .pageUp: "⇞"
-        case .pageDown: "⇟"
-        }
-        return order.filter { shortcut.modifiers.contains($0.0) }.map(\.1).joined() + key
     }
 }

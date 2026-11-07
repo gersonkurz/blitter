@@ -9,8 +9,8 @@ import Testing
 @Suite(.serialized)
 final class SettingsWindowTests {
     private let folder: String
-    private let path: String
-    private let workspace: Workspace
+    let path: String
+    let workspace: Workspace
 
     init() throws {
         folder = NSTemporaryDirectory() + "BlitterAppTests-" + UUID().uuidString
@@ -27,7 +27,7 @@ final class SettingsWindowTests {
         try? FileManager.default.removeItem(atPath: folder)
     }
 
-    private func openWindow() async throws -> SettingsWindowModel {
+    func openWindow() async throws -> SettingsWindowModel {
         SettingsWindowController.show(workspace)
         let controller = try #require(SettingsWindowController.current)
         #expect(controller.window?.isVisible == true && controller.window?.title == "Settings")
@@ -35,7 +35,7 @@ final class SettingsWindowTests {
         return controller.model
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0 ..< 300 where !condition() {
             try await Task.sleep(for: .milliseconds(10))
         }
