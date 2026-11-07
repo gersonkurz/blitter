@@ -20,6 +20,8 @@ final class SettingsWindowModel {
     }
 
     var tab = SettingsTab.files
+    /// The clock of the date preview; the manual's screenshots fix it (#67).
+    var now: () -> Date = Date.init
     /// What the file could not hold, as entered: Save waits until there is none.
     private(set) var draftProblems: [String] = []
     /// While a save runs: Save waits, and the file is not read again.
@@ -179,7 +181,7 @@ struct SettingsView: View {
             .padding(.top, 12)
             Group {
                 switch model.tab {
-                case .files: FilesSettings(draft: $model.draft)
+                case .files: FilesSettings(draft: $model.draft, now: model.now())
                 case .fonts: FontSettingsView(font: $model.draft.font)
                 case .colors: ColorSettings(theme: $model.draft.theme)
                 case .compare: CompareSettings(tool: $model.draft.diffTool)

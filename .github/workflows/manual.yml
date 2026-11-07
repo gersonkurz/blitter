@@ -1,0 +1,41 @@
+# Publishes the manual (docs/manual only) to GitHub Pages: https://gersonkurz.github.io/blitter/
+# One-time setup by the owner: repository Settings → Pages → Source: "GitHub Actions".
+# See docs/PLAN.md, section Manual.
+name: Manual
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/manual/**", ".github/workflows/manual.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs/manual
+          destination: ./_site
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,6 +1,6 @@
 # Blitter: Plan
 
-Last updated: 2026-10-15
+Last updated: 2026-11-07
 
 ## Goal
 
@@ -16,6 +16,7 @@ Replace Path Finder for daily work with a native macOS file manager that works l
 | Automation | MCP server (post-MVP), no built-in scripting language | Claude or Codex can do more than DOpus-style scripting. A small `blitter` CLI on the same socket gives Python access for free. |
 | Distribution | Developer ID, notarized, not sandboxed, no App Store | A sandboxed file manager isn't practical. Needs Full Disk Access. |
 | Name | Blitter | After the Amiga chip. "dupus" was too close to the DOpus trademark. |
+| Manual | English, Markdown in `docs/manual/`, published to GitHub Pages; screenshots generated from the app | Many features have no obvious path to discovery. The manual lives and is reviewed with the code, so it stays true. |
 
 ## Layout
 
@@ -88,6 +89,16 @@ Use it daily, record friction points as GitHub issues, and set priorities from t
 1. **Find panel.** Docked at the bottom across both sides. Results open as a virtual folder (`search://…`) in a lister, so normal commands work on them. The default search walks the folder tree live; Spotlight is an optional scope; content search runs on top of the walk. Searches run in the background, results stream in, and the search can be cancelled.
 2. **MCP server.** A local Unix socket. It exposes both app state (locations, selections, history) and commands. Changes go through plan → preview → confirm, deletes go to the Trash, and every operation is recorded in an undo journal.
 3. **Recent-folders strip.** At the bottom of each file list, ordered by frecency (recent and frequent), with pinning.
+
+## Manual
+
+Owner's decision (2026-11-07): the manual comes early, before more features, because much of Blitter is invisible without it (the fast filter, zoom, drag modifiers, tools and menus in the settings file, automation).
+
+- **Source:** Markdown in `docs/manual/`, one page per area: getting started, the two sides, navigation, file operations and jobs, Find, Git, settings, tools and menus, keyboard, automation. English only.
+- **Publishing:** a GitHub Actions workflow publishes only `docs/manual/` to GitHub Pages (https://gersonkurz.github.io/blitter/). The rest of `docs/` (this plan) is not published. The owner switches Pages to "GitHub Actions" once in the repository settings.
+- **Screenshots:** generated, never taken by hand. An opt-in screenshot suite builds each scene from fixtures (demo folders, fixed window size, fixed theme, light and dark) and writes PNGs to `docs/manual/images/`; `just screenshots` regenerates them, so a UI change shows up as changed images in `git diff`. What only the real app can show (open menus, context menus) is captured from the real app driven over the automation socket.
+- **Generated reference:** the settings reference comes from `Settings.defaultFile`, the keyboard table from the default menu bar, the list of actions from the action registry, so they cannot drift from the code.
+- **Rule:** a change users can see is not done until its manual page says so.
 
 ## Workflow
 

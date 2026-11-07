@@ -14,6 +14,7 @@ A native macOS file manager in the spirit of Directory Opus. Read `docs/PLAN.md`
   - Cloud and network folders must never stall the other side.
 - **Safety:** deletes go to the Trash by default. Long operations go through the job queue with progress and cancel.
 - **Scope:** keep to the MVP in `docs/PLAN.md`. Record new ideas as GitHub issues instead of building them.
+- **Manual:** a change users can see is not done until its page in `docs/manual/` says so. Screenshots are made with `just screenshots`, the reference pages with `just manual` (see `docs/PLAN.md`, Manual).
 
 ## Commands
 

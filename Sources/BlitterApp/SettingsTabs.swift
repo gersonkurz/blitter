@@ -6,11 +6,13 @@ import SwiftUI
 
 struct FilesSettings: View {
     @Binding var draft: BlitterModel.Settings
+    /// The moment the date preview shows: now, or a fixed one for the manual's screenshots.
+    let now: Date
 
     var body: some View {
         Form {
             TextField("Date format", text: $draft.dateFormat)
-            Text("Now: " + Formatting.dateFormatter(draft.dateFormat).string(from: Date()))
+            Text("Now: " + Formatting.dateFormatter(draft.dateFormat).string(from: now))
                 .font(.caption).foregroundStyle(.secondary)
             Section("Columns of a new file list") {
                 ForEach(ListColumn.allCases.filter { $0 != .name }, id: \.self) { column in

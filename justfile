@@ -37,6 +37,19 @@ build config="Debug": generate
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{quote(config)}} \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify --quiet
 
+# Make the manual's screenshots from the app (docs/manual/images); see docs/PLAN.md, Manual.
+# In English (US), whatever this Mac's language: sizes read "3.3 MB" as the manual does.
+screenshots: generate
+    TEST_RUNNER_BLITTER_SCREENSHOTS=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Debug \
+        -destination "{{destination}}" -derivedDataPath {{derived_data}} \
+        -testLanguage en -testRegion US -only-testing:BlitterAppTests/ManualScreenshots | xcbeautify --quiet
+
+# Write the manual's generated reference pages (docs/manual/reference) from the code
+manual: generate
+    TEST_RUNNER_BLITTER_WRITE_MANUAL=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Debug \
+        -destination "{{destination}}" -derivedDataPath {{derived_data}} \
+        -only-testing:BlitterModelTests/ManualReferenceTests | xcbeautify --quiet
+
 # Build and launch the Debug app
 run: (build "Debug")
     open "{{derived_data}}/Build/Products/Debug/Blitter.app"
