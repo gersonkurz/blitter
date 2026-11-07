@@ -29,9 +29,12 @@ icon:
     "$work/render-icon" docs/logo/blitter-chip.svg docs/logo/blitter-chip-small.svg "$work/AppIcon.iconset"
     iconutil -c icns "$work/AppIcon.iconset" -o Sources/BlitterApp/AppIcon.icns
 
-# Build the app (Debug or Release)
+# Build the app (Debug or Release): `just build Release`. Arguments are positional, so
+# `just build config=Release` would pass "config=Release" — refused here with a clear message
+# instead of a misleading package-resolution error from xcodebuild.
 build config="Debug": generate
-    xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{config}} \
+    @config={{quote(config)}}; case "$config" in Debug|Release) ;; *) printf 'error: unknown configuration "%s" — use: just build Debug | just build Release\n' "$config" >&2; exit 2;; esac
+    xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{quote(config)}} \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify --quiet
 
 # Build and launch the Debug app
