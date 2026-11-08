@@ -206,11 +206,13 @@ extension Workspace {
         return true
     }
 
-    func startJob(_ operation: FileOperation, then followUp: ((Workspace) -> Void)? = nil) {
+    @discardableResult
+    func startJob(_ operation: FileOperation, then followUp: ((Workspace) -> Void)? = nil) -> Int {
         let id = jobQueue.start(operation)
         if let followUp {
             jobFollowUps[id] = followUp
         }
+        return id
     }
 
     /// Calls `handler` with the job as it ended, whatever the outcome (#43: a dialog that started
@@ -224,6 +226,7 @@ extension Workspace {
         for handler in jobObservers.removeValue(forKey: job.id) ?? [] {
             handler(job)
         }
+        recordUndo(of: job)
         let followUp = jobFollowUps.removeValue(forKey: job.id)
         let succeeded = job.state == .finished && job.errors.isEmpty
         if succeeded {
@@ -249,6 +252,13 @@ extension Workspace {
         case let .rename(path, _): [parent(path)]
         case let .renameAll(renames): Set(renames.map { parent($0.path) })
         case let .newFolder(folder, _): [folder]
+        case let .undo(steps): Set(steps.flatMap { step -> [String] in
+                switch step {
+                case let .trash(path, _): [parent(path)]
+                case let .move(source, target, _): [parent(source), parent(target)]
+                case let .rename(renames, _): renames.map { parent($0.path) }
+                }
+            })
         }
     }
 }

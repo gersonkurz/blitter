@@ -16,6 +16,12 @@ public struct Job: Identifiable, Equatable, Sendable {
     public internal(set) var state: State = .running
     public internal(set) var progress = JobProgress()
     public internal(set) var errors: [JobError] = []
+    /// How to undo what the job did (#61), in the order to run: set when it is done. Empty if
+    /// nothing it did can be undone (a delete for good, a command line, nothing done).
+    public internal(set) var undo: [UndoStep] = []
+    /// Items the job moved to another volume are other items there (copies): their old
+    /// identities and their new ones, so older undo steps still find them (#61).
+    public internal(set) var identityChanges: [ItemIdentity: ItemIdentity] = [:]
 
     public var isDone: Bool {
         state == .finished || state == .cancelled
@@ -91,7 +97,7 @@ public final class JobQueue {
                                             rename: rename)
             // On the job's thread: finding what lies inside what looks at the disk (#48).
             let errors = operations.run(operation.withoutNestedItems())
-            runner.finish(errors)
+            runner.finish(errors, undo: operations.undoSteps.reversed(), identityChanges: operations.identityChanges)
         }
         onChange?()
         return id
@@ -241,13 +247,15 @@ private final class JobRunner: OperationContext, @unchecked Sendable {
         }
     }
 
-    func finish(_ errors: [JobError]) {
+    func finish(_ errors: [JobError], undo: [UndoStep], identityChanges: [ItemIdentity: ItemIdentity]) {
         // The flag is what the operation obeyed, so it decides whether the job counts as cancelled.
         let cancelled = cancellation.isSet
         let progress = lock.withLock { self.progress }
         post { job in
             job.progress = progress
             job.errors = errors
+            job.undo = undo
+            job.identityChanges = identityChanges
             job.state = cancelled ? .cancelled : .finished
         }
     }

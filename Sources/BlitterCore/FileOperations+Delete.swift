@@ -1,6 +1,44 @@
 import Foundation
 
 extension FileOperations {
+    mutating func trash(_ paths: [String]) {
+        context.update { $0.totalItems = paths.count }
+        for path in paths {
+            guard !isCancelled else {
+                return
+            }
+            context.update { $0.currentItem = (path as NSString).lastPathComponent }
+            do {
+                if let trashed = try trashItem(path) {
+                    recordMove(trashed, back: path)
+                }
+            } catch {
+                fail(path, error.localizedDescription)
+            }
+            context.update { $0.doneItems += 1 }
+        }
+    }
+
+    mutating func delete(_ paths: [String]) {
+        context.update { $0.totalItems = paths.count }
+        for path in paths {
+            guard !isCancelled else {
+                return
+            }
+            context.update { $0.currentItem = (path as NSString).lastPathComponent }
+            let cancellation = context.cancellation
+            let code = Self.deleteForGood(path) { cancellation.isSet }
+            if code == ECANCELED {
+                if Self.exists(path) {
+                    fail(path, "Deleting was cancelled; some of its contents may already be gone.")
+                }
+            } else if code != 0 {
+                fail(path, Self.message(code))
+            }
+            context.update { $0.doneItems += 1 }
+        }
+    }
+
     /// Deletes an item for good; a folder with everything in it. Symbolic links are removed, never
     /// followed. `stop` is asked before each item inside, so cancelling a large folder takes
     /// effect at once. Returns 0, ECANCELED when stopped, or the errno of the first failure.

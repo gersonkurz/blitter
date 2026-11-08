@@ -293,6 +293,8 @@ enum JobText {
             "Renaming \(items(renames.map(\.path)))"
         case let .newFolder(_, folderName):
             "Creating “\(folderName)”"
+        case let .undo(steps):
+            steps.count == 1 ? "Undoing 1 change" : "Undoing \(steps.count) changes"
         }
     }
 

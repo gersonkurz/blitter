@@ -23,6 +23,9 @@ public enum ActionScope: Hashable, Sendable {
     case workingCopy
     /// The selected folders, or every folder listed when nothing is selected (#52): at least one.
     case folders
+    /// Blitter's last file operation that can be undone (#61): there must be one. The side does
+    /// not matter.
+    case lastChange
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
@@ -31,13 +34,15 @@ public enum ActionScope: Hashable, Sendable {
     }
 
     /// `inWorkingCopy`: the side's folder is in a git working copy the workspace knows.
-    func fits(_ state: SideState, other: SideState, inWorkingCopy: Bool = false) -> Bool {
+    /// `canUndo`: the workspace has a file operation to undo (#61).
+    func fits(_ state: SideState, other: SideState, inWorkingCopy: Bool = false, canUndo: Bool = false) -> Bool {
         switch self {
         case .workingCopy: inWorkingCopy && state.status == .loaded && state.selection.count <= 1
         case .filePair: Self.pair(state, other, on: .left) != nil // the order does not matter here
         case .bothFolders: [state, other].allSatisfy { $0.status == .loaded && $0.entriesLocation == $0.location }
         case .folder, .selectionOrFolder: state.status == .loaded
         case .selection: !state.selection.isEmpty
+        case .lastChange: canUndo
         case .folders:
             state.status == .loaded && (state.selection.isEmpty ? state.totals.folders > 0
                 : !state.selectedEntriesAllSatisfy { $0.entry.kind != .directory })
@@ -236,6 +241,9 @@ public struct ActionRegistry: Sendable {
         Action("git-commit", "Git Commit…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitCommit, path: workspace.workingCopyTarget(on: side)))
         },
+        Action("undo", "Undo", scope: .lastChange) { workspace, _ in
+            .undo(entry: workspace.lastUndo?.id ?? 0)
+        },
         Action("compare-folders", "Compare Folders", scope: .bothFolders, effect: .opens) { workspace, _ in
             .compare(
                 left: workspace.state(of: .left).entriesLocation,
@@ -251,7 +259,8 @@ public extension Workspace {
         let (here, other) = (state(of: side), state(of: side.opposite))
         let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
         return actionRegistry.all.filter {
-            (here.find == nil || $0.worksInFind) && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy)
+            (here.find == nil || $0.worksInFind)
+                && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy, canUndo: canUndo)
                 && $0.fitsFileTypes(here)
         }
     }
@@ -265,7 +274,8 @@ public extension Workspace {
         // Menus ask this for every item: only a working-copy action needs to know whether its
         // target is in a working copy (#46).
         let inWorkingCopy = scope == .workingCopy && workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
-        return scope.fits(state(of: side), other: state(of: side.opposite), inWorkingCopy: inWorkingCopy)
+        return scope.fits(state(of: side), other: state(of: side.opposite), inWorkingCopy: inWorkingCopy,
+                          canUndo: canUndo)
             && action.fitsFileTypes(state(of: side))
     }
 

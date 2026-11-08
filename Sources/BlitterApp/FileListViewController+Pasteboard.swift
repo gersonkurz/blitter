@@ -19,8 +19,16 @@ extension FileListViewController: NSMenuItemValidation {
         workspace.perform(.moveItems(pastedPaths(), toFolder: workspace.state(of: side).location))
     }
 
+    /// Edit → Undo (⌘Z) while the list has the keys: the last file operation (#61). A name being
+    /// edited has its own undo: its field editor comes first in the responder chain.
+    @objc func undo(_: Any?) {
+        workspace.perform(.runAction("undo", side))
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(undo(_:)):
+            UndoMenuItem.validate(menuItem, workspace: workspace, side: side)
         case #selector(copy(_:)):
             !workspace.state(of: side).selection.isEmpty
         case #selector(paste(_:)), #selector(moveItemsHere(_:)):

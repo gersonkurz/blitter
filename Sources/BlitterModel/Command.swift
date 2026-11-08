@@ -55,6 +55,8 @@ public enum Command: Sendable {
     case stopFind(Side)
     /// Measure the side's selected folders, or all its folders when nothing is selected (#52).
     case measureFolderSizes(Side)
+    /// Undo the last file operation (#61), if it is still the journal entry with this id.
+    case undo(entry: Int)
     /// Copy the active side's selection into the other side's folder.
     case copyToOtherSide
     /// Move the active side's selection into the other side's folder.

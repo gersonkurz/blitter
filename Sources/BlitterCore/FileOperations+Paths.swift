@@ -1,5 +1,11 @@
 import Foundation
 
+/// A file system item itself, whatever its path: its device and inode.
+public struct ItemIdentity: Hashable, Sendable {
+    let device: dev_t
+    let inode: ino_t
+}
+
 /// Path and identity helpers for file operations. Identity (device and inode) rather than path
 /// strings decides whether two paths are the same item, so aliases and case differences count.
 extension FileOperations {
@@ -12,10 +18,7 @@ extension FileOperations {
         return lstat(path, &info) == 0
     }
 
-    struct Identity: Hashable {
-        let device: dev_t
-        let inode: ino_t
-    }
+    typealias Identity = ItemIdentity
 
     /// The item at `path` itself (a symbolic link, not what it points to), or nil if there is none.
     static func identity(_ path: String) -> Identity? {

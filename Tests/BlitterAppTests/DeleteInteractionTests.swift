@@ -43,7 +43,10 @@ struct DeleteInteractionTests {
             FileManager.default.createFile(atPath: folder + "/" + name, contents: Data("x".utf8))
         }
         let workspace = Workspace(initialLocation: folder, home: folder, volumes: { [] }, watcher: FakeWatcher.factory,
-                                  jobs: JobQueue(trash: { _ in Issue.record("nothing may go to the Trash") }))
+                                  jobs: JobQueue(trash: { _ in
+                                      Issue.record("nothing may go to the Trash")
+                                      return nil
+                                  }))
         let controller = MainWindowController(workspace: workspace)
         let window = try #require(controller.window)
         controller.showWindow(nil)

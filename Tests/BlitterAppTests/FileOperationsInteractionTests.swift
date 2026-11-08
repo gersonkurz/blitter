@@ -24,7 +24,9 @@ final class FileOperationsInteractionTests {
         }
         FileManager.default.createFile(atPath: left + "/report.txt", contents: Data("r".utf8))
         let jobs = JobQueue(trash: { path in
-            try FileManager.default.moveItem(atPath: path, toPath: trash + "/" + (path as NSString).lastPathComponent)
+            let target = trash + "/" + (path as NSString).lastPathComponent
+            try FileManager.default.moveItem(atPath: path, toPath: target)
+            return target
         })
         workspace = Workspace(initialLocation: left, home: root + "/home", directoryCheck: { _ in false },
                               volumes: { [] }, watcher: FakeWatcher.factory, jobs: jobs)
@@ -225,6 +227,22 @@ final class FileOperationsInteractionTests {
     }
 
     /// The items a menu got from `[menu_bar]` (tagged 24), separators left out.
+    /// Edit → Undo (⌘Z) with the list focused: named after the last file operation, and it
+    /// takes it back (#61).
+    @Test func undoInTheEditMenuTakesBackTheLastOperation() async throws {
+        let undo = NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        #expect(window.makeFirstResponder(fileList.tableView))
+        #expect(!fileList.validateMenuItem(undo) && undo.title == "Undo")
+        workspace.perform(.select(.left, ["report.txt"]))
+        workspace.perform(.trashSelection(.left))
+        try await waitUntil { self.names().isEmpty && self.workspace.lastUndo != nil }
+        #expect(fileList.validateMenuItem(undo) && undo.title == "Undo Move to Trash")
+        // Along the responder chain from the focused list, as the menu item sends it.
+        #expect(window.firstResponder?.tryToPerform(Selector(("undo:")), with: undo) == true)
+        try await waitUntil { self.names() == ["report.txt"] }
+        #expect(!fileList.validateMenuItem(undo) && undo.title == "Undo")
+    }
+
     private func settingsItems(_ menu: NSMenu) -> [String] {
         menu.items.filter { $0.tag == 24 && !$0.isSeparatorItem }.map(\.title)
     }

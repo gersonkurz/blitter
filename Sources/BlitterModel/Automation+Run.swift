@@ -152,6 +152,9 @@ extension Workspace {
         case let .compare(left, right):
             items = [left, right]
             execution += " with " + String(reflecting: settings.diffTool) // read when it runs
+        case let .undo(id):
+            let entry = undoJournal.last { $0.id == id }
+            (items, detail) = (entry?.items ?? [], entry.map { "Undo " + $0.title })
         case let .present(request):
             (items, detail) = ([request.path], request.kind)
         default:

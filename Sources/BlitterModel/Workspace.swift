@@ -70,6 +70,11 @@ public final class Workspace {
     var jobObservers: [Int: [(Job) -> Void]] = [:]
     /// What to do after a job succeeded, e.g. select a renamed item.
     var jobFollowUps: [Int: (Workspace) -> Void] = [:]
+    /// How to undo the jobs done, oldest first (#61).
+    public internal(set) var undoJournal: [UndoEntry] = []
+    var nextUndoID = 0
+    /// The undo job running, if any (#61).
+    var runningUndo: Int?
     var nextRenameToken = 0
     /// Watches the folders both sides show, and the expanded tree folders, for changes on disk.
     var watcher: (any FolderWatching)?
@@ -217,6 +222,7 @@ public final class Workspace {
         case let .addFavorite(path): addFavorite(path)
         case let .removeFavorite(path): removeFavorite(path)
         case let .moveFavorite(path, offset): moveFavorite(path, by: offset)
+        case let .undo(entry): undo(entry)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)

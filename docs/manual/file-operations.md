@@ -78,6 +78,26 @@ until the side goes to another folder.
 They open in Beyond Compare if it is installed, else in FileMerge (which comes with Xcode).
 [Settings](settings.md) can name another tool.
 
+## Undo
+
+**⌘Z** (Edit → Undo) takes back the last file operation; the menu says which, e.g. **Undo Move
+to Trash**. Press it again for the one before, and so on.
+
+| What was done | What Undo does |
+|---|---|
+| Copy (also a drop or Paste) | moves the copies to the Trash |
+| Move (also a drop or Move Item Here) | moves the items back |
+| Move to Trash, and the items a Replace sent to the Trash | puts them back where they were |
+| Rename, Batch Rename | gives the old names back |
+| New Folder | moves the folder to the Trash |
+
+- Undo never deletes anything for good: what it takes away goes to the Trash.
+- It never overwrites either. If something else is at an item's old place now, or the item is
+  gone, Undo says so in the jobs strip and leaves that item; the rest is undone.
+- Delete Immediately and tools' command lines cannot be undone.
+- Blitter remembers the last 100 operations while it runs; quitting forgets them.
+- While you edit a name or a path, ⌘Z undoes your typing instead.
+
 ## Jobs
 
 Copying, moving, deleting and renaming run in the background. Each job gets a row in the strip

@@ -61,7 +61,11 @@ Each action has an `effect`:
 - `opens`: opens a file or an app, or shows something in the Finder. For example Open, Reveal in
   Finder, Compare, the tools that open an app.
 - `changes`: changes files, or runs a command line. For example Copy / Move to Other Side, Move to
-  Trash, New Folder, the tools with a command line.
+  Trash, New Folder, Undo, the tools with a command line.
+
+**Undo** (`undo`) takes back the last file operation, whoever started it: one done in Blitter,
+or over the socket. Its preview names the items it acts on and, in `detail`, what it undoes
+("Undo Move to Trash"). It is runnable only while there is something to undo, on either side.
 
 `run` with `opens` or `changes` shows the preview in a sheet, naming the client process. It waits
 for your answer.

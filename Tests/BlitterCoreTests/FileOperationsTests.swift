@@ -27,6 +27,7 @@ final class OperationFixture {
         queue = JobQueue(trash: { path in
             let target = trash + "/" + UUID().uuidString + "-" + (path as NSString).lastPathComponent
             try FileManager.default.moveItem(atPath: path, toPath: target)
+            return target
         }, remove: remove, simulateOtherVolume: otherVolume, gate: gate, sizingProbe: sizingProbe, rename: rename)
     }
 

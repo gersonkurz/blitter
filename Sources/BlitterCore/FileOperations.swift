@@ -27,8 +27,10 @@ extension OperationContext {
 /// removed), and an existing item is never merged into. Replacing an existing item moves it to the
 /// Trash first. Deleting means the Trash, except for `.delete`, which the user asks for explicitly.
 struct FileOperations {
-    /// Moves an item to the Trash. Tests use a folder of their own instead of the user's Trash.
-    typealias Trasher = @Sendable (String) throws -> Void
+    /// Moves an item to the Trash and returns where it is there (nil if the system does not
+    /// say), so Undo can put it back (#61). Tests use a folder of their own instead of the
+    /// user's Trash.
+    typealias Trasher = @Sendable (String) throws -> String?
     /// Removes an item for good (only ever a partial copy of our own, or the original after a
     /// complete move to another volume). Returns 0 or an errno; tests make it fail.
     typealias Remover = @Sendable (String) -> Int32
@@ -46,6 +48,10 @@ struct FileOperations {
     let simulateOtherVolume: Bool
 
     private var errors: [JobError] = []
+    /// How to undo what was done so far, in the order it was done (#61).
+    var undoSteps: [UndoStep] = []
+    /// Items moved to another volume are copies there: their old identities and the new ones.
+    var identityChanges: [ItemIdentity: ItemIdentity] = [:]
     private var answerForAll: ConflictDecision?
 
     init(context: OperationContext, trash: @escaping Trasher = FileOperations.moveToTrash,
@@ -73,8 +79,10 @@ struct FileOperations {
         removefile(path, nil, removefile_flags_t(REMOVEFILE_RECURSIVE)) == 0 ? 0 : errno
     }
 
-    @Sendable static func moveToTrash(_ path: String) throws {
-        try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+    @Sendable static func moveToTrash(_ path: String) throws -> String? {
+        var trashed: NSURL?
+        try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: &trashed)
+        return trashed?.path
     }
 
     /// Runs the operation and returns the problems, one per item that could not be handled.
@@ -111,6 +119,8 @@ struct FileOperations {
             renameAll(renames)
         case let .newFolder(folder, name):
             newFolder(in: folder, name: name)
+        case let .undo(steps):
+            runUndo(steps)
         }
         return errors
     }
@@ -165,7 +175,9 @@ struct FileOperations {
                     return
                 }
                 do {
-                    try trashItem(target)
+                    if let trashed = try trashItem(target) {
+                        recordMove(trashed, back: target) // put back once the new one is gone
+                    }
                 } catch {
                     fail(target, "Could not move the existing item to the Trash: \(error.localizedDescription)")
                     return
@@ -174,8 +186,8 @@ struct FileOperations {
         }
         if move {
             moveItem(source, to: target)
-        } else {
-            copyItem(source, to: target)
+        } else if copyItem(source, to: target) {
+            recordTrash(target)
         }
     }
 
@@ -192,8 +204,11 @@ struct FileOperations {
         return answer.decision
     }
 
-    private mutating func moveItem(_ source: String, to target: String) {
+    /// Records how to undo it: back to `source`, or (copied to another volume, the original
+    /// still there) the copy to the Trash.
+    mutating func moveItem(_ source: String, to target: String) {
         if !simulateOtherVolume, renamex_np(source, target, UInt32(RENAME_EXCL)) == 0 {
+            recordMove(target, back: source)
             return
         }
         let code = simulateOtherVolume ? EXDEV : errno
@@ -202,14 +217,27 @@ struct FileOperations {
             return
         }
         // Another volume: copy, and remove the original only if the copy is complete.
+        // The copies will be other items (#61): what each original is, and below, each copy.
+        guard let before = identities(below: source) else {
+            return // cancelled before anything was copied
+        }
         let size = measure(source)
         context.update { $0.totalBytes = ($0.totalBytes ?? 0) + size }
-        guard copyItem(source, to: target), !isCancelled else {
+        guard copyItem(source, to: target) else {
+            return
+        }
+        // Read before the original goes: once it is gone, the move counts, cancelled or not.
+        guard let after = identities(below: target), !isCancelled else {
+            recordTrash(target) // cancelled with the copy made: both stay, and the copy is the change
             return
         }
         let removed = removeItem(source)
         if removed != 0 {
             fail(source, "Copied, but the original could not be removed: \(Self.message(removed))")
+            recordTrash(target)
+        } else {
+            recordReplaced(before, by: after)
+            recordMove(target, back: source)
         }
     }
 
@@ -232,8 +260,9 @@ struct FileOperations {
             removePartialCopy(temporary)
             return false
         }
-        guard renamex_np(temporary, target, UInt32(RENAME_EXCL)) == 0 else {
-            fail(source, Self.message(errno))
+        let renamed = renameItem(temporary, target) // RENAME_EXCL; tests stop the job right here
+        guard renamed == 0 else {
+            fail(source, Self.message(renamed))
             removePartialCopy(temporary)
             return false
         }
@@ -253,42 +282,6 @@ struct FileOperations {
 
     // MARK: Trash, rename, new folder
 
-    private mutating func trash(_ paths: [String]) {
-        context.update { $0.totalItems = paths.count }
-        for path in paths {
-            guard !isCancelled else {
-                return
-            }
-            context.update { $0.currentItem = (path as NSString).lastPathComponent }
-            do {
-                try trashItem(path)
-            } catch {
-                fail(path, error.localizedDescription)
-            }
-            context.update { $0.doneItems += 1 }
-        }
-    }
-
-    private mutating func delete(_ paths: [String]) {
-        context.update { $0.totalItems = paths.count }
-        for path in paths {
-            guard !isCancelled else {
-                return
-            }
-            context.update { $0.currentItem = (path as NSString).lastPathComponent }
-            let cancellation = context.cancellation
-            let code = Self.deleteForGood(path) { cancellation.isSet }
-            if code == ECANCELED {
-                if Self.exists(path) {
-                    fail(path, "Deleting was cancelled; some of its contents may already be gone.")
-                }
-            } else if code != 0 {
-                fail(path, Self.message(code))
-            }
-            context.update { $0.doneItems += 1 }
-        }
-    }
-
     private mutating func newFolder(in folder: String, name: String) {
         guard !isCancelled else {
             return
@@ -300,6 +293,8 @@ struct FileOperations {
         let path = (folder as NSString).appendingPathComponent(name)
         if mkdir(path, 0o777) != 0 {
             fail(path, errno == EEXIST ? "An item named “\(name)” already exists." : Self.message(errno))
+        } else {
+            recordTrash(path)
         }
     }
 

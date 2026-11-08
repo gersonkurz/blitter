@@ -42,6 +42,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | ⌥⌘C / ⌥⇧⌘C | copy the selection's paths / names as text |
 | ⇧⌘N | new folder |
 | F2 / ⇧F2 | rename / batch rename |
+| ⌘Z | undo the last file operation |
 | ⌘⌫ | move to the Trash |
 | ⌥⌘⌫ / ⌥⇧⌘⌫ | delete immediately, asking first / without asking |
 | ⌥⌘S | calculate folder sizes |

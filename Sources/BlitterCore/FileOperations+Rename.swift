@@ -20,6 +20,8 @@ extension FileOperations {
         let flags = isSameItem ? 0 : UInt32(RENAME_EXCL)
         if renamex_np(path, target, flags) != 0 {
             fail(path, errno == EEXIST ? "An item named “\(name)” already exists." : Self.message(errno))
+        } else {
+            recordRenames([Rename(path: target, newName: (path as NSString).lastPathComponent)])
         }
     }
 
@@ -54,6 +56,9 @@ extension FileOperations {
             renamed.append(item)
             context.update { $0.doneItems += 1 }
         }
+        recordRenames(renamed.map {
+            Rename(path: $0.target, newName: ($0.rename.path as NSString).lastPathComponent)
+        })
     }
 
     /// An item of a batch on its way: its temporary name and its final path.
@@ -61,6 +66,10 @@ extension FileOperations {
         let rename: Rename
         let temporary: String
         let target: String
+
+        var oldName: String {
+            (rename.path as NSString).lastPathComponent
+        }
 
         init(rename: Rename) {
             self.rename = rename
@@ -72,19 +81,24 @@ extension FileOperations {
 
     /// Puts the whole batch back: the items already renamed to their temporary names first (their
     /// old names may be other items' new ones), then every staged item to its old name. An item
-    /// that cannot get its old name back is reported with the name it has now.
+    /// that cannot get its old name back is reported with the name it has now, and recorded for
+    /// Undo (#61) to try again.
     private mutating func undo(_ staged: [Staged], renamed: [Staged]) {
         var stuck: Set<String> = [] // still at its new name
+        var left: [Rename] = [] // where each item that did not get back is, and its old name
         for item in renamed.reversed() where renameItem(item.target, item.temporary) != 0 {
             stuck.insert(item.temporary)
             fail(item.rename.path, "It could not get its old name back and is now named “\(item.rename.newName)”.")
+            left.append(Rename(path: item.target, newName: item.oldName))
         }
         for item in staged.reversed() where !stuck.contains(item.temporary) {
             if renameItem(item.temporary, item.rename.path) != 0 {
                 let name = (item.temporary as NSString).lastPathComponent
                 fail(item.rename.path, "It could not get its old name back and is now named “\(name)”.")
+                left.append(Rename(path: item.temporary, newName: item.oldName))
             }
         }
+        recordRenames(left)
     }
 
     /// Every new name valid and unique in its folder, and not taken there by an item outside the

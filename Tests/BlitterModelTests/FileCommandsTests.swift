@@ -13,7 +13,10 @@ final class SidesOnDisk {
     let trash: String
     let workspace: Workspace
 
-    init(lister: @escaping Workspace.Lister = listDirectory, gate: DispatchSemaphore? = nil) throws {
+    /// `otherVolume`: moves take the path between volumes (copy, then remove the original).
+    init(lister: @escaping Workspace.Lister = listDirectory, gate: DispatchSemaphore? = nil,
+         otherVolume: Bool = false) throws
+    {
         root = NSTemporaryDirectory() + "BlitterModelTests-" + UUID().uuidString
         left = root + "/left"
         right = root + "/right"
@@ -23,8 +26,10 @@ final class SidesOnDisk {
         }
         let trash = trash
         let jobs = JobQueue(trash: { path in
-            try FileManager.default.moveItem(atPath: path, toPath: trash + "/" + (path as NSString).lastPathComponent)
-        }, gate: gate)
+            let target = trash + "/" + (path as NSString).lastPathComponent
+            try FileManager.default.moveItem(atPath: path, toPath: target)
+            return target
+        }, simulateOtherVolume: otherVolume, gate: gate)
         workspace = Workspace(
             initialLocation: left,
             home: root + "/home",

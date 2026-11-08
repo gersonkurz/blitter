@@ -28,6 +28,7 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `git-log` | Git Log… | the folder or its one selected item, inside a git working copy |
 | `git-sync` | Git Sync… | the folder or its one selected item, inside a git working copy |
 | `git-commit` | Git Commit… | the folder or its one selected item, inside a git working copy |
+| `undo` | Undo | the last file operation, while one can be undone |
 | `compare-folders` | Compare Folders | both sides' folders |
 
 [Back to the contents](../index.md)

@@ -95,6 +95,11 @@ struct BatchRenameJobTests {
         let names = fixture.names("source")
         #expect(names.count == 2 && names.contains("b") && names.contains { $0.hasPrefix(".blitter-rename-") })
         #expect(job.errors.count == 2 && job.errors.contains { $0.message.contains("now named “.blitter-rename-") })
+
+        // What the rollback left is recorded for Undo (#61), and Undo puts it right.
+        #expect(job.undo.flatMap(\.paths).count == 1)
+        let undone = try await UndoTests.run(.undo(job.undo), on: JobQueue(trash: { _ in nil }))
+        #expect(undone.errors.isEmpty && fixture.names("source") == ["a", "b"])
     }
 
     @Test func cancelBeforeTheStartRenamesNothingAfterItTheBatchFinishes() async throws {

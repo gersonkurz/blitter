@@ -20,6 +20,8 @@ public enum FileOperation: Equatable, Sendable {
     case renameAll([Rename])
     /// Create a folder.
     case newFolder(parent: String, name: String)
+    /// Undo an earlier job (#61): its recorded steps, in the order they run.
+    case undo([UndoStep])
 }
 
 public extension FileOperation {
@@ -35,7 +37,7 @@ public extension FileOperation {
         case let .move(paths, folder): .move(Self.outermost(paths, isRealFolder: isRealFolder), into: folder)
         case let .trash(paths): .trash(Self.outermost(paths, isRealFolder: isRealFolder))
         case let .delete(paths): .delete(Self.outermost(paths, isRealFolder: isRealFolder))
-        case .command, .rename, .renameAll, .newFolder: self
+        case .command, .rename, .renameAll, .newFolder, .undo: self
         }
     }
 
