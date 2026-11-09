@@ -37,11 +37,15 @@ struct FileOperations {
     /// Renames an item to a name that must be free (`RENAME_EXCL`). Returns 0 or an errno;
     /// tests make it fail at chosen steps of a batch rename.
     typealias Renamer = @Sendable (String, String) -> Int32
+    /// Copies a folder's details (permissions, flags, extended attributes, ACL) from one open
+    /// folder onto another; 0 or an errno. Tests make it fail (#71).
+    typealias DetailsCopier = @Sendable (Int32, Int32) -> Int32
 
     let context: OperationContext
     let trashItem: Trasher
     let removeItem: Remover
     let renameItem: Renamer
+    let copyDetails: DetailsCopier
     /// Tests watch (and cancel) size scans through this.
     let sizingProbe: (@Sendable (CancellationFlag) -> Void)?
     /// Tests set this to take the paths used between volumes (no clone, no rename) on one volume.
@@ -57,8 +61,10 @@ struct FileOperations {
     init(context: OperationContext, trash: @escaping Trasher = FileOperations.moveToTrash,
          remove: @escaping Remover = FileOperations.removeForGood, simulateOtherVolume: Bool = false,
          sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
-         rename: @escaping Renamer = FileOperations.renameExclusive)
+         rename: @escaping Renamer = FileOperations.renameExclusive,
+         copyDetails: @escaping DetailsCopier = FileOperations.copyFolderDetails)
     {
+        self.copyDetails = copyDetails
         self.context = context
         trashItem = trash
         removeItem = remove
@@ -73,6 +79,10 @@ struct FileOperations {
 
     @Sendable static func renameExclusive(_ path: String, _ target: String) -> Int32 {
         renamex_np(path, target, UInt32(RENAME_EXCL)) == 0 ? 0 : errno
+    }
+
+    @Sendable static func copyFolderDetails(_ source: Int32, _ target: Int32) -> Int32 {
+        fcopyfile(source, target, nil, Staging.details) == 0 ? 0 : errno
     }
 
     @Sendable static func removeForGood(_ path: String) -> Int32 {
@@ -121,6 +131,8 @@ struct FileOperations {
             newFolder(in: folder, name: name)
         case let .undo(steps):
             runUndo(steps)
+        case let .removeExactly(plan, forGood):
+            removeExactly(plan, forGood: forGood)
         }
         return errors
     }

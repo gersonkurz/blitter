@@ -15,6 +15,7 @@ public struct UndoEntry: Equatable, Sendable {
             case let .trash(path, _): [path]
             case let .move(_, target, _): [target]
             case let .rename(renames, _): renames.map(\.path)
+            case let .makeFolder(path, _): [path]
             }
         }
     }
@@ -26,6 +27,7 @@ public struct UndoEntry: Equatable, Sendable {
         case .trash: "Move to Trash"
         case .rename, .renameAll: "Rename"
         case .newFolder: "New Folder"
+        case let .removeExactly(_, forGood): forGood ? nil : "Move to Trash"
         case .delete, .command, .undo: nil // gone for good, unknown, or an undo itself
         }
     }

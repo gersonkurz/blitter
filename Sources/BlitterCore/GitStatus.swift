@@ -96,14 +96,26 @@ public enum Git {
     }
 
     /// Runs git and returns its output; nil if it fails, passes `deadline` or is cancelled.
+    /// `english`: git's messages in English whatever the Mac's language, for output that is
+    /// parsed from its words (#71). `startingIn`: git starts in `root` as its working
+    /// directory instead of being told `-C root`; `git clean` treats the folder it starts in as
+    /// one it must not remove, `-C` does not (#71).
     static func run(_ git: String, _ arguments: [String], in root: String, until deadline: Date,
-                    cancelled: CancellationFlag) -> Data?
+                    cancelled: CancellationFlag, english: Bool = false, startingIn: Bool = false) -> Data?
     {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
-        process.arguments = ["-C", root] + arguments
+        if startingIn {
+            process.currentDirectoryURL = URL(fileURLWithPath: root, isDirectory: true)
+            process.arguments = arguments
+        } else {
+            process.arguments = ["-C", root] + arguments
+        }
         var environment = ProcessInfo.processInfo.environment
         environment["GIT_OPTIONAL_LOCKS"] = "0"
+        if english {
+            environment["LC_ALL"] = "C"
+        }
         process.environment = environment
         let output = Pipe()
         process.standardOutput = output

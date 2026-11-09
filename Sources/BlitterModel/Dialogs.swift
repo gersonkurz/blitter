@@ -18,6 +18,8 @@ public struct DialogRequest: Equatable, Sendable {
     public static let gitCommit = "git-commit"
     /// Clone a repository into a folder (#70).
     public static let gitClone = "git-clone"
+    /// Remove the untracked files of a working copy's folder (#71).
+    public static let gitClean = "git-clean"
 }
 
 extension Workspace {

@@ -20,6 +20,7 @@ public struct ContextMenus: Equatable, Sendable {
             .action("rename"), .action("batch-rename"), .action("move-to-trash"), .action("delete-immediately"),
             .separator,
             .action("compare-files"), .action("git-log"), .action("git-commit"), .action("git-sync"),
+            .action("git-clean"),
             .separator,
             .action("reveal-in-finder"), .action("open-in-terminal"), .action("open-in-code"),
             .action("open-in-text-editor"),
@@ -27,7 +28,7 @@ public struct ContextMenus: Equatable, Sendable {
         folder: [
             .action("new-folder"), .action("folder-sizes"), .separator, .action("copy-folder-path"),
             .action("compare-folders"), .action("git-clone"),
-            .action("git-log"), .action("git-commit"), .action("git-sync"), .separator,
+            .action("git-log"), .action("git-commit"), .action("git-sync"), .action("git-clean"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]
     )

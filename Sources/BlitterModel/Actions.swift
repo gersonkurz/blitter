@@ -242,6 +242,9 @@ public struct ActionRegistry: Sendable {
         Action("git-sync", "Git Sync…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitSync, path: workspace.workingCopyTarget(on: side)))
         },
+        Action("git-clean", "Git Clean…", scope: .workingCopy, effect: .view) { workspace, side in
+            .present(DialogRequest(kind: DialogRequest.gitClean, path: workspace.workingCopyTarget(on: side)))
+        },
         Action("git-commit", "Git Commit…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitCommit, path: workspace.workingCopyTarget(on: side)))
         },

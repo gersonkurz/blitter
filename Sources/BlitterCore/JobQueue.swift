@@ -46,6 +46,7 @@ public final class JobQueue {
     private let gate: DispatchSemaphore?
     private let sizingProbe: (@Sendable (CancellationFlag) -> Void)?
     private let rename: FileOperations.Renamer
+    private let copyDetails: FileOperations.DetailsCopier
     private var runners: [Int: JobRunner] = [:]
     private var nextID = 1
 
@@ -56,6 +57,7 @@ public final class JobQueue {
         gate = nil
         sizingProbe = nil
         rename = FileOperations.renameExclusive
+        copyDetails = FileOperations.copyFolderDetails
     }
 
     /// For tests: a Trash of their own, a remover that can fail, the paths used between volumes on
@@ -67,9 +69,11 @@ public final class JobQueue {
         simulateOtherVolume: Bool = false,
         gate: DispatchSemaphore? = nil,
         sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
-        rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive
+        rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive,
+        copyDetails: @escaping FileOperations.DetailsCopier = FileOperations.copyFolderDetails
     ) {
         self.rename = rename
+        self.copyDetails = copyDetails
         self.trash = trash
         self.remove = remove
         self.simulateOtherVolume = simulateOtherVolume
@@ -90,11 +94,12 @@ public final class JobQueue {
         let gate = gate
         let sizingProbe = sizingProbe
         let rename = rename
+        let copyDetails = copyDetails
         DispatchQueue.global(qos: .userInitiated).async {
             gate?.wait()
             var operations = FileOperations(context: runner, trash: trash, remove: remove,
                                             simulateOtherVolume: simulateOtherVolume, sizingProbe: sizingProbe,
-                                            rename: rename)
+                                            rename: rename, copyDetails: copyDetails)
             // On the job's thread: finding what lies inside what looks at the disk (#48).
             let errors = operations.run(operation.withoutNestedItems())
             runner.finish(errors, undo: operations.undoSteps.reversed(), identityChanges: operations.identityChanges)

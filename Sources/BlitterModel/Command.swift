@@ -94,6 +94,9 @@ public enum Command: Sendable {
     case copyNames(Side)
     /// Put the side's folder path on the clipboard as text (#33, e.g. from the tree's menu).
     case copyFolderPath(Side)
+    /// Remove exactly what Git Clean's preview read (#71): to the Trash, as one undoable job, or
+    /// (`forGood`) for good. Whoever asks to delete for good has asked the user.
+    case removeExactly(RemovalPlan, forGood: Bool)
     /// Move the side's selection to the Trash.
     case trashSelection(Side)
     /// Delete the side's selection for good, bypassing the Trash. Asks first (`deleteRequest`)

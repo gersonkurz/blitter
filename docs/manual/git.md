@@ -43,6 +43,24 @@ working copy.
 Git runs without a terminal to ask in: for a private repository, the credentials must come from
 your SSH keys or the macOS keychain, as for Git Sync.
 
+## Git Clean
+
+**Git Clean…** (in the context menus, inside a working copy) removes what git does not track,
+in the selected folder, or in the side's folder.
+
+- The window always shows first what would go: git's own list (`git clean -n`), so it is never a
+  surprise. **Untracked folders too** (`-d`, on to start with) and **Ignored files too** (`-x`)
+  change the list at once.
+- **Move to Trash** (Return) moves exactly the files shown to the Trash, gathered in one folder
+  named "Git Clean" with the date, at their paths; folders emptied that way are removed. **⌘Z**
+  puts everything back where it was, the folders with their permissions and attributes. If the
+  Trash refuses, everything is put back at once.
+- **Delete for Good…** deletes them right away, without the Trash. It asks first; **Ask before
+  Delete Immediately** in [Settings](settings.md) turns the question off here too.
+- Only the items shown are touched, never what turned up after the list was made, also inside a
+  listed folder: a folder goes only once it is empty, and one that something was added to stays
+  (the job says so). Repositories inside the folder are left alone; the window says how many.
+
 ## Git Log, Git Commit and Git Sync
 
 All three are in the context menus, inside a working copy. They act on the one selected item,

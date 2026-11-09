@@ -196,6 +196,15 @@ extension Workspace {
         select([name], in: folder, on: side)
     }
 
+    /// Git Clean's removal (#71): a job unless there is nothing to remove.
+    func removeExactly(_ plan: RemovalPlan, forGood: Bool) -> Bool {
+        guard !plan.isEmpty else {
+            return false
+        }
+        startJob(.removeExactly(plan, forGood: forGood))
+        return true
+    }
+
     /// Every side that shows `folder` reads it again and then selects `names`. A fast filter
     /// that lists only some names ends first: what is to be selected must be seen (#70 review).
     func selectAfterReading(_ folder: String, _ names: Set<String>) -> Bool {
@@ -268,11 +277,13 @@ extension Workspace {
         case let .rename(path, _): [parent(path)]
         case let .renameAll(renames): Set(renames.map { parent($0.path) })
         case let .newFolder(folder, _): [folder]
+        case let .removeExactly(plan, _): Set((plan.files + plan.folders).map { parent(plan.root + "/" + $0.relative) })
         case let .undo(steps): Set(steps.flatMap { step -> [String] in
                 switch step {
                 case let .trash(path, _): [parent(path)]
                 case let .move(source, target, _): [parent(source), parent(target)]
                 case let .rename(renames, _): renames.map { parent($0.path) }
+                case let .makeFolder(path, _): [parent(path)]
                 }
             })
         }

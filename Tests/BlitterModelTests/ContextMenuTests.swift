@@ -15,7 +15,7 @@ struct ContextMenuSettingsTests {
         } == [
             "open", "quick-look", "folder-sizes", "copy-path", "copy-name", "rename", "batch-rename", "move-to-trash",
             "delete-immediately",
-            "compare-files", "git-log", "git-commit", "git-sync", "reveal-in-finder", "open-in-terminal",
+            "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "reveal-in-finder", "open-in-terminal",
             "open-in-code",
             "open-in-text-editor",
         ])
@@ -29,6 +29,7 @@ struct ContextMenuSettingsTests {
             .action("git-log"),
             .action("git-commit"),
             .action("git-sync"),
+            .action("git-clean"),
             .separator,
             .action("open-in-terminal"),
             .action("open-in-code"),

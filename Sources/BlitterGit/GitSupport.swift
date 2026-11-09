@@ -30,6 +30,13 @@ enum CompareCopies {
 }
 
 extension Workspace {
+    /// Performs a command that starts one job (Trash, delete, …); that job's id, nil if none started.
+    func startJob(by command: Command) -> Int? {
+        let known = Set(jobs.map(\.id))
+        perform(command)
+        return jobs.last { !known.contains($0.id) }?.id
+    }
+
     /// Starts a command job (in the jobs strip, with Cancel); its id, nil if none started.
     func startCommand(_ arguments: [String], in folder: String) -> Int? {
         let known = Set(jobs.map(\.id))

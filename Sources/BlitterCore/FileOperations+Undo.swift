@@ -13,6 +13,9 @@ public enum UndoStep: Equatable, Sendable {
     /// Renamed items get their old names back (a rename, or a batch rename as a whole); each
     /// rename's item by its identity, in the same order.
     case rename([Rename], [ItemIdentity])
+    /// An empty folder that was removed is made again (Git Clean, #71), with the details
+    /// (permissions, flags, extended attributes, ACL) kept on the folder at `details`.
+    case makeFolder(String, details: String)
 
     /// The same step for items that are other items now (moved to another volume, #61 review):
     /// what it names by an old identity, it names by the new one.
@@ -21,6 +24,7 @@ public enum UndoStep: Equatable, Sendable {
         case let .trash(path, identity): .trash(path, changes[identity] ?? identity)
         case let .move(path, target, identity): .move(path, toPath: target, changes[identity] ?? identity)
         case let .rename(renames, identities): .rename(renames, identities.map { changes[$0] ?? $0 })
+        case .makeFolder: self
         }
     }
 
@@ -30,6 +34,7 @@ public enum UndoStep: Equatable, Sendable {
         case let .trash(path, _): [path]
         case let .move(source, _, _): [source]
         case let .rename(renames, _): renames.map(\.path)
+        case let .makeFolder(path, _): [path]
         }
     }
 }
@@ -128,6 +133,14 @@ extension FileOperations {
                     fail(target, "An item named “\(name)” is there again; it was left as it is.")
                 } else {
                     moveItem(source, to: target)
+                }
+            case let .makeFolder(path, details):
+                if mkdir(path, 0o700) != 0 { // private until its own details are on it
+                    if !FileOperation.isRealFolder(path) {
+                        fail(path, "The folder could not be made again: \(Self.message(errno))")
+                    }
+                } else if copyfile(details, path, nil, Staging.details) != 0 {
+                    fail(path, "The folder was made again, but without its permissions and attributes.")
                 }
             case let .rename(renames, identities):
                 let still = zip(renames, identities).filter { isStill($0.0.path, $0.1) }.map(\.0)

@@ -22,6 +22,8 @@ public enum FileOperation: Equatable, Sendable {
     case newFolder(parent: String, name: String)
     /// Undo an earlier job (#61): its recorded steps, in the order they run.
     case undo([UndoStep])
+    /// Remove exactly what a plan names (Git Clean, #71): to the Trash, or (`forGood`) for good.
+    case removeExactly(RemovalPlan, forGood: Bool)
 }
 
 public extension FileOperation {
@@ -37,7 +39,7 @@ public extension FileOperation {
         case let .move(paths, folder): .move(Self.outermost(paths, isRealFolder: isRealFolder), into: folder)
         case let .trash(paths): .trash(Self.outermost(paths, isRealFolder: isRealFolder))
         case let .delete(paths): .delete(Self.outermost(paths, isRealFolder: isRealFolder))
-        case .command, .rename, .renameAll, .newFolder, .undo: self
+        case .command, .rename, .renameAll, .newFolder, .undo, .removeExactly: self
         }
     }
 
