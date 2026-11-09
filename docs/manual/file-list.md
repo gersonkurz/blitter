@@ -65,4 +65,9 @@ size is saved in the [settings file](settings.md#fonts-and-zoom).
 **Space** shows the selected items in Quick Look, as in Finder. The preview follows the
 selection while it is open; **Space** again closes it.
 
+Quick Look shows whatever macOS's Quick Look extensions can show. For Markdown, for example,
+[QLMarkdown](https://github.com/sbarex/QLMarkdown) (`brew install --cask qlmarkdown`; open it
+once, then turn it on in System Settings → General → Login Items & Extensions → Quick Look)
+shows `.md` files rendered.
+
 [Back to the contents](index.md)
