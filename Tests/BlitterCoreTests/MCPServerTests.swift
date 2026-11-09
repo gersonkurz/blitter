@@ -190,6 +190,12 @@ struct MCPServerTests {
         try second.start()
         #expect(try session.call("state", [:])["result"] == "ok") // a new connection
         second.stop()
+        // Closed for good, as a Blitter that quit leaves it (#66): stop() shuts the connection
+        // down, its thread closes it a moment later.
+        for _ in 0 ..< 300 where second.openConnections > 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(second.openConnections == 0)
         let third = blitter(holdingRuns: false)
         try third.start() // Blitter restarted while the session was idle
         defer { third.stop() }

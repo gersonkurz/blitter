@@ -90,9 +90,29 @@ struct FolderWatcherTests {
         }
         #expect(try await batches.wait { !$0.isEmpty })
         try await Task.sleep(for: .milliseconds(700))
-        // FSEvents hands a burst out in about eight chunks; they are merged. Under load the chunks
-        // can arrive further apart than the merge window, so allow a second report.
-        #expect(batches.all.count <= 2, "\(batches.all.count) batches")
+        // FSEvents hands a burst out in about eight chunks, which are merged; under load they can
+        // arrive further apart than the merge window (#66). Timing aside: far fewer reports than
+        // changes. The merging itself: `theChunksOfABurstAreMerged`.
+        #expect(batches.all.count < 20, "\(batches.all.count) batches")
+        withExtendedLifetime(watcher) {}
+    }
+
+    /// Chunks handed out back to back become one report, whatever the machine's load (#66).
+    /// No FSEvents stream at all (the folder never resolves), so nothing but the chunks fed in
+    /// here can arrive; `watch` still makes it a watched folder, on the same queue, first.
+    @Test func theChunksOfABurstAreMerged() async throws {
+        let folder = "/blitter-test/watched"
+        let batches = Batches()
+        let watcher = FolderWatcher(latency: 0.1, resolve: { _ in nil }, onChange: { batches.append($0) })
+        watcher.watch([folder])
+        watcher.onQueue {
+            for chunk in 0 ..< 8 {
+                watcher.report([folder: chunk == 3]) // one of them asks for a rescan
+            }
+        }
+        #expect(try await batches.wait { !$0.isEmpty })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(batches.all == [[FolderChange(path: folder, includesSubfolders: true)]])
         withExtendedLifetime(watcher) {}
     }
 

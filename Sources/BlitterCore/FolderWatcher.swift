@@ -261,8 +261,13 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
         }
     }
 
-    /// Collects changes for the next flush.
-    private func report(_ changes: [String: Bool]) {
+    /// Runs `body` on the watcher's queue, for tests that feed it changes (#66).
+    func onQueue(_ body: () -> Void) {
+        queue.sync(execute: body)
+    }
+
+    /// Collects changes for the next flush. Runs on `queue`.
+    func report(_ changes: [String: Bool]) {
         guard !changes.isEmpty else {
             return
         }

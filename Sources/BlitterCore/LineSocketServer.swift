@@ -33,6 +33,14 @@ public final class LineSocketServer: @unchecked Sendable {
     private var lockFile: Int32 = -1
     private let lock = NSLock()
     private var clients: Set<Int32> = []
+    /// Connections whose thread still runs: `stop()` only shuts them down, their threads close
+    /// them. Tests wait for 0 before they start another server in the same process (#66).
+    private var serving = 0
+
+    var openConnections: Int {
+        lock.withLock { serving }
+    }
+
     private var stopped = false
 
     /// Tests stop the server here, between binding and publishing the socket.
@@ -145,7 +153,13 @@ public final class LineSocketServer: @unchecked Sendable {
                 }
                 return // closed by stop()
             }
-            guard let peer = Self.peer(client), lock.withLock({ !stopped && clients.insert(client).inserted }) else {
+            guard let peer = Self.peer(client), lock.withLock({
+                guard !stopped, clients.insert(client).inserted else {
+                    return false
+                }
+                serving += 1
+                return true
+            }) else {
                 close(client) // another user's process, or stopping
                 continue
             }
@@ -160,6 +174,7 @@ public final class LineSocketServer: @unchecked Sendable {
         defer {
             lock.withLock { _ = clients.remove(client) }
             close(client)
+            lock.withLock { serving -= 1 }
         }
         var pending = Data()
         var buffer = [UInt8](repeating: 0, count: 64 * 1024)
