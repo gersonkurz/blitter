@@ -111,6 +111,8 @@ public enum Command: Sendable {
     case rename(Side, path: String, newName: String)
     /// The user's answer to `Workspace.automationConfirmation` (#58): run the change or not.
     case answerAutomation(token: Int, allow: Bool)
+    /// Pin a folder to the side's recent folders strip, unpin it, or forget it (#74).
+    case recentFolder(Side, String, RecentFolderChange)
     /// Add a folder to the end of the tree's Favorites; one already there stays where it is.
     case addFavorite(String)
     case removeFavorite(String)

@@ -43,6 +43,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     /// The fast filter's highlighted names the list was last drawn with (#39).
     var highlightedNames: Set<String> = []
     let quickFilterBar = QuickFilterBar()
+    private(set) lazy var recentFoldersBar = RecentFoldersBar(side: side)
     let statusBar = SideStatusBar()
     var shownFolderSizes: [String: FolderSize] = [:]
 
@@ -78,8 +79,17 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         statusLabel.maximumNumberOfLines = 0
 
         navigationButtons.onCommand = { [weak self] command in self?.workspace.perform(command) }
+        recentFoldersBar.onCommand = { [weak self] command in self?.workspace.perform(command) }
         let root = NSView()
-        for subview in [navigationButtons, pathField, scrollView, quickFilterBar, statusBar, statusLabel] {
+        for subview in [
+            navigationButtons,
+            pathField,
+            scrollView,
+            recentFoldersBar,
+            quickFilterBar,
+            statusBar,
+            statusLabel,
+        ] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
@@ -92,7 +102,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             scrollView.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: quickFilterBar.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: recentFoldersBar.topAnchor),
             quickFilterBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             quickFilterBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             quickFilterBar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
@@ -103,7 +113,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             statusLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: 300),
-        ])
+        ] + recentFoldersBarConstraints(in: root))
         view = root
     }
 
@@ -227,40 +237,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 
         renderStatus(state.status)
         statusBar.render(state)
-    }
-
-    private static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
-        let cell = NSTableCellView()
-        cell.identifier = identifier
-        let text = NSTextField(labelWithString: "")
-        text.lineBreakMode = .byTruncatingMiddle
-        text.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(text)
-        cell.textField = text
-        var constraints = [
-            text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
-        ]
-        if identifier == nameColumn {
-            let image = NSImageView()
-            image.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(image)
-            cell.imageView = image
-            constraints += [
-                image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-                image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                image.widthAnchor.constraint(equalToConstant: 16),
-                image.heightAnchor.constraint(equalToConstant: 16),
-                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 4),
-            ]
-        } else {
-            constraints.append(text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2))
-        }
-        if identifier == sizeColumn {
-            text.alignment = .right
-        }
-        NSLayoutConstraint.activate(constraints)
-        return cell
+        recentFoldersBar.render(workspace.recentFolders(of: side), pinned: state.recentFolders.pinned)
     }
 }
 

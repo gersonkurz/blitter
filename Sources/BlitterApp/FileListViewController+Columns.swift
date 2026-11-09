@@ -58,6 +58,42 @@ extension FileListViewController {
         }
     }
 
+    // MARK: Making cells
+
+    static func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
+        let cell = NSTableCellView()
+        cell.identifier = identifier
+        let text = NSTextField(labelWithString: "")
+        text.lineBreakMode = .byTruncatingMiddle
+        text.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(text)
+        cell.textField = text
+        var constraints = [
+            text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
+        ]
+        if identifier == nameColumn {
+            let image = NSImageView()
+            image.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(image)
+            cell.imageView = image
+            constraints += [
+                image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+                image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                image.widthAnchor.constraint(equalToConstant: 16),
+                image.heightAnchor.constraint(equalToConstant: 16),
+                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 4),
+            ]
+        } else {
+            constraints.append(text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2))
+        }
+        if identifier == sizeColumn {
+            text.alignment = .right
+        }
+        NSLayoutConstraint.activate(constraints)
+        return cell
+    }
+
     // MARK: The header's menu
 
     /// Every column but Name, checked if shown, and Default Columns (`menuNeedsUpdate`).

@@ -77,7 +77,7 @@ extension Workspace {
             location = target
         }
         state.location = location
-        Self.remember(location, in: &state)
+        remember(location, comingFrom: previous, in: &state)
         // Coming up out of a folder selects it once the parent's listing is there, so the user sees
         // where they came from. Until then the old rows are shown, with nothing selected.
         state.selection = []
@@ -95,6 +95,18 @@ extension Workspace {
         load(side)
         revealInTree(side, preferredRoot: treeRoot)
         return true
+    }
+
+    static let maxRecentLocations = 20
+
+    /// The arrival in `location`: in the path field's recent folders and the recent folders strip
+    /// (#74), which also counts the folder the side started in once it leaves it.
+    private func remember(_ location: String, comingFrom previous: String, in state: inout SideState) {
+        Self.remember(location, in: &state)
+        if state.recentFolders.visits[previous] == nil {
+            state.recentFolders.visit(previous, at: clock())
+        }
+        state.recentFolders.visit(location, at: clock())
     }
 
     /// The path field's recent folders: `location` first, each once, at most `maxRecentLocations`.

@@ -26,6 +26,21 @@ The field at the top of each side shows its folder. You can type a path into it:
 - The arrow at the right of the field lists the side's 20 most recent folders.
 - Typing the side's own folder again reads it again.
 
+## Recent folders
+
+![The recent folders strip below the right side's list](images/main-window-light.png)
+
+Below each file list, a strip shows the folders that side was in recently, as buttons:
+
+- The order is by frecency: folders you go to often and lately come first. The folder the side
+  shows is left out; what does not fit is left out too, the least frecent first.
+- Click a folder to go there; its full path is in the tooltip.
+- Right-click one to **Pin to Recent Folders**: pinned folders (with a pin) always come first, in
+  the order you pinned them. **Unpin** and **Remove from Recent Folders** are there too.
+- Each side has its own strip, and Blitter keeps them for the next launch.
+
+The arrow at the right of the path field still lists the side's last 20 folders in order.
+
 ## The folder tree
 
 The tree has three sections:

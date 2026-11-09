@@ -19,6 +19,7 @@ The window shows two [sides](sides.md) next to each other. Each side has:
   cloud drives;
 - **Back**, **Up** and **Forward** buttons and a **path field** you can type into;
 - the **file list** of the side's folder;
+- the **recent folders** strip: the folders the side was in lately, a click away;
 - a **status line**: how many items, how many selected and their size, and the free space on
   the volume.
 

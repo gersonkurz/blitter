@@ -26,7 +26,13 @@ final class ManualScreenshots {
             NSApp.activate()
             window.makeKeyAndOrderFront(nil) // a key window draws its selection in the accent color
             defer { controller.close() }
-            workspace.perform(.navigate(.right, path: Demo.pictures))
+            // A short history on the right, one folder pinned: the recent folders strip (#74).
+            for folder in [Demo.home + "/Documents", Demo.home + "/Downloads", Demo.home + "/Documents",
+                           Demo.pictures]
+            {
+                workspace.perform(.navigate(.right, path: folder))
+            }
+            workspace.perform(.recentFolder(.right, Demo.home + "/Downloads", .pin))
             try await Self.waitUntil {
                 Side.allCases.allSatisfy { workspace.state(of: $0).visibleEntries.count > 3 }
             }

@@ -109,7 +109,7 @@ public final class Workspace {
     public var readFreeSpace: @Sendable (String) async -> Int64? = BlitterCore.freeSpace(at:)
     /// A symbolic link being checked before it is opened. Any navigation cancels it.
     var pendingOpen: [Side: Task<Void, Never>] = [:]
-    static let maxRecentLocations = 20
+    var clock: @Sendable () -> Date = Date.init // for the recent folders' frecency (#74); tests set it
 
     /// The source side. File operations go from here to the opposite side.
     public internal(set) var activeSide: Side = .left
@@ -222,6 +222,7 @@ public final class Workspace {
         case let .removeFavorite(path): removeFavorite(path)
         case let .moveFavorite(path, offset): moveFavorite(path, by: offset)
         case let .undo(entry): undo(entry)
+        case let .recentFolder(side, path, change): changeRecentFolder(side, path, change)
         case let .selectAfterReading(folder, names): selectAfterReading(folder, names)
         case let .removeExactly(plan, forGood): removeExactly(plan, forGood: forGood)
         case .copyToOtherSide: transferSelection(move: false)
