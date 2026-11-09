@@ -57,20 +57,26 @@ saves the new size in the file by changing only the `size` line, so your comment
 
 ### Colors
 
-![The Colors tab](images/settings-colors-light.png)
+![The Colors tab with schemes chosen](images/settings-colors-chosen-light.png)
 
 Blitter takes its colors from [Base16 or Base24](https://github.com/tinted-theming/home)
-schemes: one for light mode, one for dark mode. "system" keeps macOS's own colors.
+schemes: one for light mode, one for dark mode. Pick each from its list; every scheme shows its
+colors, and the chosen one shows a few rows of a list as Blitter will draw them. **System** keeps
+macOS's own colors.
 
-- Built in: `default-dark`, `default-light`, `solarized-dark`, `solarized-light`.
-- Any scheme of the [tinted-theming collection](https://github.com/tinted-theming/schemes) by
-  its name, e.g. `dracula` or `gruvbox-dark-hard`. It is downloaded once and kept in the
-  `schemes` folder next to the settings file.
-- A scheme file (`~/themes/mine.yaml`) or an address (`https://…/mine.yaml`).
-- Your own, in the settings file: `[theme.schemes.<name>]` with `base00 = "#181818"` and so on.
+- **Built in:** 22 schemes, among them Tomorrow Night Blue, Nord, Dracula, Gruvbox, Catppuccin,
+  Rosé Pine, One Dark and Solarized. The light ones come first in the light mode's list, the dark
+  ones in the dark mode's.
+- **Other:** type the name of any scheme of the
+  [tinted-theming collection](https://tinted-theming.github.io/tinted-gallery/) (e.g.
+  `gruvbox-material-dark-hard`; it is downloaded once and kept in the `schemes` folder next to the
+  settings file), a scheme file (`~/themes/mine.yaml`) or an address (`https://…/mine.yaml`),
+  and press Return.
+- Your own scheme can be in the settings file: `[theme.schemes.<name>]` with `base00 = "#181818"`
+  and so on.
 
-**Roles** says which of the scheme's colors each part of the window takes: the background, the
-selection, folders, hidden items, the git states and so on.
+Which of a scheme's colors each part of the window takes (the background, the selection, folders,
+hidden items, the git states) is set in the settings file, under `[theme.roles]`.
 
 ### Compare
 

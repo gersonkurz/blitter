@@ -125,7 +125,8 @@ public extension Settings {
     private static func themeSection(_ settings: Settings) -> String {
         """
         # Colors: a Base16 or Base24 scheme for light mode and one for dark mode; "system" keeps
-        # macOS's colors. Built in: default-dark, default-light, solarized-dark, solarized-light.
+        # macOS's colors. Built in: the schemes Settings… > Colors lists, e.g. "tomorrow-night-blue",
+        # "nord", "dracula", "solarized-light" (the names of BuiltInScheme.all).
         # Any scheme of https://github.com/tinted-theming/schemes by its name, e.g. "dracula" or
         # "gruvbox-dark-hard": fetched once and kept in the "schemes" folder next to this file.
         # A scheme file: "~/themes/mine.yaml"; or an address: "https://…/mine.yaml".

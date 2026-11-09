@@ -82,7 +82,14 @@ final class ManualScreenshots {
                 controller.model.tab = tab
                 try await Self.capture(window, as: "settings-\(tab)-\(name).png")
             }
+            // Schemes chosen, each with its preview (#73).
+            controller.model.tab = .colors
+            controller.model.draft.theme.light = "solarized-light"
+            controller.model.draft.theme.dark = "tomorrow-night-blue"
+            try await Self.capture(window, as: "settings-colors-chosen-\(name).png")
+            controller.model.revert()
             // The Tools & Menus tab's menu editors (#65).
+            controller.model.tab = .tools
             for (pane, file) in [(ToolsSettings.Pane.itemsMenu, "items"), (.fileMenu, "file")] {
                 controller.model.toolsPane = pane
                 try await Self.capture(window, as: "settings-menus-\(file)-\(name).png")

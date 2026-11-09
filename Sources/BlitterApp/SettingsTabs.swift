@@ -73,45 +73,6 @@ struct FontSettingsView: View {
     }
 }
 
-struct ColorSettings: View {
-    @Binding var theme: ThemeSettings
-
-    var body: some View {
-        Form {
-            Section {
-                scheme("Light mode", $theme.light)
-                scheme("Dark mode", $theme.dark)
-                Text("“system” keeps macOS's colors. A scheme of tinted-theming by its name (e.g. “dracula”), "
-                    + "a scheme file's path, or an https address works too.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Roles: which of the scheme's colors each takes") {
-                ForEach(ThemeRole.allCases, id: \.self) { role in
-                    Picker(role.rawValue.replacingOccurrences(of: "_", with: " ").capitalized, selection: Binding(
-                        get: { theme.slots[role] ?? 0 },
-                        set: { theme.slots[role] = $0 }
-                    )) {
-                        ForEach(Base24Scheme.slotNames.indices, id: \.self) { Text(Base24Scheme.slotNames[$0]).tag($0) }
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private func scheme(_ title: String, _ name: Binding<String>) -> some View {
-        HStack {
-            TextField(title, text: name)
-            Menu("Choose") {
-                ForEach(["system"] + Base24Scheme.builtInNames + theme.schemes.keys.sorted(), id: \.self) { scheme in
-                    Button(scheme) { name.wrappedValue = scheme }
-                }
-            }
-            .fixedSize()
-        }
-    }
-}
-
 struct CompareSettings: View {
     @Binding var tool: [String]?
 

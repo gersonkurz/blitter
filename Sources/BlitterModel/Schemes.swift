@@ -85,27 +85,8 @@ public struct Base24Scheme: Equatable, Sendable {
         return String(trimmed.prefix { !$0.isWhitespace })
     }
 
-    // swiftlint:disable force_unwrapping
-    /// Base16 Default by Chris Kempson, and Solarized by Ethan Schoonover, as Base16 schemes.
-    static let builtIn: [String: Base24Scheme] = [
-        "default-dark": Base24Scheme([
-            "181818", "282828", "383838", "585858", "b8b8b8", "d8d8d8", "e8e8e8", "f8f8f8",
-            "ab4642", "dc9656", "f7ca88", "a1b56c", "86c1b9", "7cafc2", "ba8baf", "a16946",
-        ])!,
-        "default-light": Base24Scheme([
-            "f8f8f8", "e8e8e8", "d8d8d8", "b8b8b8", "585858", "383838", "282828", "181818",
-            "ab4642", "dc9656", "f7ca88", "a1b56c", "86c1b9", "7cafc2", "ba8baf", "a16946",
-        ])!,
-        "solarized-dark": Base24Scheme([
-            "002b36", "073642", "586e75", "657b83", "839496", "93a1a1", "eee8d5", "fdf6e3",
-            "dc322f", "cb4b16", "b58900", "859900", "2aa198", "268bd2", "6c71c4", "d33682",
-        ])!,
-        "solarized-light": Base24Scheme([
-            "fdf6e3", "eee8d5", "93a1a1", "839496", "657b83", "586e75", "073642", "002b36",
-            "dc322f", "cb4b16", "b58900", "859900", "2aa198", "268bd2", "6c71c4", "d33682",
-        ])!,
-    ]
-    // swiftlint:enable force_unwrapping
+    /// The schemes that come with Blitter (#73), by name.
+    static let builtIn = Dictionary(uniqueKeysWithValues: BuiltInScheme.all.map { ($0.id, $0.scheme) })
 }
 
 /// What `light` or `dark` names when it is not "system", a built-in or an inline scheme (#34).

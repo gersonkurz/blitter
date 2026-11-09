@@ -71,9 +71,9 @@ struct SchemesTests {
         for bad in ["Neon", "my theme", "../up", "a/../b", "http://example.com/x.yaml", "https://", ""] {
             #expect(SchemeReference(bad, home: "/h") == nil, "\(bad)")
         }
-        #expect(SchemeReference.collection("dracula").downloadURLs.map(\.absoluteString) == [
-            "https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/base24/dracula.yaml",
-            "https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/base16/dracula.yaml",
+        #expect(SchemeReference.collection("ayu-dark").downloadURLs.map(\.absoluteString) == [
+            "https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/base24/ayu-dark.yaml",
+            "https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/base16/ayu-dark.yaml",
         ])
         // A URL's cache name is stable from launch to launch.
         #expect(SchemeReference.url(url).cachePath(in: "/c") == SchemeReference.url(url).cachePath(in: "/c"))
@@ -126,18 +126,18 @@ struct SchemesTests {
 
     @Test func aSchemeFromTheCollectionIsFetchedOnceAndKept() async throws {
         let folder = try TemporaryFolder()
-        let web = FakeWeb([collection + "base24/dracula.yaml": Self.base24])
-        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"dracula\"\n", web: web)
+        let web = FakeWeb([collection + "base24/ayu-dark.yaml": Self.base24])
+        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"ayu-dark\"\n", web: web)
         try await settle(workspace)
         let dark = try #require(workspace.settings.theme.theme(dark: true))
         #expect(dark.color(.background) == RGB(red: 0x28, green: 0x2A, blue: 0x36))
-        #expect(workspace.settings.theme.dark == "dracula")
+        #expect(workspace.settings.theme.dark == "ayu-dark")
         #expect(workspace.notices.isEmpty)
-        #expect(web.requests.withLock { $0 } == [collection + "base24/dracula.yaml"])
-        #expect(try String(contentsOfFile: folder.path + "/schemes/dracula.yaml", encoding: .utf8) == Self.base24)
+        #expect(web.requests.withLock { $0 } == [collection + "base24/ayu-dark.yaml"])
+        #expect(try String(contentsOfFile: folder.path + "/schemes/ayu-dark.yaml", encoding: .utf8) == Self.base24)
 
         // The next launch takes it from the folder: nothing is fetched.
-        let again = try await self.workspace(folder, settings: "[theme]\ndark = \"dracula\"\n", web: web)
+        let again = try await self.workspace(folder, settings: "[theme]\ndark = \"ayu-dark\"\n", web: web)
         try await settle(again)
         #expect(again.settings.theme.theme(dark: true) == dark)
         #expect(web.requests.withLock { $0 }.count == 1)
@@ -173,9 +173,9 @@ struct SchemesTests {
         let folder = try TemporaryFolder()
         try FileManager.default.createDirectory(atPath: folder.path + "/schemes", withIntermediateDirectories: true)
         try Data([0x62, 0x61, 0x73, 0x65, 0xFF, 0xFE])
-            .write(to: URL(fileURLWithPath: folder.path + "/schemes/dracula.yaml"))
-        let web = FakeWeb([collection + "base24/dracula.yaml": Self.base24])
-        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"dracula\"\n", web: web)
+            .write(to: URL(fileURLWithPath: folder.path + "/schemes/ayu-dark.yaml"))
+        let web = FakeWeb([collection + "base24/ayu-dark.yaml": Self.base24])
+        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"ayu-dark\"\n", web: web)
         try await settle(workspace)
         try await Task.sleep(for: .milliseconds(50))
         #expect(workspace.schemeWork.isEmpty)
@@ -183,14 +183,14 @@ struct SchemesTests {
         #expect(workspace.settings.theme.dark == "system")
         #expect(workspace.notices.count == 1)
         #expect(workspace.notices.first?.text
-            .contains("dracula.yaml” is not a readable Base16 or Base24 scheme") == true)
+            .contains("ayu-dark.yaml” is not a readable Base16 or Base24 scheme") == true)
 
         // The second guard: a fetch never writes over a file that is in the way.
-        let download = try SchemeDownload(name: "x", urls: [#require(URL(string: collection + "base24/dracula.yaml"))],
-                                          cachePath: folder.path + "/schemes/dracula.yaml")
+        let download = try SchemeDownload(name: "x", urls: [#require(URL(string: collection + "base24/ayu-dark.yaml"))],
+                                          cachePath: folder.path + "/schemes/ayu-dark.yaml")
         workspace.download([download])
         try await settle(workspace)
-        #expect(workspace.notices.last?.text.hasSuffix("dracula.yaml is in the way.") == true)
+        #expect(workspace.notices.last?.text.hasSuffix("ayu-dark.yaml is in the way.") == true)
         #expect(web.requests.withLock { $0 }.count == 1)
     }
 
@@ -199,10 +199,10 @@ struct SchemesTests {
     @Test func aDanglingLinkWhereTheSchemeIsKeptIsReportedNotFetchedAgain() async throws {
         let folder = try TemporaryFolder()
         try FileManager.default.createDirectory(atPath: folder.path + "/schemes", withIntermediateDirectories: true)
-        let kept = folder.path + "/schemes/dracula.yaml"
+        let kept = folder.path + "/schemes/ayu-dark.yaml"
         try FileManager.default.createSymbolicLink(atPath: kept, withDestinationPath: folder.path + "/nowhere.yaml")
-        let web = FakeWeb([collection + "base24/dracula.yaml": Self.base24])
-        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"dracula\"\n", web: web)
+        let web = FakeWeb([collection + "base24/ayu-dark.yaml": Self.base24])
+        let workspace = try await workspace(folder, settings: "[theme]\ndark = \"ayu-dark\"\n", web: web)
         try await settle(workspace)
         try await Task.sleep(for: .milliseconds(50))
         #expect(workspace.schemeWork.isEmpty)
@@ -212,11 +212,11 @@ struct SchemesTests {
         ])
 
         // Fetched straight into it: reported, not a reload.
-        let download = try SchemeDownload(name: "x", urls: [#require(URL(string: collection + "base24/dracula.yaml"))],
+        let download = try SchemeDownload(name: "x", urls: [#require(URL(string: collection + "base24/ayu-dark.yaml"))],
                                           cachePath: kept)
         workspace.download([download])
         try await settle(workspace)
-        #expect(workspace.notices.last?.text.hasSuffix("dracula.yaml is in the way.") == true)
+        #expect(workspace.notices.last?.text.hasSuffix("ayu-dark.yaml is in the way.") == true)
         #expect(web.requests.withLock { $0 }.count == 1)
     }
 

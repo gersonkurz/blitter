@@ -22,7 +22,8 @@ struct ThemeTests {
             #expect(Base24Scheme.slot(bad) == nil, "\(bad)")
         }
         #expect((0 ..< 24).allSatisfy { Base24Scheme.slot(Base24Scheme.slotName($0)) == $0 })
-        #expect(Base24Scheme.builtIn.count == 4 && Base24Scheme.builtIn.values.allSatisfy { $0.colors.count == 24 })
+        #expect(Base24Scheme.builtIn.count == BuiltInScheme.all.count && Base24Scheme.builtIn.values
+            .allSatisfy { $0.colors.count == 24 })
     }
 
     @Test func theDefaultIsTheSystemsOwnLook() {

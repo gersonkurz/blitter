@@ -82,7 +82,9 @@ public struct ThemeSettings: Equatable, Sendable {
         return scheme(named: name).map { Theme(scheme: $0, slots: slots) }
     }
 
-    func scheme(named name: String) -> Base24Scheme? {
+    /// The scheme a name stands for here: one of the settings' own first, then a built-in one —
+    /// as Blitter draws it, so the Settings window's preview shows the same (#73 review).
+    public func scheme(named name: String) -> Base24Scheme? {
         schemes[name] ?? Base24Scheme.builtIn[name]
     }
 
