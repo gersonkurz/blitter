@@ -24,7 +24,8 @@ struct ActionsTests {
 
         // Nothing selected: only what works on the folder itself (with the default tools, #18).
         #expect(ids(sides.workspace.actions(for: .left)) == ["new-folder", "copy-folder-path", "git-clone",
-                                                             "compare-folders", "open-in-terminal", "open-in-code"])
+                                                             "add-to-favorites", "compare-folders", "open-in-terminal",
+                                                             "open-in-code"])
 
         sides.workspace.perform(.select(.left, ["a.txt"]))
         let single = ids(sides.workspace.actions(for: .left))

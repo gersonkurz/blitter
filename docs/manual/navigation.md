@@ -40,11 +40,18 @@ selects it in the tree.
 
 ## Favorites
 
-Right-click a folder in the tree to change the Favorites:
+The Favorites are the folders at the top of each side's tree.
 
-- **Add to Favorites** adds it to the end of the list.
-- On a favorite: **Move Up in Favorites**, **Move Down in Favorites**, **Remove from
+- **Go → Favorites** lists them; **⌃1** to **⌃9** go to the first nine in the active side.
+- **Add to Favorites** is in the tree's context menu, and in the file list's: for the one
+  selected folder, or (a right-click on empty space) the side's folder.
+- On a favorite in the tree: **Move Up in Favorites**, **Move Down in Favorites**, **Remove from
   Favorites**.
+- **Settings… → Favorites** shows the list to reorder, edit or add to (**Add Folder…**).
+
+They are kept in the [settings file](settings.md) as `[favorites] folders`, with `~` for your home
+folder, so they travel with your settings. A change from the tree or the file list writes only
+that line; your own comments in the file stay.
 
 The tree's context menu also offers the folder's actions (New Folder, Copy Path, Compare
 Folders, the Git actions, and the tools listed for folders in the settings file); they run on

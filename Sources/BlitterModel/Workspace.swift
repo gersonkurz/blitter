@@ -53,9 +53,8 @@ public final class Workspace {
     public internal(set) var gitVersion = 0
     /// Opening, revealing, Quick Look and the clipboard, provided by the app.
     public var system = SystemServices()
-    /// The folders of the tree's Favorites section, in order; the user adds, removes and moves
-    /// them. Saved for the next launch.
-    public internal(set) var favorites: [String]
+    /// Favorites from the window state (the file's list wins), one not yet saved there, its save (#72).
+    var stateFavorites: [String], pendingFavorites: [String]?, favoritesSave: Task<Void, Never>?, favoritesSaves = 0
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
     public internal(set) var treeRoots: [TreeRoot]
     /// Volumes, iCloud Drive and the CloudStorage providers, each read and published on its own,
@@ -142,7 +141,7 @@ public final class Workspace {
         jobQueue = jobs
         self.settingsFile = settingsFile
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
-        favorites = saved?.favorites ?? TreeRoots.defaultFavorites(home: home)
+        stateFavorites = saved?.favorites ?? TreeRoots.defaultFavorites(home: home)
         if let saved {
             sides = [.left: SideState(restoring: saved.left), .right: SideState(restoring: saved.right)]
             showsHiddenFiles = saved.showsHiddenFiles
@@ -151,7 +150,7 @@ public final class Workspace {
         self.lister = lister
         self.directoryCheck = directoryCheck
         self.volumes = volumes
-        treeRoots = TreeRoots.favorites(favorites, home: home)
+        treeRoots = TreeRoots.favorites(stateFavorites, home: home)
         if settingsFile == nil { // the default settings are final: a saved sort must be on a shown column
             for side in Side.allCases where sortsByHiddenColumn(side) {
                 sides[side]?.sort = ListSort()

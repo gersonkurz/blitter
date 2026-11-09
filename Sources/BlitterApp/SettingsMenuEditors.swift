@@ -275,3 +275,43 @@ struct ShortcutField: View {
         }
     }
 }
+
+/// The tree's Favorites (#72): folders in order, "~" for the home folder. Add Folder… picks one;
+/// a selected one can be typed over, moved or removed.
+struct FavoritesSettings: View {
+    @Binding var favorites: [String]
+    let abbreviate: (String) -> String
+    @State private var selection: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("The folders at the top of each side's tree, in this order. Go → Favorites (⌃1 … ⌃9) goes to them.")
+                .font(.caption).foregroundStyle(.secondary)
+            OrderedListEditor(items: $favorites, selection: $selection, row: { Text($0) }, add: addButton,
+                              detail: { path in
+                                  TextField("Folder", text: path, prompt: Text("~/Projects or /Volumes/Data"))
+                              })
+        }
+        .padding()
+    }
+
+    /// The chosen folders not in the list yet, each once.
+    static func adding(_ chosen: [String], to list: [String]) -> [String] {
+        var seen = Set(list)
+        return chosen.filter { seen.insert($0).inserted }
+    }
+
+    private func addButton(_ insert: @escaping (String) -> Void) -> some View {
+        Button("Add Folder…") {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.allowsMultipleSelection = true
+            if panel.runModal() == .OK {
+                for path in Self.adding(panel.urls.map { abbreviate($0.path) }, to: favorites) {
+                    insert(path)
+                }
+            }
+        }
+    }
+}

@@ -26,6 +26,8 @@ public enum ActionScope: Hashable, Sendable {
     /// Blitter's last file operation that can be undone (#61): there must be one. The side does
     /// not matter.
     case lastChange
+    /// The one selected folder, or the side's folder when nothing is selected (#72).
+    case oneFolder
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
@@ -43,6 +45,9 @@ public enum ActionScope: Hashable, Sendable {
         case .folder, .selectionOrFolder: state.status == .loaded
         case .selection: !state.selection.isEmpty
         case .lastChange: canUndo
+        case .oneFolder:
+            state.status == .loaded && (state.selection.isEmpty || state.selection.count == 1
+                && state.selectedEntriesAllSatisfy { $0.entry.kind == .directory })
         case .folders:
             state.status == .loaded && (state.selection.isEmpty ? state.totals.folders > 0
                 : !state.selectedEntriesAllSatisfy { $0.entry.kind != .directory })
@@ -247,6 +252,14 @@ public struct ActionRegistry: Sendable {
         },
         Action("git-commit", "Git Commit…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitCommit, path: workspace.workingCopyTarget(on: side)))
+        },
+        // #72: the selected folder, or the side's folder, joins the tree's Favorites.
+        Action("add-to-favorites", "Add to Favorites", scope: .oneFolder, worksInFind: false,
+               effect: .notAutomated)
+        { workspace, side in
+            let state = workspace.state(of: side)
+            let name = state.selection.first.map { Paths.appending($0, to: state.entriesLocation) }
+            return .addFavorite(name ?? state.entriesLocation)
         },
         Action("undo", "Undo", scope: .lastChange) { workspace, _ in
             .undo(entry: workspace.lastUndo?.id ?? 0)

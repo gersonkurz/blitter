@@ -23,6 +23,12 @@ columns = ["name", "size", "modified"]
 # Off, nothing reads git: the Git column stays empty.
 git_colors = true
 
+# The tree's Favorites, in order; "~" is your home folder. Go > Favorites (ctrl-1 to ctrl-9)
+# goes to them. Without a list here, the Favorites set up in the tree stay as they are; the
+# first change from the tree (Add to Favorites, Move Up/Down, Remove) writes the list here.
+[favorites]
+# folders = ["~", "~/Desktop", "~/Documents", "~/Downloads", "/Applications"]
+
 # The fonts of the file lists and folder trees; dialogs keep the system font. "system" is
 # macOS's own font; or a font family's name, e.g. face = "Helvetica Neue", mono = "Menlo".
 # mono is the fixed-width font of the date and permissions columns. size is in points (8 to 32).
@@ -62,9 +68,9 @@ on = "files"
 # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
 # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
 # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
-# delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, compare-files,
-# compare-folders, undo, git-clone, git-log, git-commit, git-sync and git-clean (only inside a
-# git working copy), and the tools above.
+# delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, add-to-favorites,
+# compare-files, compare-folders, undo, git-clone, git-log, git-commit, git-sync and git-clean
+# (only inside a git working copy), and the tools above.
 [context_menu]
 # For the clicked or selected items.
 items = [
@@ -72,12 +78,12 @@ items = [
     "copy-path", "copy-name", "-",
     "rename", "batch-rename", "move-to-trash", "delete-immediately", "-",
     "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "-",
-    "reveal-in-finder", "open-in-terminal", "open-in-code", "open-in-text-editor",
+    "reveal-in-finder", "add-to-favorites", "open-in-terminal", "open-in-code", "open-in-text-editor",
 ]
 # For the folder itself (a click on empty space).
 folder = [
     "new-folder", "folder-sizes", "-",
-    "copy-folder-path", "compare-folders", "git-clone", "git-log", "git-commit", "git-sync", "git-clean", "-",
+    "copy-folder-path", "add-to-favorites", "compare-folders", "git-clone", "git-log", "git-commit", "git-sync", "git-clean", "-",
     "open-in-terminal", "open-in-code",
 ]
 

@@ -41,6 +41,7 @@ public extension Settings {
         take(\.font.face)
         take(\.font.mono)
         take(\.font.size)
+        take(\.favorites)
         take(\.theme.light)
         take(\.theme.dark)
         for role in ThemeRole.allCases { // each role is a setting of its own
@@ -104,9 +105,11 @@ extension Workspace {
         settingsSaveGeneration += 1
         let generation = settingsSaveGeneration
         let previous = settingsSave
+        let favorites = favoritesSave // a Favorites change from the tree that started before (#72)
         let beforeReplace = settingsFileBeforeReplace
         settingsSave = Task { [weak self] in
             await previous?.value // saves run one after the other, in order
+            await favorites?.value
             guard let self else {
                 return
             }
@@ -152,12 +155,13 @@ public extension Workspace {
 
     /// Whether something is still to be written into the settings file: a zoomed size, a save.
     var isSavingSettings: Bool {
-        pendingFontSize != nil || settingsSave != nil
+        pendingFontSize != nil || settingsSave != nil || favoritesSave != nil
     }
 
     /// Writes everything still to be written; the app waits for this before it quits.
     func finishSaving() async {
         await finishSavingFontSize()
+        await finishSavingFavorites()
         _ = await finishSavingSettings()
     }
 }

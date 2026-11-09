@@ -39,7 +39,7 @@ public extension Workspace {
         }
         // Left out while they are the defaults, so a later version's defaults reach whoever never
         // changed them.
-        let changed = favorites == TreeRoots.defaultFavorites(home: home) ? nil : favorites
+        let changed = stateFavorites == TreeRoots.defaultFavorites(home: home) ? nil : stateFavorites
         return WorkspaceState(left: settings(.left), right: settings(.right), showsHiddenFiles: showsHiddenFiles,
                               favorites: changed)
     }

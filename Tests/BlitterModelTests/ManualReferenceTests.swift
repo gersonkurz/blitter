@@ -180,6 +180,7 @@ struct ManualReferenceTests {
         case .workingCopy: "the folder or its one selected item, inside a git working copy"
         case .folders: "the selected folders, or every folder when nothing is selected"
         case .lastChange: "the last file operation, while one can be undone"
+        case .oneFolder: "the one selected folder, or the side's folder when nothing is selected"
         }
     }
 }

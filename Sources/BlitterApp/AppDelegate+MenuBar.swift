@@ -7,8 +7,38 @@ extension AppDelegate {
     /// Marks the Edit menu's items that come from the settings, so a rebuild replaces only them.
     private static let fromSettings = 24
 
+    /// Go → Favorites (#72): each favorite as the tree shows it, the first nine with ⌃1 … ⌃9.
+    /// Rebuilt only when they change, so the shortcuts are always in place.
+    func updateFavoritesMenu() {
+        let favorites = workspace.treeRoots.filter { $0.section == .favorites }
+        guard favorites != renderedFavorites else {
+            return
+        }
+        renderedFavorites = favorites
+        favoritesMenu.removeAllItems()
+        for (index, favorite) in favorites.enumerated() {
+            let item = favoritesMenu.addItem(withTitle: favorite.title, action: #selector(goToFavorite(_:)),
+                                             keyEquivalent: index < 9 ? String(index + 1) : "")
+            item.keyEquivalentModifierMask = .control
+            item.target = self
+            item.representedObject = favorite.path
+            item.toolTip = favorite.path
+        }
+        if favorites.isEmpty {
+            favoritesMenu.addItem(withTitle: "No Favorites", action: nil, keyEquivalent: "")
+        }
+    }
+
+    /// The active side goes to the favorite.
+    @objc func goToFavorite(_ sender: NSMenuItem) {
+        if let path = sender.representedObject as? String {
+            workspace.perform(.navigate(workspace.activeSide, path: path))
+        }
+    }
+
     /// Rebuilds when the menus or the tools change: an item's title can come from a tool.
     func updateMenuBar() {
+        updateFavoritesMenu()
         let menus = workspace.settings.menuBar
         let tools = workspace.settings.tools
         guard menus != renderedMenuBar || tools != renderedTools, let fileMenu = fileMenuItems,

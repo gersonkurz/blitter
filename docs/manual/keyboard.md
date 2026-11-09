@@ -14,6 +14,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | ⌘↑ | enclosing folder |
 | ⌘[ / ⌘] | back / forward |
 | ⇧⌘G | type a path into the active side's path field |
+| ⌃1 … ⌃9 | go to the first nine Favorites |
 | Escape | in the path field: drop what was typed |
 | ⌘R | read the folder again |
 | ⇧⌘. | show or hide hidden files |

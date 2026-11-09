@@ -105,6 +105,16 @@ final class SettingsWindowModel {
         }
     }
 
+    /// The draft's favorites as written; while the file has none, the ones the tree shows (#72).
+    var favoritesBinding: Binding<[String]> {
+        Binding(get: { [unowned self] in draft.favorites ?? workspace.favoritesAsWritten },
+                set: { [unowned self] in draft.favorites = $0 })
+    }
+
+    func abbreviatingHome(_ path: String) -> String {
+        workspace.abbreviatingHome(path)
+    }
+
     func revert() {
         draft = original
         inputProblems = [:]
@@ -124,11 +134,12 @@ final class SettingsWindowModel {
 }
 
 enum SettingsTab: CaseIterable {
-    case files, fonts, colors, compare, tools
+    case files, favorites, fonts, colors, compare, tools
 
     var title: String {
         switch self {
         case .files: "Files"
+        case .favorites: "Favorites"
         case .fonts: "Fonts"
         case .colors: "Colors"
         case .compare: "Compare"
@@ -190,6 +201,8 @@ struct SettingsView: View {
             Group {
                 switch model.tab {
                 case .files: FilesSettings(draft: $model.draft, now: model.now())
+                case .favorites: FavoritesSettings(favorites: model.favoritesBinding,
+                                                   abbreviate: model.abbreviatingHome)
                 case .fonts: FontSettingsView(font: $model.draft.font)
                 case .colors: ColorSettings(theme: $model.draft.theme)
                 case .compare: CompareSettings(tool: $model.draft.diffTool)

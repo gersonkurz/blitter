@@ -24,6 +24,9 @@ public struct Settings: Equatable, Sendable {
     public var menuBar = MenuBarSettings.defaults
     /// The file lists' and folder trees' fonts (#62).
     public var font = FontSettings()
+    /// The tree's Favorites in order (#72), as written ("~" for the home folder). Nil while the
+    /// file has none: the favorites set up in the tree before (the saved window state) stay.
+    public var favorites: [String]?
 
     public init() {}
 
@@ -54,6 +57,8 @@ public struct Settings: Equatable, Sendable {
                 problems += readContextMenus(table, into: &settings)
             case "font":
                 problems += readFont(table, into: &settings)
+            case "favorites":
+                problems += readFavorites(table, into: &settings)
             case "menu_bar":
                 problems += readMenuBar(table, into: &settings)
             case "theme":
@@ -128,6 +133,27 @@ public struct Settings: Equatable, Sendable {
             if let problem = settings.font.apply(key: key, value: value) {
                 problems.append("“\(name)”: \(problem)")
             }
+        }
+        return problems
+    }
+
+    private static func readFavorites(_ table: TOMLTable, into settings: inout Settings) -> [String] {
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            let name = "favorites.\(key)"
+            guard let value, key == "folders" else {
+                problems.append(value == nil ? unreadableKey(name) : "Unknown setting “\(name)”.")
+                continue
+            }
+            let folders = value.array?.compactMap(\.string) ?? []
+            guard let array = value.array, folders.count == array.count, !folders.contains(where: \.isEmpty),
+                  !folders.contains(where: { $0.contains("\n") })
+            else {
+                problems
+                    .append("“\(name)”: expected a list of folders such as [\"~\", \"~/Projects\", \"/Volumes/Data\"].")
+                continue
+            }
+            settings.favorites = folders
         }
         return problems
     }

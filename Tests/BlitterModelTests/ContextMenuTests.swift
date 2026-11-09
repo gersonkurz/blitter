@@ -15,7 +15,8 @@ struct ContextMenuSettingsTests {
         } == [
             "open", "quick-look", "folder-sizes", "copy-path", "copy-name", "rename", "batch-rename", "move-to-trash",
             "delete-immediately",
-            "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "reveal-in-finder", "open-in-terminal",
+            "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "reveal-in-finder", "add-to-favorites",
+            "open-in-terminal",
             "open-in-code",
             "open-in-text-editor",
         ])
@@ -24,6 +25,7 @@ struct ContextMenuSettingsTests {
             .action("folder-sizes"),
             .separator,
             .action("copy-folder-path"),
+            .action("add-to-favorites"),
             .action("compare-folders"),
             .action("git-clone"),
             .action("git-log"),
@@ -113,6 +115,7 @@ struct ContextMenuTests {
             "folder-sizes",
             "-",
             "copy-folder-path",
+            "add-to-favorites",
             "compare-folders",
             "git-clone",
             "-",

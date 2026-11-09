@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     var editMenuItems: NSMenu?
     var renderedMenuBar: MenuBarSettings?
     var renderedTools: [Tool]?
+    /// Go → Favorites (#72), and the favorites it was built from.
+    let favoritesMenu = NSMenu(title: "Favorites")
+    var renderedFavorites: [TreeRoot]?
 
     func applicationDidFinishLaunching(_: Notification) {
         NSApp.mainMenu = makeMainMenu()
@@ -218,6 +221,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         goMenu.addItem(.separator())
         addItem(to: goMenu, title: "Go to Folder…", action: #selector(goToFolder(_:)), key: "g",
                 modifiers: [.command, .shift])
+        goMenu.addItem(.separator())
+        goMenu.addItem(withTitle: "Favorites", action: nil, keyEquivalent: "").submenu = favoritesMenu
         mainMenu.addItem(submenu: goMenu)
 
         // Filled from the settings' tools each time it opens, so a changed file shows at once.

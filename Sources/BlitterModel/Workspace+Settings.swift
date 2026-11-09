@@ -73,9 +73,16 @@ extension Workspace {
         if let pendingFontSize { // zoomed, not yet saved: the file still has the old size (#63)
             newSettings.font.size = pendingFontSize
         }
+        if let pendingFavorites { // changed, not yet saved (#72)
+            newSettings.favorites = pendingFavorites
+        }
         var changed = false
         if newSettings != settings {
+            let favoritesBefore = favorites
             settings = newSettings
+            if favorites != favoritesBefore {
+                favoritesChanged(from: favoritesBefore) // changed in the file
+            }
             changed = true
         }
         // Every read, the first one too: the columns are only now known for sure (#25).

@@ -13,7 +13,7 @@ The [settings file reference](reference/settings.md) lists every setting with it
 
 ## The Settings window
 
-Five tabs: Files, Fonts, Colors, Compare, and Tools & Menus. Change what you like, then **Save**
+Six tabs: Files, Favorites, Fonts, Colors, Compare, and Tools & Menus. Change what you like, then **Save**
 (**⌘S**), or **Revert** to drop your changes.
 
 - Saving writes the whole file anew, with Blitter's own comments. **Comments of your own in the
@@ -33,6 +33,14 @@ Five tabs: Files, Fonts, Colors, Compare, and Tools & Menus. Change what you lik
   list's header, and what **Default Columns** goes back to.
 - **Ask before Delete Immediately**: whether **⌥⌘⌫** asks first.
 - **Color git working copies by their state**: see [Git](git.md).
+
+### Favorites
+
+![The Favorites tab](images/settings-favorites-light.png)
+
+The folders at the top of each side's tree, in order: **Add Folder…** adds one, a selected one
+can be typed over (`~` is your home folder), moved with ↑ ↓ or removed with −. See
+[Navigation](navigation.md#favorites).
 
 ### Fonts and zoom
 
