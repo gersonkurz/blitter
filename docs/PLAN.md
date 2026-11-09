@@ -14,10 +14,10 @@ Replace Path Finder for daily work with a native macOS file manager: two sides, 
 | UI toolkit | AppKit (`NSTableView`, `NSOutlineView`, `NSSplitView`) | Smooth with 100k+ rows and full keyboard control. SwiftUI is acceptable for preferences and dialogs only. |
 | Language | Swift | One language, no bridging layer. Speed comes from calling the kernel directly, not from the language. |
 | Automation | A local socket with an MCP server, the `blitter` CLI and a Python module; no built-in scripting language | Claude or Codex can do more than a built-in scripting language. Changes need the user's Allow in Blitter. |
-| Distribution | Developer ID, notarized, not sandboxed, no App Store | A sandboxed file manager isn't practical. Needs Full Disk Access. |
+| Distribution | Developer ID signed, not sandboxed, no App Store; notarized once the owner has notary credentials (0.2.0 is not) | A sandboxed file manager isn't practical. Needs Full Disk Access. |
 | Name | Blitter | After the Amiga chip. The earlier working name was too close to an existing trademark. |
 | Manual | English, Markdown in `docs/manual/`, published to GitHub Pages; screenshots generated from the app | Many features have no obvious path to discovery. The manual lives and is reviewed with the code, so it stays true. |
-| Versions | `MARKETING_VERSION` in `project.yml` is the one source; `just package` names the DMG after it | A release bumps that line and tags the commit (`v0.2.0`). |
+| Versions | `MARKETING_VERSION` in `project.yml` is the one source; `just package` names the DMG after it | A release bumps that line, runs `just package` (signs with `MACOS_CODESIGN_IDENTITY`; `just notarize` once there are notary credentials), tags the commit (`v0.2.0`) and publishes the DMG as a GitHub release with notes. |
 
 ## Layout
 
@@ -61,7 +61,7 @@ BlitterCore  (file system: enumeration, watching, file operation jobs; no AppKit
 
 Two sides with tree, file list and path field; Favorites, volumes and cloud drives; back, forward, parent; live updates; hidden files; copy, move, rename, new folder, Trash with a background job queue; clipboard and drag and drop; everything from the keyboard.
 
-### Since 0.1.0 (goes out with 0.2.0)
+### 0.2.0
 
 - **Finding:** the fast filter (type to highlight, `*` to filter), Select by Pattern, the Find panel (names and contents, results as a folder of their own).
 - **Files:** Delete Immediately (asks first), Batch Rename, folder sizes, the Permissions, Kind and Git columns, the status line with free space, compare with an external diff tool, Undo for file operations (#61).
@@ -70,9 +70,7 @@ Two sides with tree, file list and path field; Favorites, volumes and cloud driv
 - **Automation:** the socket, the `blitter` CLI and MCP server, the Python module.
 - **The manual** on GitHub Pages.
 
-## 0.2.0
-
-The next release. Done when these are in, the manual says so, and `just package` builds `Blitter-0.2.0.dmg`.
+Also in 0.2.0:
 
 - **Git Clone** (#70): clone into the side's folder from any folder.
 - **Git Clean** (#71): the dry run first, Move to Trash by default, Delete for Good on request.
@@ -81,6 +79,10 @@ The next release. Done when these are in, the manual says so, and `just package`
 - **Recent-folders strip** (#74): per side, ordered by frecency, with pinning.
 - **Manual:** screenshots of open menus and context menus (#69).
 - **Stability:** the flaky tests (#66).
+
+## Next
+
+Not planned yet: the owner picks the next release's scope from real use and the issues.
 
 ## Later
 

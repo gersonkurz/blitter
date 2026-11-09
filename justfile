@@ -153,7 +153,8 @@ format:
 # Everything that must pass before review: generate, lint, build and test
 verify: generate lint test
 
-# Build a Developer ID signed Release app and wrap it in a DMG under releases/.
+# Build a Developer ID signed Release app and wrap it in a signed DMG under releases/.
+# Signs with $MACOS_CODESIGN_IDENTITY (default: the Developer ID Application certificate).
 # Everything is staged in build/ first; existing artifacts in releases/ are only touched on success.
 package: generate
     #!/usr/bin/env bash
@@ -161,24 +162,30 @@ package: generate
     stage=build/package
     rm -rf "$stage"
     mkdir -p "$stage/root"
+    identity="${MACOS_CODESIGN_IDENTITY:-Developer ID Application}"
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration Release \
-        -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify --quiet
+        -destination "{{destination}}" -derivedDataPath {{derived_data}} CODE_SIGN_IDENTITY="$identity" \
+        | xcbeautify --quiet
     app="{{derived_data}}/Build/Products/Release/Blitter.app"
     codesign --verify --strict --deep "$app"
     cp -R "$app" "$stage/root/"
     ln -s /Applications "$stage/root/Applications"
     name="Blitter-{{version}}.dmg"
     diskutil image create from --format ULFO --volumeName "Blitter {{version}}" "$stage/root" "$stage/$name"
-    codesign --sign "Developer ID Application" --identifier com.p-nand-q.blitter.dmg --timestamp "$stage/$name"
+    codesign --sign "$identity" --identifier com.p-nand-q.blitter.dmg --timestamp "$stage/$name"
+    codesign --verify --strict "$stage/$name"
     mkdir -p releases
     mv -f "$stage/$name" "releases/$name"
     (cd releases && shasum -a 256 *.dmg > checksums.txt)
     echo "Created releases/$name"
 
-# Notarize and staple the DMG. Store credentials once with: xcrun notarytool store-credentials <profile>
+# Notarize and staple the packaged DMG (needs Apple notary credentials, not just the signing
+# certificate). Store them once: xcrun notarytool store-credentials blitter-notary --apple-id <you>
+# --team-id 9T5S26964D
 notarize profile="blitter-notary":
     xcrun notarytool submit "releases/Blitter-{{version}}.dmg" --keychain-profile "{{profile}}" --wait
     xcrun stapler staple "releases/Blitter-{{version}}.dmg"
+    spctl --assess --type open --context context:primary-signature -v "releases/Blitter-{{version}}.dmg"
     (cd releases && shasum -a 256 *.dmg > checksums.txt)
 
 # Remove build output and the generated project

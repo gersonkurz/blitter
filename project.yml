@@ -9,8 +9,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: 0.1.0
-    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.2.0
+    CURRENT_PROJECT_VERSION: 2
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     DEVELOPMENT_TEAM: 9T5S26964D
@@ -24,6 +24,9 @@ settings:
     Release:
       CODE_SIGN_IDENTITY: "Developer ID Application"
       ENABLE_HARDENED_RUNTIME: YES
+      # Notarization requires a secure timestamp and no debugging entitlement (get-task-allow).
+      OTHER_CODE_SIGN_FLAGS: --timestamp
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
 packages:
   # The settings file is TOML (#11); TOMLKit wraps the toml++ parser. Pinned.

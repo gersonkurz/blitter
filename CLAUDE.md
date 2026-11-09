@@ -13,7 +13,7 @@ A native, keyboard-driven two-sided file manager for macOS. Read `docs/PLAN.md` 
   - The table views reuse cells. Avoid per-row allocations in hot paths.
   - Cloud and network folders must never stall the other side.
 - **Safety:** deletes go to the Trash by default. Long operations go through the job queue with progress and cancel.
-- **Scope:** keep to the next release in `docs/PLAN.md` (now 0.2.0). Record new ideas as GitHub issues instead of building them.
+- **Scope:** keep to the next release in `docs/PLAN.md` (0.2.0 is out; the next one is not planned yet). Record new ideas as GitHub issues instead of building them.
 - **Manual:** a change users can see is not done until its page in `docs/manual/` says so. Screenshots are made with `just screenshots` (open menus: `just menu-screenshots`), the reference pages with `just manual` (see `docs/PLAN.md`, Manual).
 
 ## Commands

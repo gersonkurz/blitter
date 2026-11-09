@@ -5,6 +5,10 @@
 Blitter runs on macOS 15 or later. Open the disk image and drag **Blitter** onto
 **Applications**.
 
+Blitter is signed but not notarized yet, so macOS stops it the first time you open it. Then go
+to **System Settings → Privacy & Security** and click **Open Anyway**; after that it opens like
+any other app.
+
 Blitter is not sandboxed. To see the folders macOS protects (other apps' data, Mail, Safari),
 give it Full Disk Access: **System Settings → Privacy & Security → Full Disk Access**, add
 Blitter.
