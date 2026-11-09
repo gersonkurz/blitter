@@ -36,6 +36,7 @@ extension SystemServices {
         }
         services.openWithApp = { app, paths, failed in ExternalApps.open(paths, with: app, failed: failed) }
         services.present = DialogHost.present
+        services.showMenu = { [weak window] menu, side, seconds in window?.showMenu(menu, side: side, for: seconds) }
         services.copyText = { text in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)

@@ -105,6 +105,10 @@ Beyond Compare when it is installed.
 
 ### Context menus
 
+| For the selected items | For the folder |
+|---|---|
+| ![The context menu for a selected file](images/menu-items.png) | ![The context menu for the folder](images/menu-folder.png) |
+
 `[context_menu]` has two lists:
 
 - `items`: the menu for the clicked or selected items;
@@ -127,6 +131,10 @@ items = [
 ```
 
 ### The menu bar
+
+| File | Edit |
+|---|---|
+| ![The File menu](images/menu-file.png) | ![The Edit menu](images/menu-edit.png) |
 
 `[menu_bar]` lists the File menu's items (`file`) and the items at the end of the Edit menu
 (`edit`). An entry is an action name, `"-"`, or an action with a shortcut:

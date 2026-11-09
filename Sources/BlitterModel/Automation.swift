@@ -86,6 +86,7 @@ public extension Workspace {
         case "activate": try activate(params)
         case "preview": try previewJSON(params)
         case "run": try await runAutomated(params, client: client)
+        case "showMenu": try showMenu(params)
         default: throw .unknownMethod(method)
         }
     }

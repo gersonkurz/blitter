@@ -114,6 +114,10 @@ final class MainWindowController: NSWindowController {
         content.presentAsSheet(PatternSelectionSheet(workspace: workspace, side: workspace.activeSide))
     }
 
+    func fileList(of side: Side) -> FileListViewController? {
+        sideControllers.first { $0.side == side }?.fileList
+    }
+
     func focusPathField(of side: Side) {
         sideControllers.first { $0.side == side }?.focusPathField()
     }

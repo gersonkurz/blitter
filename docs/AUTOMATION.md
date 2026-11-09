@@ -40,6 +40,7 @@ its MCP server and the Python package all talk to Blitter this way (#27, #58).
 | `activate` | `side` | `activeSide` |
 | `preview` | `action`, `side` | what the action would do now: `items`, `destination`, `detail`, `effect`, `needsConfirmation`; nothing happens |
 | `run` | `action`, `side` | `done`, and `jobs`: each job's `state` (`finished`, `cancelled`) and `errors` (`path`, `message`) |
+| `showMenu` | `menu` (`context`, `File`, `Edit`, `View`, `Go`, `Tools`), `side`, `seconds` (5, at most 30) | `menu`, `side`, `seconds`; the menu opens over the side's list right after the answer and closes after `seconds` (for the manual's pictures) |
 
 **A side** in `state` and `navigate`:
 - `location`: where it is going;

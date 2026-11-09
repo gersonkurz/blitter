@@ -44,6 +44,69 @@ screenshots: generate
         -destination "{{destination}}" -derivedDataPath {{derived_data}} \
         -testLanguage en -testRegion US -only-testing:BlitterAppTests/ManualScreenshots | xcbeautify --quiet
 
+# The manual's pictures of open menus (#69): the real app, isolated (BLITTER_PROFILE), on demo
+# folders, driven over its automation socket. Needs Screen Recording for this terminal.
+menu-screenshots: (build "Debug")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    app="{{derived_data}}/Build/Products/Debug/Blitter.app"
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    swiftc -O tools/menu-window.swift -o "$work/menu-window"
+    set +e
+    "$work/menu-window" $$ >/dev/null 2>"$work/check" # 2: no Screen Recording permission
+    check=$?
+    set -e
+    if [ "$check" -eq 2 ]; then cat "$work/check" >&2; exit 2; fi
+    # Made by this run, or not at all: a folder of that name that is already there is left alone.
+    demo="/Users/Shared/Blitter Demo"
+    if ! mkdir "$demo" 2>/dev/null; then echo "$demo is already there; remove it first." >&2; exit 1; fi
+    trap 'rm -rf "$work" "$demo"' EXIT
+    stamp() { touch -t "$1" "$2"; }
+    file() { mkdir -p "$(dirname "$demo/$1")"; mkfile -n "$2" "$demo/$1"; stamp "$3" "$demo/$1"; }
+    file "Projects/blitter/README.md" 4812 202610281412
+    file "Projects/blitter/justfile" 3406 202610271412
+    file "Projects/blitter/project.yml" 2210 202610211412
+    file "Projects/blitter/LICENSE" 1067 202610021412
+    file "Projects/blitter/Sources/App.swift" 2048 202610300912
+    file "Projects/blitter/Tests/AppTests.swift" 1024 202610300912
+    file "Projects/blitter/docs/manual.md" 1024 202610280912
+    for number in 1 2 3 4 5 6; do
+        file "Pictures/Iceland 2026/IMG_$((4100 + number * 7)).jpg" $((3100000 + number * 211337)) 2026100$((3 + number))1412
+    done
+    # The folders' own dates, set after their files were made (which changed them).
+    stamp 202610300912 "$demo/Projects/blitter/Sources"
+    stamp 202610300912 "$demo/Projects/blitter/Tests"
+    stamp 202610280912 "$demo/Projects/blitter/docs"
+    profile="$demo/.profile"
+    mkdir -m 700 "$profile"
+    printf '[favorites]\nfolders = ["%s/Projects", "%s/Pictures", "/Applications"]\n' "$demo" "$demo" > "$profile/settings.toml"
+    BLITTER_PROFILE="$profile" "$app/Contents/MacOS/Blitter" >/dev/null 2>&1 &
+    pid=$!
+    trap 'kill $pid 2>/dev/null || true; rm -rf "$work" "$demo"' EXIT # never another Blitter
+    export BLITTER_SOCKET="$profile/automation.sock"
+    cli="$app/Contents/Helpers/blitter"
+    for _ in $(seq 50); do "$cli" state >/dev/null 2>&1 && break; sleep 0.2; done
+    "$cli" navigate left "$demo/Projects/blitter" >/dev/null
+    "$cli" navigate right "$demo/Pictures/Iceland 2026" >/dev/null
+    "$cli" activate left >/dev/null
+    shoot() { # name, params
+        "$cli" call showMenu "$2" >/dev/null
+        sleep 1.5
+        bounds=$("$work/menu-window" "$pid")
+        screencapture -x -R "$bounds" "docs/manual/images/$1.png"
+        sleep 3 # until it closed
+    }
+    "$cli" select left README.md >/dev/null
+    shoot menu-items '{"menu": "context", "side": "left", "seconds": 4}'
+    "$cli" select left >/dev/null # nothing selected: the folder's menu
+    shoot menu-folder '{"menu": "context", "side": "left", "seconds": 4}'
+    # Not Go: macOS shows ⌘[ and ⌘] as the keyboard layout types them (⌘Ö, ⌘Ä on a German one).
+    for menu in File Edit; do
+        shoot "menu-$(echo "$menu" | tr '[:upper:]' '[:lower:]')" "{\"menu\": \"$menu\", \"seconds\": 4}"
+    done
+    echo "Pictures of open menus in docs/manual/images (menu-*.png)."
+
 # Write the manual's generated reference pages (docs/manual/reference) from the code
 manual: generate
     TEST_RUNNER_BLITTER_WRITE_MANUAL=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Debug \

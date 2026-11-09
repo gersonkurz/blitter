@@ -8,7 +8,7 @@ final class SideViewController: NSSplitViewController {
     let side: Side
     private let workspace: Workspace
     private let tree: FolderTreeViewController
-    private let fileList: FileListViewController
+    let fileList: FileListViewController
 
     init(workspace: Workspace, side: Side) {
         self.workspace = workspace

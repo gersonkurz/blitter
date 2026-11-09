@@ -12,7 +12,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | Tab | switch the active side |
 | Return | open the selected folder or file |
 | ⌘↑ | enclosing folder |
-| ⌘[ / ⌘] | back / forward |
+| ⌘[ / ⌘] | back / forward (see below) |
 | ⇧⌘G | type a path into the active side's path field |
 | ⌃1 … ⌃9 | go to the first nine Favorites |
 | Escape | in the path field: drop what was typed |
@@ -57,5 +57,8 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | ⌘+ / ⌘− / ⌘0 | larger / smaller / default font size (also Ctrl + mouse wheel) |
 | ⌘, | Settings… |
 | ⌘S | in Settings: save |
+
+On a keyboard without [ and ] keys of their own (a German one, for example), macOS moves ⌘[ and
+⌘] to keys you can type, such as ⌘Ö and ⌘Ä; the Go menu shows the ones for your keyboard.
 
 [Back to the contents](index.md)

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let stateStore = StateStore()
     /// Starts where the last session ended.
     lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
+        : AppEnvironment.isProfile ? Workspace(settingsFile: UserPaths.settingsFile)
         : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
     private(set) var windowController: MainWindowController?
     /// The automation socket (#58), while the app runs.
@@ -48,7 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             guard let self else {
                 return
             }
-            stateStore.save(workspace.savedState)
+            if !AppEnvironment.isProfile {
+                stateStore.save(workspace.savedState)
+            }
             updateMenuBar() // the settings file may have changed the menus
             SettingsWindowController.current?.model.workspaceChanged()
         }
