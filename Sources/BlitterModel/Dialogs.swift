@@ -16,6 +16,8 @@ public struct DialogRequest: Equatable, Sendable {
     public static let gitSync = "git-sync"
     /// Commit (and push) the changes of the working copy a path is in (#44).
     public static let gitCommit = "git-commit"
+    /// Clone a repository into a folder (#70).
+    public static let gitClone = "git-clone"
 }
 
 extension Workspace {

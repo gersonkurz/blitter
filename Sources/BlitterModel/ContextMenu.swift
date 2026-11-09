@@ -26,7 +26,7 @@ public struct ContextMenus: Equatable, Sendable {
         ],
         folder: [
             .action("new-folder"), .action("folder-sizes"), .separator, .action("copy-folder-path"),
-            .action("compare-folders"),
+            .action("compare-folders"), .action("git-clone"),
             .action("git-log"), .action("git-commit"), .action("git-sync"), .separator,
             .action("open-in-terminal"), .action("open-in-code"),
         ]

@@ -63,8 +63,8 @@ on = "files"
 # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
 # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
 # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, compare-files,
-# compare-folders, undo, git-log, git-commit and git-sync (only inside a git working copy), and
-# the tools above.
+# compare-folders, undo, git-clone, git-log, git-commit and git-sync (only inside a git working
+# copy), and the tools above.
 [context_menu]
 # For the clicked or selected items.
 items = [
@@ -77,7 +77,7 @@ items = [
 # For the folder itself (a click on empty space).
 folder = [
     "new-folder", "folder-sizes", "-",
-    "copy-folder-path", "compare-folders", "git-log", "git-commit", "git-sync", "-",
+    "copy-folder-path", "compare-folders", "git-clone", "git-log", "git-commit", "git-sync", "-",
     "open-in-terminal", "open-in-code",
 ]
 

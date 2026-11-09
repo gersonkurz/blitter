@@ -196,6 +196,22 @@ extension Workspace {
         select([name], in: folder, on: side)
     }
 
+    /// Every side that shows `folder` reads it again and then selects `names`. A fast filter
+    /// that lists only some names ends first: what is to be selected must be seen (#70 review).
+    func selectAfterReading(_ folder: String, _ names: Set<String>) -> Bool {
+        var changed = false
+        for side in Side.allCases where sides[side]?.location == folder {
+            if sides[side]?.listFilter != nil {
+                _ = setQuickFilter(side, nil)
+            }
+            if select(names, in: folder, on: side) {
+                load(side)
+                changed = true
+            }
+        }
+        return changed
+    }
+
     /// The same for several names (a batch rename's): those the listing shows are selected.
     @discardableResult
     func select(_ names: Set<String>, in folder: String, on side: Side) -> Bool {

@@ -231,6 +231,10 @@ public struct ActionRegistry: Sendable {
             let pair = ActionScope.pair(workspace.state(of: side), workspace.state(of: side.opposite), on: side)
             return .compare(left: pair?.0 ?? "", right: pair?.1 ?? "")
         },
+        // #70: clone a repository into the side's folder; any folder, not only a working copy.
+        Action("git-clone", "Git Clone…", scope: .folder, worksInFind: false, effect: .view) { workspace, side in
+            .present(DialogRequest(kind: DialogRequest.gitClone, path: workspace.state(of: side).entriesLocation))
+        },
         // #42: the history of the selected item, or of the side's folder.
         Action("git-log", "Git Log…", scope: .workingCopy, effect: .view) { workspace, side in
             .present(DialogRequest(kind: DialogRequest.gitLog, path: workspace.workingCopyTarget(on: side)))

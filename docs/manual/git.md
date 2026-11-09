@@ -26,6 +26,23 @@ Untracked, Ignored, or ↑2 ↓1 for commits ahead and behind.
 **Color git working copies by their state** in [Settings](settings.md) turns all of this off;
 then Blitter does not run git at all.
 
+## Git Clone
+
+**Git Clone…** clones a repository into a folder. It is in the folder's context menu (a
+right-click on empty space in a list, or on a folder in the tree), in any folder, not only in a
+working copy.
+
+- **Repository**: the address, e.g. `https://github.com/me/project.git` or
+  `git@github.com:me/project.git`. A folder on your Mac works too.
+- **Folder name**: taken from the address until you type one of your own.
+- **Clone** runs git as a job (in the strip at the bottom, with Cancel); the window shows git's
+  output. When it is done, the window closes and the new folder is selected (a fast filter that would
+  hide it ends). If it fails, the
+  window says why.
+
+Git runs without a terminal to ask in: for a private repository, the credentials must come from
+your SSH keys or the macOS keychain, as for Git Sync.
+
 ## Git Log, Git Commit and Git Sync
 
 All three are in the context menus, inside a working copy. They act on the one selected item,

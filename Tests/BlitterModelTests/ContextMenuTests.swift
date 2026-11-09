@@ -25,6 +25,7 @@ struct ContextMenuSettingsTests {
             .separator,
             .action("copy-folder-path"),
             .action("compare-folders"),
+            .action("git-clone"),
             .action("git-log"),
             .action("git-commit"),
             .action("git-sync"),
@@ -106,7 +107,16 @@ struct ContextMenuTests {
             } else {
                 "-"
             }
-        } == ["new-folder", "folder-sizes", "-", "copy-folder-path", "compare-folders", "-", "open-in-terminal",
-              "open-in-code"])
+        } == [
+            "new-folder",
+            "folder-sizes",
+            "-",
+            "copy-folder-path",
+            "compare-folders",
+            "git-clone",
+            "-",
+            "open-in-terminal",
+            "open-in-code",
+        ])
     }
 }

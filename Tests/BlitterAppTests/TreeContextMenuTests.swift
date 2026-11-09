@@ -48,7 +48,8 @@ final class TreeContextMenuTests {
     @Test func aRightClickOnAFolderGoesThereAndOffersItsFolderActions() async throws {
         let shown = try open(rightClickOn: "Documents")
         #expect(shown == [
-            "New Folder", "Calculate Folder Sizes", "-", "Copy Path", "Compare Folders", "-", "Open in Terminal",
+            "New Folder", "Calculate Folder Sizes", "-", "Copy Path", "Compare Folders", "Git Clone…", "-",
+            "Open in Terminal",
             "Open in Code", "-", "Move Up in Favorites", "Move Down in Favorites", "Remove from Favorites",
         ]) // Documents is one of the default favorites
         #expect(workspace.state(of: .left).location == "/home/Documents")

@@ -62,7 +62,8 @@ final class ContextMenuInteractionTests {
         let shown = try open(mouse: .rightMouseDown, at: NSPoint(x: 50, y: below))
         #expect(workspace.state(of: .right).selection.isEmpty)
         #expect(shown == [
-            "New Folder", "Calculate Folder Sizes", "-", "Copy Path", "Compare Folders", "-", "Open in Terminal",
+            "New Folder", "Calculate Folder Sizes", "-", "Copy Path", "Compare Folders", "Git Clone…", "-",
+            "Open in Terminal",
             "Open in Code",
         ])
     }
@@ -84,6 +85,7 @@ final class ContextMenuInteractionTests {
             "-",
             "Copy Path",
             "Compare Folders",
+            "Git Clone…",
             "-",
             "Open in Terminal",
             "Open in Code",

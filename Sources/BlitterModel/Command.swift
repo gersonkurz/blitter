@@ -34,6 +34,9 @@ public enum Command: Sendable {
     case setQuickFilter(Side, QuickFilter?)
     /// Select the next or previous highlighted item.
     case selectQuickFilterMatch(Side, forward: Bool)
+    /// Select these names on every side that shows `folder`, once it has been read again (e.g.
+    /// the folder a clone made, #70).
+    case selectAfterReading(folder: String, names: Set<String>)
     /// Replace the side's selection with these entry names.
     case select(Side, Set<String>)
     /// Add the items whose names match a pattern ("*.jpg; *.png") to the side's selection, or

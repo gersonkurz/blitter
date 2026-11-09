@@ -223,6 +223,7 @@ public final class Workspace {
         case let .removeFavorite(path): removeFavorite(path)
         case let .moveFavorite(path, offset): moveFavorite(path, by: offset)
         case let .undo(entry): undo(entry)
+        case let .selectAfterReading(folder, names): selectAfterReading(folder, names)
         case .copyToOtherSide: transferSelection(move: false)
         case .moveToOtherSide: transferSelection(move: true)
         case let .copyItems(paths, folder): transfer(paths, into: folder, move: false)

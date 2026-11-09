@@ -25,6 +25,7 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `new-folder` | New Folder | the side's folder |
 | `copy-folder-path` | Copy Path | the side's folder |
 | `compare-files` | Compare Files | two files: two selected on one side, or one on each side |
+| `git-clone` | Git Clone… | the side's folder |
 | `git-log` | Git Log… | the folder or its one selected item, inside a git working copy |
 | `git-sync` | Git Sync… | the folder or its one selected item, inside a git working copy |
 | `git-commit` | Git Commit… | the folder or its one selected item, inside a git working copy |

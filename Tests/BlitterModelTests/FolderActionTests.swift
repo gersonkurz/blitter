@@ -18,6 +18,7 @@ struct FolderActionTests {
             "-",
             "copy-folder-path",
             "compare-folders",
+            "git-clone",
             "-",
             "open-in-terminal",
             "open-in-code",
