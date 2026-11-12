@@ -49,3 +49,42 @@ struct VolumesTests {
         #expect(await freeSpace(at: "/no/such/path") == nil)
     }
 }
+
+/// #84: Eject on a real volume: a disk image made and mounted for the test.
+struct EjectVolumeTests {
+    @Test func aMountedImageIsEjectedAFolderIsNot() async throws {
+        let folder = NSTemporaryDirectory() + "BlitterEject-" + UUID().uuidString
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: folder) }
+        let image = folder + "/test.dmg"
+        let mount = folder + "/mnt"
+        try hdiutil("create", "-size", "4m", "-fs", "HFS+", "-volname", "BlitterEject", "-quiet", image)
+        try hdiutil("attach", "-nobrowse", "-quiet", "-mountpoint", mount, image)
+        defer { try? hdiutil("detach", "-force", "-quiet", mount) } // only if the eject failed
+        #expect(isMountPoint(mount))
+
+        try await ejectVolume(at: mount)
+        #expect(!isMountPoint(mount))
+        // A folder that is no volume: the system says why, nothing else happens.
+        await #expect(throws: (any Error).self) { try await ejectVolume(at: folder) }
+    }
+
+    /// A mount point is on another device than the folder it is in.
+    private func isMountPoint(_ path: String) -> Bool {
+        var inner = stat()
+        var outer = stat()
+        return stat(path, &inner) == 0 && stat((path as NSString).deletingLastPathComponent, &outer) == 0
+            && inner.st_dev != outer.st_dev
+    }
+
+    private func hdiutil(_ arguments: String...) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        process.arguments = arguments
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw POSIXError(.EIO)
+        }
+    }
+}

@@ -88,7 +88,8 @@ items = [
 folder = [
     "new-folder", "folder-sizes", "-",
     "copy-folder-path", "add-to-favorites", "compare-folders", "git-clone", "git-log", "git-commit", "git-sync", "git-clean", "-",
-    "open-in-terminal", "open-in-code",
+    "open-in-terminal", "open-in-code", "-",
+    "eject",
 ]
 
 # The menu bar's action items: the File menu, and the Edit menu after its own items. An entry
@@ -105,6 +106,7 @@ file = [
     { action = "move-to-other-side", key = "f6" },
     { action = "reveal-in-finder", key = "opt+cmd+r" },
     { action = "folder-sizes", key = "opt+cmd+s" },
+    { action = "eject", key = "cmd+e" },
     "-",
     { action = "compare-files", key = "opt+cmd+d" },
     { action = "compare-folders", key = "shift+opt+cmd+d" },

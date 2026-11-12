@@ -28,17 +28,24 @@ public enum ActionScope: Hashable, Sendable {
     case lastChange
     /// The one selected folder, or the side's folder when nothing is selected (#72).
     case oneFolder
+    /// The side's folder is on a volume that can be ejected: one in the tree's Volumes, not the
+    /// startup disk (#84).
+    case volume
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
     var worksOnFolder: Bool {
-        [.folder, .selectionOrFolder, .bothFolders, .workingCopy, .folders].contains(self)
+        [.folder, .selectionOrFolder, .bothFolders, .workingCopy, .folders, .volume].contains(self)
     }
 
     /// `inWorkingCopy`: the side's folder is in a git working copy the workspace knows.
     /// `canUndo`: the workspace has a file operation to undo (#61).
-    func fits(_ state: SideState, other: SideState, inWorkingCopy: Bool = false, canUndo: Bool = false) -> Bool {
+    /// `onVolume`: the side's folder is on a volume that can be ejected (#84).
+    func fits(_ state: SideState, other: SideState, inWorkingCopy: Bool = false, canUndo: Bool = false,
+              onVolume: Bool = false) -> Bool
+    {
         switch self {
+        case .volume: onVolume
         case .workingCopy: inWorkingCopy && state.status == .loaded && state.selection.count <= 1
         case .filePair: Self.pair(state, other, on: .left) != nil // the order does not matter here
         case .bothFolders: [state, other].allSatisfy { $0.status == .loaded && $0.entriesLocation == $0.location }
@@ -261,6 +268,10 @@ public struct ActionRegistry: Sendable {
             let name = state.selection.first.map { Paths.appending($0, to: state.entriesLocation) }
             return .addFavorite(name ?? state.entriesLocation)
         },
+        // #84: the volume the side's folder is on, as Finder's Eject.
+        Action("eject", "Eject", scope: .volume, worksInFind: false) { workspace, side in
+            .eject(workspace.ejectableVolume(containing: workspace.state(of: side).location)?.path ?? "")
+        },
         Action("undo", "Undo", scope: .lastChange) { workspace, _ in
             .undo(entry: workspace.lastUndo?.id ?? 0)
         },
@@ -278,9 +289,11 @@ public extension Workspace {
     func actions(for side: Side) -> [Action] {
         let (here, other) = (state(of: side), state(of: side.opposite))
         let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
+        let onVolume = ejectableVolume(containing: here.location) != nil
         return actionRegistry.all.filter {
             (here.find == nil || $0.worksInFind)
-                && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy, canUndo: canUndo)
+                && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy, canUndo: canUndo,
+                                 onVolume: onVolume)
                 && $0.fitsFileTypes(here)
         }
     }
@@ -294,15 +307,21 @@ public extension Workspace {
         // Menus ask this for every item: only a working-copy action needs to know whether its
         // target is in a working copy (#46).
         let inWorkingCopy = scope == .workingCopy && workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
+        let onVolume = scope == .volume && ejectableVolume(containing: state(of: side).location) != nil
         return scope.fits(state(of: side), other: state(of: side.opposite), inWorkingCopy: inWorkingCopy,
-                          canUndo: canUndo)
+                          canUndo: canUndo, onVolume: onVolume)
             && action.fitsFileTypes(state(of: side))
     }
 
     internal func runFolderAction(_ id: String, on side: Side, folder: String) -> Bool {
         let state = state(of: side)
-        guard actionRegistry.action(id)?.worksOnFolder == true, state.location == folder else {
+        guard let action = actionRegistry.action(id), action.worksOnFolder, state.location == folder else {
             return false // only folder actions, and only while the side still shows that folder
+        }
+        // Eject needs the volume, not its listing: a volume that cannot be read, or stalls, is
+        // just the one to eject (#84 review).
+        if action.scope == .volume {
+            return runAction(id, on: side)
         }
         if state.entriesLocation == folder, state.status == .loaded {
             return runOnFolder(id, on: side)

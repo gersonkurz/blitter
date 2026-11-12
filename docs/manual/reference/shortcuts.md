@@ -15,6 +15,7 @@ settings file's `[menu_bar]` changes them.
 | Move to Other Side | `F6` | `move-to-other-side` |
 | Reveal in Finder | `⌥⌘R` | `reveal-in-finder` |
 | Calculate Folder Sizes | `⌥⌘S` | `folder-sizes` |
+| Eject | `⌘E` | `eject` |
 | Compare Files | `⌥⌘D` | `compare-files` |
 | Compare Folders | `⌥⇧⌘D` | `compare-folders` |
 | Move to Trash | `⌘⌫` | `move-to-trash` |

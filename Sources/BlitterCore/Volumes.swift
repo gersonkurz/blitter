@@ -98,3 +98,12 @@ public func freeSpace(at path: String) async -> Int64? {
         }
     }
 }
+
+/// Unmounts the volume mounted at `path` and ejects its disk, all its volumes with it, as Finder's
+/// Eject does (#84). Never blocks the caller: it waits for the system, which may take a while for
+/// a busy or network volume. Throws with the system's reason, e.g. that an app still uses it;
+/// macOS shows no dialog of its own.
+public func ejectVolume(at path: String) async throws {
+    try await FileManager.default.unmountVolume(at: URL(fileURLWithPath: path, isDirectory: true),
+                                                options: [.allPartitionsAndEjectDisk, .withoutUI])
+}

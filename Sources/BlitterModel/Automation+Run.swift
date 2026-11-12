@@ -157,6 +157,9 @@ extension Workspace {
             (items, detail) = (entry?.items ?? [], entry.map { "Undo " + $0.title })
         case let .present(request):
             (items, detail) = ([request.path], request.kind)
+        case let .eject(volume):
+            // Not the selection: the volume, and that its disk goes with it (#84 review).
+            (items, detail) = ([volume], "eject this volume, and every other volume on its disk")
         default:
             items = selected
         }

@@ -31,6 +31,7 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `git-clean` | Git Clean… | the folder or its one selected item, inside a git working copy |
 | `git-commit` | Git Commit… | the folder or its one selected item, inside a git working copy |
 | `add-to-favorites` | Add to Favorites | the one selected folder, or the side's folder when nothing is selected |
+| `eject` | Eject | the volume the side's folder is on, if it is not the startup disk |
 | `undo` | Undo | the last file operation, while one can be undone |
 | `compare-folders` | Compare Folders | both sides' folders |
 

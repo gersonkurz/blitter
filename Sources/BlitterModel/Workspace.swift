@@ -238,6 +238,7 @@ public final class Workspace {
         case let .runCommand(arguments, folder): runCommand(arguments, in: folder)
         case let .compare(left, right): compare(left, right)
         case let .present(request): present(request)
+        case let .eject(path): eject(path)
         case let .togglePreview(side): togglePreview(side)
         case let .copyToPasteboard(side): withSelection(side, system.copyToPasteboard)
         case let .copyPaths(side): withSelection(side) { system.copyText($0.map(\.path).joined(separator: "\n")) }
@@ -273,21 +274,6 @@ extension Workspace {
         load(side)
         revealInTree(side, preferredRoot: nil)
         notifyChange()
-    }
-
-    /// Reads the side's folder again if it shows one of `folders`; a search (#48) runs again if
-    /// one of them is below the folder it searched.
-    func reload(showing folders: Set<String>) {
-        for side in Side.allCases {
-            guard let state = sides[side] else {
-                continue
-            }
-            let shows = state.find == nil ? folders.contains(state.location)
-                : folders.contains { $0 == state.location || Paths.contains($0, in: state.location) }
-            if shows {
-                load(side)
-            }
-        }
     }
 
     func load(_ side: Side) {

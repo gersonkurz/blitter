@@ -78,6 +78,9 @@ public enum Command: Sendable {
     case revealInFinder(Side)
     /// Open items with an app (an external tool, #18); a failure becomes a notice naming `title`.
     case openWithApp(String, paths: [String], title: String)
+    /// Eject the volume mounted at the path, one of the tree's volumes but not the startup disk
+    /// (#84); a failure becomes a notice.
+    case eject(String)
     /// Open a dialog or window for a path (#42: the Git Log): the app shows it.
     case present(DialogRequest)
     /// Show two files or two folders side by side in the diff tool (#40).

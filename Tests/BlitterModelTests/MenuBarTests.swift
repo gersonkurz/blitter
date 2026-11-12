@@ -34,6 +34,7 @@ struct MenuBarTests {
             "move-to-other-side",
             "reveal-in-finder",
             "folder-sizes",
+            "eject", // #84
             "compare-files",
             "compare-folders",
             "move-to-trash",

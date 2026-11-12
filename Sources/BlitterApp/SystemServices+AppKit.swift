@@ -1,4 +1,5 @@
 import AppKit
+import BlitterCore
 import BlitterModel
 
 /// The AppKit side of the Model's system services.
@@ -36,6 +37,15 @@ extension SystemServices {
         }
         services.openWithApp = { app, paths, failed in ExternalApps.open(paths, with: app, failed: failed) }
         services.present = DialogHost.present
+        services.eject = { path, failed in
+            Task {
+                do {
+                    try await ejectVolume(at: path)
+                } catch {
+                    failed(error.localizedDescription) // the Task is the main actor's; the eject itself is not
+                }
+            }
+        }
         services.showMenu = { [weak window] menu, side, seconds in window?.showMenu(menu, side: side, for: seconds) }
         services.copyText = { text in
             NSPasteboard.general.clearContents()

@@ -35,6 +35,8 @@ struct ContextMenuSettingsTests {
             .separator,
             .action("open-in-terminal"),
             .action("open-in-code"),
+            .separator,
+            .action("eject"), // #84
         ])
         #expect(Settings.parse(Settings.defaultFile) == (Settings(), []))
     }

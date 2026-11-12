@@ -31,7 +31,7 @@ public struct ContextMenus: Equatable, Sendable {
             .action("add-to-favorites"),
             .action("compare-folders"), .action("git-clone"),
             .action("git-log"), .action("git-commit"), .action("git-sync"), .action("git-clean"), .separator,
-            .action("open-in-terminal"), .action("open-in-code"),
+            .action("open-in-terminal"), .action("open-in-code"), .separator, .action("eject"),
         ]
     )
 
@@ -100,8 +100,9 @@ public extension Workspace {
     /// folder inside a known working copy (#42).
     func treeContextMenu(for folder: String) -> [ShownMenuEntry] {
         let inWorkingCopy = workingCopyRoot(containing: folder) != nil
+        let onVolume = ejectableVolume(containing: folder) != nil
         return shown(settings.contextMenus.folder) {
-            $0.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy)
+            $0.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy) && ($0.scope != .volume || onVolume)
         }
     }
 

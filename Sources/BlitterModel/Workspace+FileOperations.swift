@@ -310,3 +310,20 @@ public struct SelectedItem: Equatable, Sendable {
         Paths.lastComponent(of: path)
     }
 }
+
+extension Workspace {
+    /// Reads the side's folder again if it shows one of `folders`; a search (#48) runs again if
+    /// one of them is below the folder it searched.
+    func reload(showing folders: Set<String>) {
+        for side in Side.allCases {
+            guard let state = sides[side] else {
+                continue
+            }
+            let shows = state.find == nil ? folders.contains(state.location)
+                : folders.contains { $0 == state.location || Paths.contains($0, in: state.location) }
+            if shows {
+                load(side)
+            }
+        }
+    }
+}

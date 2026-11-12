@@ -46,7 +46,11 @@ The arrow at the right of the path field still lists the side's last 20 folders 
 The tree has three sections:
 
 - **Favorites**: Home, Desktop, Documents, Downloads and Applications to start with.
-- **Volumes**: the mounted disks, updated when one is mounted or ejected.
+- **Volumes**: the mounted disks, updated when one is mounted or ejected. To eject one, choose
+  **Eject** in its context menu, or press **⌘E** (File → Eject) while a side shows a folder on
+  it. The startup disk cannot be ejected. If something still uses the volume, Blitter shows why
+  macOS refused. A settings file saved before Blitter had Eject keeps its old menus: use **Reset
+  to Default** in [Tools & Menus](tools-and-menus.md#menus-in-the-settings-window) to get it.
 - **Cloud**: iCloud Drive and the cloud drives in `~/Library/CloudStorage` (Dropbox, Google
   Drive, OneDrive and others).
 

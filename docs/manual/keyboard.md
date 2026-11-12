@@ -49,6 +49,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | ⌥⌘S | calculate folder sizes |
 | ⌥⌘D / ⌥⇧⌘D | compare files / compare the two sides' folders |
 | ⌥⌘R | reveal in Finder |
+| ⌘E | eject the volume the side is on |
 
 ## View and settings
 

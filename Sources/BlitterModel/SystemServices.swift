@@ -22,6 +22,9 @@ public struct SystemServices {
     public var present: (DialogRequest) -> Void = { _ in }
     /// Put plain text on the clipboard (paths or names, #16).
     public var copyText: (String) -> Void = { _ in }
+    /// Eject the volume mounted at the path (#84) without waiting for it; calls back on the main
+    /// actor with the reason if it could not be ejected.
+    public var eject: (_ path: String, _ failed: @escaping @MainActor (String) -> Void) -> Void = { _, _ in }
     /// Open a menu for a while, then close it again (the manual's menu screenshots, #69).
     public var showMenu: (_ menu: ShownMenu, _ side: Side, _ seconds: Double) -> Void = { _, _, _ in }
 
