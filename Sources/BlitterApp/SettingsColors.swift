@@ -10,25 +10,21 @@ struct ColorSettings: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            SchemeChooser(title: "Light mode", name: $theme.light, darkFirst: false, theme: theme)
-            SchemeChooser(title: "Dark mode", name: $theme.dark, darkFirst: true, theme: theme)
+            SchemeChooser(title: "Light mode", name: $theme.light, isDark: false, theme: theme)
+            SchemeChooser(title: "Dark mode", name: $theme.dark, isDark: true, theme: theme)
         }
         .padding()
     }
 }
 
-/// One mode's scheme: System, then the built-in schemes of that mode, then the others.
+/// One mode's scheme: System, then the built-in schemes of that mode (#78).
 struct SchemeChooser: View {
     let title: String
     @Binding var name: String
-    let darkFirst: Bool
+    let isDark: Bool
     /// For the roles, and the settings' own schemes, which win over built-in ones of the same name.
     let theme: ThemeSettings
     @State private var other = ""
-
-    private var builtIn: [BuiltInScheme] {
-        BuiltInScheme.all.filter { $0.isDark == darkFirst } + BuiltInScheme.all.filter { $0.isDark != darkFirst }
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -36,7 +32,7 @@ struct SchemeChooser: View {
             ScrollViewReader { scroller in
                 List(selection: Binding<String?>(get: { name }, set: { $0.map { name = $0 } })) {
                     Text("System (macOS's colors)").tag("system").id("system")
-                    ForEach(builtIn) { scheme in
+                    ForEach(BuiltInScheme.choices(dark: isDark, chosen: name)) { scheme in
                         HStack {
                             Swatches(scheme: theme.scheme(named: scheme.id) ?? scheme.scheme)
                             Text(scheme.title)

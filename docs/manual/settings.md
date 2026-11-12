@@ -69,8 +69,9 @@ colors, and the chosen one shows a few rows of a list as Blitter will draw them.
 macOS's own colors.
 
 - **Built in:** 22 schemes, among them Tomorrow Night Blue, Nord, Dracula, Gruvbox, Catppuccin,
-  Rosé Pine, One Dark and Solarized. The light ones come first in the light mode's list, the dark
-  ones in the dark mode's.
+  Rosé Pine, One Dark and Solarized. The light mode's list shows the light ones, the dark mode's
+  the dark ones. A scheme the file sets for the other mode (say, a light one for dark mode) is
+  still shown in that list, so you can see what is chosen.
 - **Other:** type the name of any scheme of the
   [tinted-theming collection](https://tinted-theming.github.io/tinted-gallery/) (e.g.
   `gruvbox-material-dark-hard`; it is downloaded once and kept in the `schemes` folder next to the

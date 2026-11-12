@@ -22,6 +22,18 @@ struct BuiltInSchemesTests {
         #expect(darkOnes)
     }
 
+    /// #78: each mode's list has only that mode's schemes, and the chosen one wherever it is from.
+    @Test func eachModeListsItsOwnSchemesAndTheChosenOne() {
+        let lights = BuiltInScheme.choices(dark: false, chosen: "system")
+        let darks = BuiltInScheme.choices(dark: true, chosen: "nord")
+        #expect(!lights.isEmpty && lights.allSatisfy { !$0.isDark })
+        #expect(!darks.isEmpty && darks.allSatisfy(\.isDark))
+        #expect(lights.count + darks.count == BuiltInScheme.all.count)
+        // A light scheme the file sets for dark mode is in the dark list too.
+        let mixed = BuiltInScheme.choices(dark: true, chosen: "rose-pine-dawn")
+        #expect(mixed.count == darks.count + 1 && mixed.contains { $0.id == "rose-pine-dawn" })
+    }
+
     /// A built-in name in the settings file is resolved at once: no download, no problem.
     @Test func aBuiltInNameNeedsNoDownload() async {
         var settings = Settings()
