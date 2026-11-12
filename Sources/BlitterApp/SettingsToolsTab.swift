@@ -11,6 +11,9 @@ struct ToolsSettings: View {
     @Binding var inputProblems: [String: String]
     @Binding var pane: Pane
     @Binding var menuPath: [Int]
+    /// The window's count of menu resets: part of each editor's identity (#76).
+    let resets: Int
+    let reset: (EditableMenu) -> Void
 
     enum Pane: CaseIterable {
         case tools, itemsMenu, folderMenu, fileMenu, editMenu
@@ -22,6 +25,17 @@ struct ToolsSettings: View {
             case .folderMenu: "Context Menu for the Folder"
             case .fileMenu: "File Menu"
             case .editMenu: "Edit Menu"
+            }
+        }
+
+        /// The menu this pane edits; the tools are none.
+        var menu: EditableMenu? {
+            switch self {
+            case .tools: nil
+            case .itemsMenu: .items
+            case .folderMenu: .folder
+            case .fileMenu: .file
+            case .editMenu: .edit
             }
         }
 
@@ -43,28 +57,57 @@ struct ToolsSettings: View {
                 ForEach(Pane.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .fixedSize()
-            Text(pane.note).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(pane.note).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if let menu = pane.menu {
+                    // #76: a file saved before an action existed keeps the menu it had.
+                    Button("Reset to Default") { reset(menu) }
+                        .disabled(draft.isDefault(menu))
+                        .help("Put this menu back as it comes with Blitter, with any actions added since. "
+                            + "Revert undoes it until you save.")
+                }
+            }
             switch pane {
             case .tools:
                 ToolsEditor(settings: $draft)
             case .itemsMenu:
-                MenuEditor(menu: $draft.contextMenus.items, choices: draft.actionChoices, path: $menuPath).id(pane)
+                MenuEditor(menu: $draft.contextMenus.items, choices: draft.actionChoices, path: $menuPath)
+                    .id(EditorID(pane: pane, resets: resets))
             case .folderMenu:
-                MenuEditor(menu: $draft.contextMenus.folder, choices: draft.actionChoices, path: $menuPath).id(pane)
+                MenuEditor(menu: $draft.contextMenus.folder, choices: draft.actionChoices, path: $menuPath)
+                    .id(EditorID(pane: pane, resets: resets))
             case .fileMenu:
-                MenuBarEditor(items: $draft.menuBar.file, choices: draft.actionChoices,
-                              problem: problem("File menu")).id(pane)
+                MenuBarEditor(items: $draft.menuBar.file, choices: draft.actionChoices, problem: problem(.file))
+                    .id(EditorID(pane: pane, resets: resets))
             case .editMenu:
-                MenuBarEditor(items: $draft.menuBar.edit, choices: draft.actionChoices,
-                              problem: problem("Edit menu")).id(pane)
+                MenuBarEditor(items: $draft.menuBar.edit, choices: draft.actionChoices, problem: problem(.edit))
+                    .id(EditorID(pane: pane, resets: resets))
             }
         }
         .padding()
         .onChange(of: pane) { menuPath = [] } // each menu starts at its top
     }
 
-    private func problem(_ key: String) -> Binding<String?> {
-        Binding(get: { inputProblems[key] }, set: { inputProblems[key] = $0 })
+    /// The key of what a menu's shortcut field holds that is no shortcut yet; context menus
+    /// have no shortcuts.
+    static func inputKey(_ menu: EditableMenu) -> String? {
+        switch menu {
+        case .file: "File menu"
+        case .edit: "Edit menu"
+        case .items, .folder: nil
+        }
+    }
+
+    private func problem(_ menu: EditableMenu) -> Binding<String?> {
+        let key = Self.inputKey(menu) ?? ""
+        return Binding(get: { inputProblems[key] }, set: { inputProblems[key] = $0 })
+    }
+
+    /// A menu editor is made anew for another pane, and after a reset.
+    private struct EditorID: Hashable {
+        let pane: Pane
+        let resets: Int
     }
 }
 

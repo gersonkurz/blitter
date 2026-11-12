@@ -35,6 +35,10 @@ A new tool has no app yet; the window says so, and **Save** waits until it has o
 - In the File and Edit menus, select an item to type its **Shortcut**, such as `shift+cmd+h` or
   `f7`; the list shows it as the menu will (⇧⌘H). **Alternate** shows the item in place of the
   one before it while the extra modifier key is held.
+- **Reset to Default** puts the menu shown back as it comes with Blitter, replacing your
+  changes to that menu. A settings file keeps the menus it had when it was saved, so actions added in a
+  later version of Blitter only show up in a menu after a reset (or once you add them).
+  **Revert** undoes the reset until you save.
 
 **Save** writes the settings file. The sections below show what the same settings look like
 in the file.

@@ -122,4 +122,31 @@ struct ToolsEditingTests {
         #expect(Shortcut("shift+cmd+n")?.text == "shift+cmd+n")
         #expect(Shortcut("cmd+") == nil)
     }
+
+    /// #76: a file saved before an action existed keeps its old menus; Reset to Default brings
+    /// one menu back as Blitter has it now, and leaves the others alone.
+    @Test func aMenuIsResetToTheDefaultAlone() {
+        let frozen = """
+        [context_menu]
+        items = ["open", "-", "rename"]
+        folder = ["new-folder"]
+        [menu_bar]
+        edit = [{ action = "copy-path", key = "opt+cmd+c" }]
+        """
+        var settings = Settings.parse(frozen).settings
+        let before = settings
+        #expect(!settings.isDefault(.items) && !settings.isDefault(.folder) && !settings.isDefault(.edit))
+        #expect(settings.isDefault(.file)) // the file has no File menu: it is the default
+
+        settings.resetToDefault(.items)
+        #expect(settings.isDefault(.items))
+        #expect(settings.contextMenus.items.contains(.action("add-to-favorites")))
+        #expect(settings.contextMenus.folder == before.contextMenus.folder && settings.menuBar == before.menuBar)
+
+        settings.resetToDefault(.folder)
+        settings.resetToDefault(.edit)
+        #expect(EditableMenu.allCases.allSatisfy(settings.isDefault))
+        #expect(settings == Settings()) // nothing else in the file differed
+        #expect(settings.problems.isEmpty)
+    }
 }

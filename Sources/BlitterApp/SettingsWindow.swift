@@ -120,6 +120,20 @@ final class SettingsWindowModel {
         inputProblems = [:]
     }
 
+    /// How often a menu was reset: the menu editors are made anew each time, so no field keeps
+    /// text typed for the menu that was (#76).
+    private(set) var menuResets = 0
+
+    /// Reset to Default (#76): the menu as Blitter has it now, and nothing half typed for the old one.
+    func resetMenu(_ menu: EditableMenu) {
+        menuPath = []
+        if let key = ToolsSettings.inputKey(menu) {
+            inputProblems[key] = nil
+        }
+        draft.resetToDefault(menu)
+        menuResets += 1
+    }
+
     func openFile() {
         workspace.perform(.openSettingsFile)
     }
@@ -207,7 +221,8 @@ struct SettingsView: View {
                 case .colors: ColorSettings(theme: $model.draft.theme)
                 case .compare: CompareSettings(tool: $model.draft.diffTool)
                 case .tools: ToolsSettings(draft: $model.draft, inputProblems: $model.inputProblems,
-                                           pane: $model.toolsPane, menuPath: $model.menuPath)
+                                           pane: $model.toolsPane, menuPath: $model.menuPath,
+                                           resets: model.menuResets, reset: model.resetMenu)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

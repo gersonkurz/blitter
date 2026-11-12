@@ -129,6 +129,33 @@ extension SettingsWindowTests {
         #expect(field.stringValue.isEmpty) // copy-path's (no) shortcut, not the text typed for rename
     }
 
+    /// #76: Reset to Default drops what was half typed for the menu that was, even when the
+    /// default has as many items and the selected one keeps its shortcut (review of #76).
+    @Test func resetDropsAHalfTypedShortcut() async throws {
+        var custom = Settings()
+        let rename = try #require(custom.menuBar.file.firstIndex(of: .action("rename", shortcut: Shortcut("f2"),
+                                                                             alternate: false)))
+        custom.menuBar.file[rename] = .action("rename", shortcut: Shortcut("f3"), alternate: false)
+        try Settings.fileText(custom).write(toFile: path, atomically: true, encoding: .utf8)
+        SettingsWindowController.current?.close()
+        let model = try await openWindow()
+        model.tab = .tools
+        model.toolsPane = .fileMenu
+        try await draw()
+        let content = try #require(SettingsWindowController.current?.window?.contentView)
+        try await typeIntoShortcut("cmd+", content) // New Folder, which the reset leaves as it is
+        #expect(!model.inputProblems.isEmpty && !model.canSave)
+
+        model.resetMenu(.file)
+        try await draw()
+        #expect(model.draft.isDefault(.file) && model.isDirty)
+        #expect(model.inputProblems.isEmpty && model.canSave)
+        let fields = content.descendants(NSTextField.self).filter {
+            $0.placeholderString?.contains("shift+cmd+n") == true
+        }
+        #expect(fields.allSatisfy { $0.stringValue != "cmd+" }) // made anew, if shown at all
+    }
+
     /// Selects the File menu's first item and types into its shortcut field.
     private func typeIntoShortcut(_ text: String, _ content: NSView) async throws {
         let list = try #require(content.descendants(NSTableView.self).first)

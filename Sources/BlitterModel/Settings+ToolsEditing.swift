@@ -160,3 +160,30 @@ extension Settings {
         return result
     }
 }
+
+/// A menu the Tools & Menus tab edits.
+public enum EditableMenu: CaseIterable, Sendable {
+    case items, folder, file, edit
+}
+
+public extension Settings {
+    /// Puts `menu` back as it comes with Blitter (#76): a file saved before an action existed
+    /// keeps the menus it had, and this is the way to the new ones. A default entry naming a tool
+    /// these settings no longer have is left out, as the file would.
+    mutating func resetToDefault(_ menu: EditableMenu) {
+        let known = Set(actionChoices.map(\.id))
+        switch menu {
+        case .items: contextMenus.items = ContextMenus.defaults.keepingKnown(known).menus.items
+        case .folder: contextMenus.folder = ContextMenus.defaults.keepingKnown(known).menus.folder
+        case .file: menuBar.file = MenuBarSettings.defaults.keepingKnown(known).menus.file
+        case .edit: menuBar.edit = MenuBarSettings.defaults.keepingKnown(known).menus.edit
+        }
+    }
+
+    /// Whether `menu` is as it comes with Blitter already.
+    func isDefault(_ menu: EditableMenu) -> Bool {
+        var reset = self
+        reset.resetToDefault(menu)
+        return reset == self
+    }
+}
