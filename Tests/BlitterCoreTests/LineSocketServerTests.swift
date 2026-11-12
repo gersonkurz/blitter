@@ -257,4 +257,19 @@ struct LineSocketServerTests {
         }
         #expect(answered == 200)
     }
+
+    /// #80: a path too long for a socket is refused without leaving a descriptor open, however
+    /// often it is tried. (Other suites open descriptors meanwhile: a leak shows as ~1000 more.)
+    @Test func aPathTooLongLeaksNothing() throws {
+        defer { try? FileManager.default.removeItem(atPath: folder) }
+        let long = folder + "/" + String(repeating: "x", count: 120) + ".sock"
+        let before = try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+        for _ in 0 ..< 1000 {
+            #expect(throws: LineSocketServer.Failure.system("path too long", ENAMETOOLONG)) {
+                try LineSocketServer(path: long) { line, _ in line }.start()
+            }
+        }
+        let after = try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+        #expect(after - before < 100)
+    }
 }

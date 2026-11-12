@@ -112,6 +112,8 @@ public final class LineSocketServer: @unchecked Sendable {
 
     /// With the lock held nobody else serves: a socket file still there is a leftover.
     private func bindSocket() throws -> Int32 {
+        // First: a path too long throws before there is a socket to close (#80).
+        var address = try Self.address(path)
         var info = stat()
         if lstat(path, &info) == 0 {
             guard info.st_mode & S_IFMT == S_IFSOCK else {
@@ -123,7 +125,6 @@ public final class LineSocketServer: @unchecked Sendable {
         guard socket >= 0 else {
             throw Failure.system("socket", errno)
         }
-        var address = try Self.address(path)
         let bound = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 bind(socket, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
