@@ -8,20 +8,23 @@ final class SocketTestClient {
     let socket: Int32
     private var pending = Data()
 
+    /// The descriptor is stored only once connected (#82): a throw after storing it would run
+    /// `deinit`, closing it a second time — by then perhaps another test's descriptor.
     init(_ path: String) throws {
-        socket = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         var address = try LineSocketServer.address(path)
+        let descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         let connected = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                connect(socket, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+                connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
         guard connected == 0 else {
-            close(socket)
+            close(descriptor)
             throw POSIXError(.ECONNREFUSED)
         }
         var timeout = timeval(tv_sec: 5, tv_usec: 0)
-        setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        socket = descriptor
     }
 
     deinit {
