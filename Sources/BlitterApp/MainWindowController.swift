@@ -172,6 +172,8 @@ final class MainWindowController: NSWindowController {
 enum DeleteConfirmation {
     static let delete = NSApplication.ModalResponse.alertSecondButtonReturn
 
+    /// An AppKit view: built on the main actor, like every caller (#75).
+    @MainActor
     static func alert(for request: DeleteRequest) -> NSAlert {
         let alert = NSAlert()
         alert.alertStyle = .warning
