@@ -28,7 +28,11 @@ public final class LineSocketServer: @unchecked Sendable {
 
     public let path: String
     private let handler: Handler
+    /// Whether the socket is published and served; its descriptor belongs to the accept thread,
+    /// which alone closes it (#79).
     private var listener: Int32 = -1
+    /// The write end of the pipe that wakes the accept thread: `stop()` closes it.
+    private var wake: Int32 = -1
     /// The lock file held while serving: whoever holds it owns the socket (#58 review).
     private var lockFile: Int32 = -1
     private let lock = NSLock()
@@ -72,22 +76,34 @@ public final class LineSocketServer: @unchecked Sendable {
         }
         do {
             let socket = try bindSocket()
+            var pipe: [Int32] = [-1, -1]
+            // Close-on-exec: a launched tool holding the write end would keep `stop()` from
+            // waking the accept thread.
+            guard Darwin.pipe(&pipe) == 0, pipe.allSatisfy({ fcntl($0, F_SETFD, FD_CLOEXEC) == 0 }) else {
+                let code = errno
+                pipe.filter { $0 >= 0 }.forEach { close($0) }
+                close(socket)
+                unlink(path)
+                throw Failure.system("pipe", code)
+            }
             beforePublishing?()
             let published = lock.withLock { () -> Bool in
                 guard !stopped else {
                     return false // stopped meanwhile (#58 review)
                 }
                 listener = socket
+                wake = pipe[1]
                 self.lockFile = lockFile
                 return true
             }
             guard published else {
                 close(socket)
+                pipe.forEach { close($0) }
                 unlink(path) // ours: the lock is still held
                 close(lockFile)
                 return
             }
-            Thread.detachNewThread { [self] in acceptLoop(socket) }
+            Thread.detachNewThread { [self] in acceptLoop(socket, wake: pipe[0]) }
         } catch {
             close(lockFile)
             throw error
@@ -113,7 +129,11 @@ public final class LineSocketServer: @unchecked Sendable {
                 bind(socket, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        guard bound == 0, chmod(path, 0o600) == 0, listen(socket, 8) == 0 else {
+        // Non-blocking: a connection that is gone before `accept` takes it must not leave the
+        // accept thread waiting where `stop()` cannot wake it.
+        guard bound == 0, chmod(path, 0o600) == 0, listen(socket, 8) == 0,
+              fcntl(socket, F_SETFL, fcntl(socket, F_GETFL) | O_NONBLOCK) == 0
+        else {
             let code = errno
             close(socket)
             throw Failure.system("bind", code)
@@ -122,37 +142,64 @@ public final class LineSocketServer: @unchecked Sendable {
     }
 
     /// Stops accepting, ends every connection and removes the socket file.
+    ///
+    /// No descriptor is closed here (#79): the accept thread and each client's thread close their
+    /// own. A descriptor closed under a thread still using it gets reused by the next socket the
+    /// process opens, and that thread would then accept or end a stranger's connections.
     public func stop() {
-        let held = lock.withLock { () -> Held in
+        let held = lock.withLock { () -> (wake: Int32, lockFile: Int32) in
             stopped = true
+            // Under the lock: a client's thread takes its descriptor out of `clients` before it
+            // closes it, so every one here is still open and still that client's.
+            for client in clients {
+                shutdown(client, SHUT_RDWR) // ends read()
+            }
             defer {
                 listener = -1
+                wake = -1
                 lockFile = -1
                 clients = []
             }
-            return Held(listener: listener, lockFile: lockFile, clients: clients)
+            return (wake, lockFile) // a wake pipe only while published
         }
-        if held.listener >= 0 {
-            close(held.listener) // ends accept()
+        if held.wake >= 0 {
             unlink(path) // still ours: the lock is held until here
+            close(held.wake) // the accept thread wakes, closes the socket and goes
         }
         if held.lockFile >= 0 {
             close(held.lockFile) // the next Blitter may take the socket
         }
-        for client in held.clients {
-            shutdown(client, SHUT_RDWR) // ends read()
-        }
     }
 
-    private func acceptLoop(_ socket: Int32) {
+    /// Accepts until `stop()` closes the pipe's write end; then closes the socket and the pipe.
+    private func acceptLoop(_ socket: Int32, wake: Int32) {
+        defer {
+            close(socket)
+            close(wake)
+        }
+        var fds = [pollfd(fd: socket, events: Int16(POLLIN), revents: 0),
+                   pollfd(fd: wake, events: Int16(POLLIN), revents: 0)]
         while true {
-            let client = accept(socket, nil, nil)
-            guard client >= 0 else {
+            fds[0].revents = 0
+            fds[1].revents = 0
+            guard poll(&fds, 2, -1) >= 0 else {
                 if errno == EINTR {
                     continue
                 }
-                return // closed by stop()
+                return
             }
+            if fds[1].revents != 0 {
+                return // stop()
+            }
+            let client = accept(socket, nil, nil)
+            guard client >= 0 else {
+                if [EINTR, EAGAIN, ECONNABORTED].contains(errno) {
+                    continue // nothing to take after all
+                }
+                return
+            }
+            // The listener is non-blocking; its connections must not be (they inherit it).
+            _ = fcntl(client, F_SETFL, fcntl(client, F_GETFL) & ~O_NONBLOCK)
             guard let peer = Self.peer(client), lock.withLock({
                 guard !stopped, clients.insert(client).inserted else {
                     return false
@@ -211,16 +258,6 @@ public final class LineSocketServer: @unchecked Sendable {
         }
     }
 
-    /// Runs the async handler and waits for it on this client's thread. A client that goes away
-    /// meanwhile (or stopping the server) cancels the handler's task: a confirmation it waits
-    /// for then closes.
-    /// What `stop()` takes over to close.
-    private struct Held {
-        let listener: Int32
-        let lockFile: Int32
-        let clients: Set<Int32>
-    }
-
     /// How one request ended.
     private enum Outcome {
         case reply(String)
@@ -228,6 +265,9 @@ public final class LineSocketServer: @unchecked Sendable {
         case gone
     }
 
+    /// Runs the async handler and waits for it on this client's thread. A client that goes away
+    /// meanwhile (or stopping the server) cancels the handler's task: a confirmation it waits
+    /// for then closes.
     private func answer(_ line: String, _ peer: Client, on client: Int32) -> Outcome {
         let done = DispatchSemaphore(value: 0)
         let result = ReplyBox()
@@ -245,7 +285,11 @@ public final class LineSocketServer: @unchecked Sendable {
         }
         return result.value.map(Outcome.reply) ?? .none
     }
+}
 
+// MARK: Helpers
+
+extension LineSocketServer {
     /// Whether the client is gone: its socket can no longer be written to. A client that only
     /// closed its sending half (`printf … | nc -U`, a script done sending) still waits for the
     /// answer: reading tells the two apart from nothing, kqueue's write filter does.
@@ -273,8 +317,6 @@ public final class LineSocketServer: @unchecked Sendable {
         }
         return true
     }
-
-    // MARK: Helpers
 
     static func address(_ path: String) throws -> sockaddr_un {
         var address = sockaddr_un()

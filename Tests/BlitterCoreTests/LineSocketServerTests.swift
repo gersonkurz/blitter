@@ -235,4 +235,26 @@ struct LineSocketServerTests {
         client.send("hi\n")
         #expect(client.readLine() == "next hi")
     }
+
+    /// #79: a server stopped right after it started leaves the next one's connections alone. Its
+    /// accept thread, not yet waiting, used to accept on the descriptor `stop()` had closed —
+    /// which the next server's socket had just been given — and closed what it took.
+    @Test func aStoppedServersThreadNeverTakesTheNextOnesConnections() throws {
+        defer { try? FileManager.default.removeItem(atPath: folder) }
+        var answered = 0
+        for round in 0 ..< 200 {
+            let stopped = LineSocketServer(path: path) { line, _ in line }
+            try stopped.start()
+            stopped.stop()
+            let next = LineSocketServer(path: path) { line, _ in "next " + line }
+            try next.start()
+            let client = try SocketTestClient(path)
+            client.send("\(round)\n")
+            if client.readLine() == "next \(round)" {
+                answered += 1
+            }
+            next.stop()
+        }
+        #expect(answered == 200)
+    }
 }
