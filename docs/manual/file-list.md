@@ -36,7 +36,8 @@ Typing in the list finds names as you type. There is no search box to open first
 
 ![Typing "14" highlights the three matching names](images/fast-filter-light.png)
 
-- **Type letters**: the matching names are drawn in bold and the first one is selected. A name
+- **Type letters**: the matching names are drawn in bold (or, if you chose a bold
+  [font style](settings.md#fonts-and-zoom) for them, not bold) and the first one is selected. A name
   matches when it contains what you typed anywhere, ignoring case and accents. The line below
   the list shows what you typed and how many names match.
 - **↓** and **↑** go to the next and the previous match.

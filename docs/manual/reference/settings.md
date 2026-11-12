@@ -32,10 +32,14 @@ git_colors = true
 # The fonts of the file lists and folder trees; dialogs keep the system font. "system" is
 # macOS's own font; or a font family's name, e.g. face = "Helvetica Neue", mono = "Menlo".
 # mono is the fixed-width font of the date and permissions columns. size is in points (8 to 32).
+# folder_style (folders in the lists and trees) and file_style (all other names) are each
+# "regular", "bold", "italic" or "bold italic".
 [font]
 face = "system"
 mono = "system"
 size = 11
+folder_style = "regular"
+file_style = "regular"
 
 # External tools: [tools.<id>] opens items with an app (name, bundle identifier or path).
 # on = "folder" opens the side's folder, "selection" the selected items, "files" selected files,

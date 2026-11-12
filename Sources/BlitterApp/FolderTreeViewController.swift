@@ -251,7 +251,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
             ?? Self.makeCell(identifier: identifier, withImage: !isSection)
         cell.textField?.stringValue = item.title
         cell.textField?.textColor = textColor(isSection: isSection, isHidden: item.isHidden, folder: item.node?.path)
-        let font = isSection ? fonts.section : fonts.text
+        let font = isSection ? fonts.section : fonts.name(fonts.settings.folderStyle)
         if cell.textField?.font !== font {
             cell.textField?.font = font
         }

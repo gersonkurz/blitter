@@ -41,6 +41,8 @@ public extension Settings {
         take(\.font.face)
         take(\.font.mono)
         take(\.font.size)
+        take(\.font.folderStyle)
+        take(\.font.fileStyle)
         take(\.favorites)
         take(\.theme.light)
         take(\.theme.dark)

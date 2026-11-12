@@ -27,6 +27,12 @@ public struct ListedEntry: Sendable {
     public let entry: DirectoryEntry
     public let contentType: UTType
     public let kindDescription: String
+
+    /// A folder Blitter goes into: a directory, but not a package (an app, a bundle), which is
+    /// shown and opened as a file.
+    public var isFolder: Bool {
+        entry.kind == .directory && !contentType.conforms(to: .package)
+    }
 }
 
 enum Listing {

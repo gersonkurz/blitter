@@ -326,7 +326,7 @@ extension FileListViewController {
         let listed = entries[row]
         let cell = tableView.makeView(withIdentifier: column.identifier, owner: nil) as? NSTableCellView
             ?? Self.makeCell(identifier: column.identifier)
-        applyFont(to: cell, column: column.identifier, name: listed.entry.name)
+        applyFont(to: cell, column: column.identifier, entry: listed)
         switch column.identifier {
         case Self.nameColumn:
             cell.textField?.stringValue = listed.entry.name

@@ -120,6 +120,19 @@ struct SettingsParsingTests {
         #expect(problems.contains("Unknown setting “font.weight”."))
         #expect(Settings.parse("[font]\nsize = \"11\"\n").problems.count == 1)
     }
+
+    /// #77: folder and file names each have a style; a wrong one is reported and stays regular.
+    @Test func folderAndFileStyles() {
+        let (settings, problems) = Settings.parse("[font]\nfolder_style = \"bold\"\nfile_style = \"bold italic\"\n")
+        #expect(problems.isEmpty)
+        #expect(settings.font == FontSettings(folderStyle: .bold, fileStyle: .boldItalic))
+        #expect(Settings.parse(Settings.fileText(settings)).settings.font == settings.font)
+        let bad = Settings.parse("[font]\nfolder_style = \"heavy\"\nfile_style = 1\n")
+        #expect(bad.settings.font == FontSettings())
+        #expect(bad.problems.count == 2)
+        #expect(bad.problems.allSatisfy { $0.contains("\"bold italic\"") })
+        #expect(Settings.defaultFile.contains("folder_style = \"regular\"\nfile_style = \"regular\""))
+    }
 }
 
 /// The settings file as the workspace uses it: read at launch, re-read on changes, problems as

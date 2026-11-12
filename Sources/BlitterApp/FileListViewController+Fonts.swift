@@ -1,4 +1,5 @@
 import AppKit
+import BlitterModel
 
 /// The list's fonts (#62): the settings' face and size, fixed-width where columns line up.
 extension FileListViewController {
@@ -15,11 +16,14 @@ extension FileListViewController {
         tableView.reloadData()
     }
 
-    /// A reused cell keeps its font until the fonts change: the fonts are shared objects, so the
-    /// identity check is all a row costs.
-    func applyFont(to cell: NSTableCellView, column: NSUserInterfaceItemIdentifier, name: String) {
+    /// Names in the folder or file style (#77), a packaged app being a file. A reused cell keeps
+    /// its font until the fonts change: the fonts are shared objects, so the identity check is
+    /// all a row costs.
+    func applyFont(to cell: NSTableCellView, column: NSUserInterfaceItemIdentifier, entry listed: ListedEntry) {
         let font = switch column {
-        case Self.nameColumn: isHighlighted(name) ? fonts.bold : fonts.text
+        case Self.nameColumn:
+            fonts.name(listed.isFolder ? fonts.settings.folderStyle : fonts.settings.fileStyle,
+                       emphasized: isHighlighted(listed.entry.name))
         case Self.sizeColumn: fonts.tabular
         case Self.modifiedColumn, Self.permissionsColumn: fonts.mono
         default: fonts.text

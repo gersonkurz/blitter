@@ -14,7 +14,7 @@ final class ListFontsTests {
     private let window: NSWindow
 
     init() async throws {
-        let entries = [file("notes.txt"), folder("docs")]
+        let entries = [file("notes.txt"), folder("docs"), folder("Tool.app")]
         workspace = Workspace(initialLocation: "/home", home: "/home", lister: { _ in entries },
                               directoryCheck: { _ in false }, volumes: { [] }, watcher: FakeWatcher.factory)
         workspace.settings.columns = [.name, .size, .modified, .permissions]
@@ -32,7 +32,7 @@ final class ListFontsTests {
             tree.render()
         }
         window.makeKeyAndOrderFront(nil)
-        for _ in 0 ..< 200 where workspace.state(of: .left).visibleEntries.count < 2 {
+        for _ in 0 ..< 200 where workspace.state(of: .left).visibleEntries.count < 3 {
             try await Task.sleep(for: .milliseconds(10))
         }
         workspace.onChange?()
@@ -98,6 +98,47 @@ final class ListFontsTests {
         let bold = try font("name", of: "notes.txt")
         #expect(bold.familyName == "Helvetica" && bold.fontDescriptor.symbolicTraits.contains(.bold))
         #expect(try !font("name", of: "docs").fontDescriptor.symbolicTraits.contains(.bold))
+    }
+
+    /// #77: folders, in the list and the tree, and files each in their style; an app is a file.
+    @Test func foldersAndFilesHaveTheirStyles() throws {
+        workspace.settings.font = FontSettings(face: "Helvetica", size: 12, folderStyle: .bold, fileStyle: .italic)
+        workspace.onChange?()
+        let folder = try font("name", of: "docs").fontDescriptor.symbolicTraits
+        #expect(folder.contains(.bold) && !folder.contains(.italic))
+        for name in ["notes.txt", "Tool.app"] {
+            let file = try font("name", of: name)
+            #expect(file.familyName == "Helvetica" && file.fontDescriptor.symbolicTraits.contains(.italic), "\(name)")
+            #expect(!file.fontDescriptor.symbolicTraits.contains(.bold), "\(name)")
+        }
+        #expect(try !font("size", of: "docs").fontDescriptor.symbolicTraits.contains(.bold))
+        let treeFonts = try (0 ..< tree.outlineView.numberOfRows).compactMap { row -> NSFont? in
+            guard tree.outlineView.parent(forItem: tree.outlineView.item(atRow: row)) != nil else {
+                return nil // a section header
+            }
+            return try #require((tree.outlineView.view(atColumn: 0, row: row, makeIfNecessary: true)
+                    as? NSTableCellView)?.textField?.font)
+        }
+        #expect(!treeFonts.isEmpty && treeFonts.allSatisfy { $0.fontDescriptor.symbolicTraits.contains(.bold) })
+    }
+
+    /// #77: a match in a bold style stands out by not being bold.
+    @Test func aFastFilterMatchInABoldStyleIsNotBold() async throws {
+        workspace.settings.font = FontSettings(folderStyle: .bold)
+        workspace.perform(.setQuickFilter(.left, QuickFilter("docs", mode: .highlight)))
+        try await waitUntil { self.workspace.state(of: .left).highlighted == ["docs"] }
+        workspace.onChange?()
+        #expect(try !font("name", of: "docs").fontDescriptor.symbolicTraits.contains(.bold))
+        // Italic stays italic either way; only bold is toggled.
+        let fonts = ListFonts.current(FontSettings(face: "Helvetica"))
+        #expect(fonts.name(.italic, emphasized: true).fontDescriptor.symbolicTraits.isSuperset(of: [.bold, .italic]))
+        let boldItalic = fonts.name(.boldItalic, emphasized: true).fontDescriptor.symbolicTraits
+        #expect(boldItalic.contains(.italic) && !boldItalic.contains(.bold))
+        // Each style's font is the one its index finds.
+        for style in FontStyle.allCases {
+            let traits = fonts.name(style).fontDescriptor.symbolicTraits
+            #expect(traits.contains(.bold) == style.isBold && traits.contains(.italic) == style.isItalic, "\(style)")
+        }
     }
 
     /// #63: Ctrl+wheel over the list or the tree zooms; without Ctrl the wheel scrolls.

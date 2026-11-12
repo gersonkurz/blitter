@@ -79,12 +79,14 @@ struct SettingsFileTextTests {
         let original = Settings()
         var edited = original
         edited.font.face = "Helvetica"
+        edited.font.folderStyle = .bold
         edited.confirmDelete = false
         var current = Settings()
         current.font.size = 15 // zoomed meanwhile
+        current.font.fileStyle = .italic // an editor meanwhile
         current.dateFormat = "HH:mm" // an editor meanwhile
         let merged = current.applying(changesFrom: original, to: edited)
-        #expect(merged.font == FontSettings(face: "Helvetica", size: 15))
+        #expect(merged.font == FontSettings(face: "Helvetica", size: 15, folderStyle: .bold, fileStyle: .italic))
         #expect(merged.dateFormat == "HH:mm" && !merged.confirmDelete)
     }
 

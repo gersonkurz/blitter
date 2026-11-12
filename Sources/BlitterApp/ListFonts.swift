@@ -6,10 +6,10 @@ import BlitterModel
 @MainActor
 struct ListFonts {
     let settings: FontSettings
-    /// Names, folders, and the columns without their own font.
+    /// The columns without their own font; names are drawn in `name(_:emphasized:)`.
     let text: NSFont
-    /// A fast-filter match (#39).
-    let bold: NSFont
+    /// The text font in each style, in `FontStyle.allCases` order (#77).
+    private let styled: [NSFont]
     /// The tree's section headers.
     let section: NSFont
     /// Sizes: the text font with digits of equal width, so they line up from row to row.
@@ -37,19 +37,41 @@ struct ListFonts {
         let manager = NSFontManager.shared
         if let face = settings.face, let font = manager.font(withFamily: face, traits: [], weight: 5, size: size) {
             text = font
-            bold = manager.convert(font, toHaveTrait: .boldFontMask)
-            section = bold
+            section = Self.font(font, in: .bold)
             tabular = Self.withTabularDigits(font)
         } else {
             text = .systemFont(ofSize: size)
-            bold = .boldSystemFont(ofSize: size)
             section = .systemFont(ofSize: size, weight: .semibold)
             tabular = .monospacedDigitSystemFont(ofSize: size, weight: .regular)
         }
         mono = settings.mono.flatMap { manager.font(withFamily: $0, traits: [], weight: 5, size: size) }
             ?? .monospacedSystemFont(ofSize: size, weight: .regular)
-        let lineHeight = max(Self.lineHeight(text), Self.lineHeight(mono))
+        let styled = FontStyle.allCases.map { [text] style in Self.font(text, in: style) }
+        self.styled = styled
+        let names = [settings.folderStyle, settings.fileStyle].map { styled[$0.index] }
+        let lineHeight = ([text, mono] + names).map(Self.lineHeight).max() ?? 0
         rowHeight = max(lineHeight + Self.rowPadding, Self.iconSize)
+    }
+
+    /// A folder's or file's name in its style. A fast-filter match (#39) is emphasized: bold, or,
+    /// where the style is bold already, not bold — so it stands out from its neighbors either way.
+    func name(_ style: FontStyle, emphasized: Bool = false) -> NSFont {
+        styled[(emphasized ? FontStyle(bold: !style.isBold, italic: style.isItalic) : style).index]
+    }
+
+    /// The face in a style; a face without that style keeps its regular.
+    private static func font(_ font: NSFont, in style: FontStyle) -> NSFont {
+        var traits: NSFontDescriptor.SymbolicTraits = []
+        if style.isBold {
+            traits.insert(.bold)
+        }
+        if style.isItalic {
+            traits.insert(.italic)
+        }
+        guard !traits.isEmpty else {
+            return font
+        }
+        return NSFont(descriptor: font.fontDescriptor.withSymbolicTraits(traits), size: font.pointSize) ?? font
     }
 
     private static func lineHeight(_ font: NSFont) -> CGFloat {
@@ -75,5 +97,17 @@ struct ListFonts {
         ]
         let descriptor = font.fontDescriptor.addingAttributes([.featureSettings: [feature]])
         return NSFont(descriptor: descriptor, size: font.pointSize) ?? font
+    }
+}
+
+private extension FontStyle {
+    /// The place in `allCases`, without building `allCases`: it is asked for every row.
+    var index: Int {
+        switch self {
+        case .regular: 0
+        case .bold: 1
+        case .italic: 2
+        case .boldItalic: 3
+        }
     }
 }

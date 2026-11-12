@@ -57,13 +57,27 @@ struct FontSettingsView: View {
             }
             Text("⌘+ and ⌘− (or Ctrl and the mouse wheel over a list) change the size too.")
                 .font(.caption).foregroundStyle(.secondary)
+            Section {
+                stylePicker("Folders", \.folderStyle)
+                stylePicker("Files", \.fileStyle)
+            }
             let fonts = ListFonts.current(font)
             Section("Preview") {
-                Text("notes.txt   Documents   Blitter.app").font(Font(fonts.text))
+                HStack(spacing: 16) {
+                    Text("Documents").font(Font(fonts.name(font.folderStyle)))
+                    Text("notes.txt").font(Font(fonts.name(font.fileStyle)))
+                    Text("Blitter.app").font(Font(fonts.name(font.fileStyle)))
+                }
                 Text("05.11.2026 14:30   rwxr-xr-x").font(Font(fonts.mono))
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func stylePicker(_ title: String, _ entry: WritableKeyPath<FontSettings, FontStyle>) -> some View {
+        Picker(title, selection: $font[dynamicMember: entry]) {
+            ForEach(FontStyle.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+        }
     }
 
     /// "system" in the picker is nil in the settings.

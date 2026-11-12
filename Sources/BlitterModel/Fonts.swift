@@ -2,9 +2,29 @@ import CoreText
 import Foundation
 import TOMLKit
 
+/// How a name is drawn (#77): the face's regular, bold, italic or bold italic.
+public enum FontStyle: String, CaseIterable, Sendable {
+    case regular
+    case bold
+    case italic
+    case boldItalic = "bold italic"
+
+    public var isBold: Bool {
+        self == .bold || self == .boldItalic
+    }
+
+    public var isItalic: Bool {
+        self == .italic || self == .boldItalic
+    }
+
+    public init(bold: Bool, italic: Bool) {
+        self = bold ? (italic ? .boldItalic : .bold) : (italic ? .italic : .regular)
+    }
+}
+
 /// The fonts of the file lists and folder trees (#62): one face for the text, one fixed-width
 /// face for the columns that must line up (dates, permissions), and one size for both. Dialogs
-/// keep the system font.
+/// keep the system font. Folder and file names each have a style of the face (#77).
 public struct FontSettings: Equatable, Sendable {
     /// A font family's name; nil is the system font.
     public var face: String?
@@ -12,14 +32,22 @@ public struct FontSettings: Equatable, Sendable {
     public var mono: String?
     /// In points; the default is the size of AppKit's small rows.
     public var size = 11.0
+    /// Folder names, in the lists and the trees.
+    public var folderStyle = FontStyle.regular
+    /// The names of everything else in the lists.
+    public var fileStyle = FontStyle.regular
 
     public static let sizes = 8.0 ... 32.0
-    static let keys: Set = ["face", "mono", "size"]
+    static let keys: Set = ["face", "mono", "size", "folder_style", "file_style"]
 
-    public init(face: String? = nil, mono: String? = nil, size: Double = 11) {
+    public init(face: String? = nil, mono: String? = nil, size: Double = 11,
+                folderStyle: FontStyle = .regular, fileStyle: FontStyle = .regular)
+    {
         self.face = face
         self.mono = mono
         self.size = size
+        self.folderStyle = folderStyle
+        self.fileStyle = fileStyle
     }
 
     /// Applies one of `keys`, or explains why it can't; whatever is invalid keeps its default.
@@ -52,6 +80,17 @@ public struct FontSettings: Equatable, Sendable {
                 return "expected a size in points from \(Int(Self.sizes.lowerBound)) to \(Int(Self.sizes.upperBound))."
             }
             size = points
+            return nil
+        case "folder_style", "file_style":
+            guard let name = value.string, let style = FontStyle(rawValue: name) else {
+                let names = FontStyle.allCases.map { "\"\($0.rawValue)\"" }
+                return "expected one of " + names.joined(separator: ", ") + "."
+            }
+            if key == "folder_style" {
+                folderStyle = style
+            } else {
+                fileStyle = style
+            }
             return nil
         default:
             preconditionFailure("not one of FontSettings.keys: \(key)")

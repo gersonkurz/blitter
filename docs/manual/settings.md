@@ -51,6 +51,10 @@ The fonts of the file lists and folder trees; dialogs keep the system font.
 - **Font**: any font family, or System.
 - **Fixed-width font**: for the dates and permissions, so they line up.
 - **Size**: 8 to 32 points.
+- **Folders** and **Files**: the style of the names, each Regular, Bold, Italic or Bold
+  Italic. The folder style is for folders in the file list and the folder tree; apps and other
+  packages count as files. In the settings file they are `folder_style` and `file_style`.
+  With a bold style, fast-filter matches stand out by not being bold.
 
 **⌘+**, **⌘−** and **⌘0**, or Ctrl and the mouse wheel over a list, change the size too. Blitter
 saves the new size in the file by changing only the `size` line, so your comments stay.
