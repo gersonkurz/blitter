@@ -3,7 +3,8 @@ import AppKit
 import BlitterModel
 import Testing
 
-/// The app hosts these tests and shares the real app's defaults: it must leave them alone.
+/// The app hosts these tests. It is a Debug build with an id of its own (#85), so it has its own
+/// defaults and privacy grants; it still leaves its defaults alone.
 @MainActor
 struct HostedTestIsolationTests {
     @Test func theHostOpensNoWindowAndSavesNothing() throws {
@@ -25,5 +26,11 @@ struct HostedTestIsolationTests {
         let list = FileListViewController(workspace: workspace, side: .left)
         _ = list.view
         #expect(list.tableView.autosaveName == nil && !list.tableView.autosaveTableColumns)
+    }
+
+    /// #85: the ad hoc signed Debug host never runs under the installed app's id, whose privacy
+    /// grants (Full Disk Access, Documents, …) macOS ties to its Developer ID signature.
+    @Test func theHostHasAnIdOfItsOwn() {
+        #expect(Bundle.main.bundleIdentifier == "com.p-nand-q.blitter.debug")
     }
 }

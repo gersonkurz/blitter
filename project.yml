@@ -121,6 +121,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.p-nand-q.blitter
+      configs:
+        # Debug builds (just run, and the test host of every just verify) are signed ad hoc, a new
+        # signature each build. Under the release app's id they shared its window state
+        # (UserDefaults go by the id) and, most likely, unsettled the privacy grants macOS ties
+        # to the id and signature: the installed app kept asking for access (#85).
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.p-nand-q.blitter.debug
 
   BlitterCoreTests:
     type: bundle.unit-test
