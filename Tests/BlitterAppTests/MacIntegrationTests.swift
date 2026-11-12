@@ -165,6 +165,12 @@ final class MacIntegrationTests {
         #expect(list.numberOfPreviewItems(in: nil) == 1)
         let item = try #require(list.previewPanel(nil, previewItemAt: 0) as? URL)
         #expect(item.path == root + "/left/a.txt")
+        // #81: taking and giving back the panel, on the main actor as Quick Look calls them.
+        let panel = try #require(QLPreviewPanel.shared())
+        list.beginPreviewPanelControl(panel)
+        #expect(panel.dataSource === list && panel.delegate === list)
+        list.endPreviewPanelControl(panel)
+        #expect(panel.dataSource == nil && panel.delegate == nil)
     }
 
     @Test func spaceTogglesQuickLookThroughItsCommand() {

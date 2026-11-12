@@ -4,8 +4,9 @@ import Quartz
 
 /// Space shows the selection in Quick Look, as in Finder. The panel asks the responder chain who
 /// controls it; the file list that has focus does, and the panel follows its selection.
-/// Quick Look calls these on the main thread; its protocols predate Swift concurrency.
-extension FileListViewController: @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate {
+/// Quick Look calls these on the main thread; its protocols and the panel-control methods predate
+/// Swift concurrency (#81).
+extension FileListViewController: @preconcurrency QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     func toggleQuickLook() {
         guard let panel = QLPreviewPanel.shared() else {
             return
@@ -32,13 +33,17 @@ extension FileListViewController: @preconcurrency QLPreviewPanelDataSource, @pre
     }
 
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel?) {
-        panel?.dataSource = self
-        panel?.delegate = self
+        MainActor.assumeIsolated {
+            panel?.dataSource = self
+            panel?.delegate = self
+        }
     }
 
     override func endPreviewPanelControl(_ panel: QLPreviewPanel?) {
-        panel?.dataSource = nil
-        panel?.delegate = nil
+        MainActor.assumeIsolated {
+            panel?.dataSource = nil
+            panel?.delegate = nil
+        }
     }
 
     func numberOfPreviewItems(in _: QLPreviewPanel?) -> Int {
