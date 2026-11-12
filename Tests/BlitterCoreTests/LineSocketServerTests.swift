@@ -66,7 +66,9 @@ struct LineSocketServerTests {
     @Test func linesAreAnsweredInOrderOnlyForThisUser() throws {
         defer { try? FileManager.default.removeItem(atPath: folder) }
         let server = LineSocketServer(path: path) { line, client in
-            "\(line.uppercased()) from \(client.pid == getpid() ? "me" : "someone")"
+            // The name is the executable's, read from the system (#83: decoded without cString).
+            let isThis = client.pid == getpid() && client.name == ProcessInfo.processInfo.processName
+            return "\(line.uppercased()) from \(isThis ? "me" : "someone")"
         }
         try server.start()
         defer { server.stop() }

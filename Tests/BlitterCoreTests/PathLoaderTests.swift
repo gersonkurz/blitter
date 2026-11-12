@@ -89,4 +89,23 @@ struct PathLoaderTests {
         stalled.release()
         #expect(await load(loader, "/running") == "stalled /running")
     }
+
+    /// #83: a lookup still running does not keep its loader alive; once the loader is gone the
+    /// late result is dropped and no callback runs.
+    @Test func aRunningLookupDoesNotKeepTheLoaderAlive() async throws {
+        let stalled = StalledLookup()
+        var loader: PathLoader<String>? = PathLoader(label: "test.lifetime") { stalled.lookup($0) }
+        weak let watched = loader
+        var called = false
+        #expect(loader?.value(for: "/slow/a") { called = true } == nil)
+        for _ in 0 ..< 300 where stalled.paths.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(stalled.paths == ["/slow/a"]) // the lookup is running
+        loader = nil
+        #expect(watched == nil) // gone while its lookup still runs
+        stalled.release()
+        try await Task.sleep(for: .milliseconds(200)) // the result would arrive here
+        #expect(!called)
+    }
 }

@@ -181,12 +181,13 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
                     retained.release()
                 }
             }
+            let made = handle // the closure runs elsewhere: it takes a constant (#83)
             queue.async {
                 guard let watcher = info.watcher else {
-                    handle?.release(started: false) // the watcher is gone
+                    made?.release(started: false) // the watcher is gone
                     return
                 }
-                watcher.streamMade(handle, for: path)
+                watcher.streamMade(made, for: path)
             }
         }
     }

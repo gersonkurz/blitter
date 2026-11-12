@@ -103,7 +103,8 @@ public final class LineSocketServer: @unchecked Sendable {
                 close(lockFile)
                 return
             }
-            Thread.detachNewThread { [self] in acceptLoop(socket, wake: pipe[0]) }
+            let wakeRead = pipe[0] // the thread takes a constant, not the array (#83)
+            Thread.detachNewThread { [self] in acceptLoop(socket, wake: wakeRead) }
         } catch {
             close(lockFile)
             throw error
@@ -345,8 +346,8 @@ extension LineSocketServer {
         getsockopt(client, SOL_LOCAL, LOCAL_PEERPID, &pid, &length)
         var name = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         let path = proc_pidpath(pid, &name, UInt32(name.count)) > 0
-            ? (String(cString: name) as NSString).lastPathComponent : "unknown"
-        return Client(pid: pid, name: path)
+            ? String(bytes: name.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), encoding: .utf8) : nil
+        return Client(pid: pid, name: path.map { ($0 as NSString).lastPathComponent } ?? "unknown")
     }
 }
 

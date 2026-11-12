@@ -37,7 +37,7 @@ public final class PathLoader<Value: Sendable> {
         }
         pending[path] = [onLoaded]
         let requested = generation.current
-        queue.async { [lookup, generation] in
+        queue.async { [weak self, lookup, generation] in // weak here too, not only in the Task (#83)
             guard generation.current == requested else {
                 return
             }
