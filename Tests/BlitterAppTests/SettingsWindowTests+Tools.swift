@@ -156,6 +156,45 @@ extension SettingsWindowTests {
         #expect(fields.allSatisfy { $0.stringValue != "cmd+" }) // made anew, if shown at all
     }
 
+    /// #88 review: typing a variant of the action's own icon ("trash" on the way to "trash.fill")
+    /// keeps what is typed; the action's own name alone is no icon of its own.
+    @Test func typingAnIconKeepsWhatIsTyped() async throws {
+        let model = try await openWindow()
+        model.tab = .tools
+        model.toolsPane = .toolbar
+        try await draw()
+        let content = try #require(SettingsWindowController.current?.window?.contentView)
+        let row = try #require(model.draft.toolbar.firstIndex(of: .action("move-to-trash", icon: nil)))
+        try #require(content.descendants(NSTableView.self).first).select(row: row)
+        try await draw()
+        let field = try #require(content.descendants(NSTextField.self).first { $0.placeholderString == "trash" })
+        func type(_ text: String) async throws {
+            #expect(field.window?.makeFirstResponder(field) == true)
+            let editor = try #require(field.currentEditor() as? NSTextView)
+            editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
+            for character in text {
+                editor.insertText(String(character), replacementRange: editor.selectedRange())
+                try await draw()
+            }
+        }
+        // "trash", the action's own: no icon of its own, but the field keeps it, also when the
+        // window is drawn anew for another change, and once left.
+        try await type("trash")
+        #expect(model.draft.toolbar[row] == .action("move-to-trash", icon: nil))
+        model.draft.confirmDelete.toggle()
+        try await draw()
+        #expect(field.stringValue == "trash")
+        #expect(field.window?.makeFirstResponder(nil) == true)
+        try await draw()
+        #expect(field.stringValue == "trash")
+        try await type(".fill")
+        #expect(field.stringValue == "trash.fill")
+        #expect(model.draft.toolbar[row] == .action("move-to-trash", icon: "trash.fill"))
+        model.revert()
+        try await draw()
+        #expect(field.stringValue.isEmpty || field.window == nil) // follows Revert, if still shown
+    }
+
     /// Selects the File menu's first item and types into its shortcut field.
     private func typeIntoShortcut(_ text: String, _ content: NSView) async throws {
         let list = try #require(content.descendants(NSTableView.self).first)

@@ -22,6 +22,8 @@ public struct Settings: Equatable, Sendable {
     public var theme = ThemeSettings()
     /// The action items of the File and Edit menus, with their shortcuts (#24).
     public var menuBar = MenuBarSettings.defaults
+    /// The window's toolbar (#88), in order; empty: no toolbar.
+    public var toolbar = ToolbarEntry.defaults
     /// The file lists' and folder trees' fonts (#62).
     public var font = FontSettings()
     /// The tree's Favorites in order (#72), as written ("~" for the home folder). Nil while the
@@ -63,6 +65,8 @@ public struct Settings: Equatable, Sendable {
                 problems += readMenuBar(table, into: &settings)
             case "theme":
                 problems += settings.theme.apply(table, entries: entries)
+            case "toolbar":
+                problems += readToolbar(table, into: &settings)
             case "tools":
                 let reserved = Set(ActionRegistry.builtIn.all.map(\.id))
                 problems += Tool.apply(table, to: &settings.tools, reservedIDs: reserved, entries: entries)
@@ -76,7 +80,26 @@ public struct Settings: Equatable, Sendable {
         settings.contextMenus = checked.menus
         let checkedBar = settings.menuBar.keepingKnown(known)
         settings.menuBar = checkedBar.menus
-        return (settings, problems + checked.problems + checkedBar.problems)
+        let checkedToolbar = ToolbarEntry.keepingKnown(settings.toolbar, known)
+        settings.toolbar = checkedToolbar.items
+        return (settings, problems + checked.problems + checkedBar.problems + checkedToolbar.problems)
+    }
+
+    private static func readToolbar(_ table: TOMLTable, into settings: inout Settings) -> [String] {
+        var problems: [String] = []
+        for (key, value) in entries(of: table) {
+            let name = "toolbar.\(key)"
+            guard let value, key == "items" else {
+                problems.append(value == nil ? unreadableKey(name) : "Unknown setting “\(name)”.")
+                continue
+            }
+            let read = ToolbarEntry.items(value, at: name)
+            if read.problems.isEmpty {
+                settings.toolbar = read.items
+            }
+            problems += read.problems
+        }
+        return problems
     }
 
     private static func readMenuBar(_ table: TOMLTable, into settings: inout Settings) -> [String] {

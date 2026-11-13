@@ -7,13 +7,16 @@ import Foundation
 public struct ActionChoice: Equatable, Sendable, Identifiable {
     public let id: String
     public let title: String
+    /// Its own icon in the toolbar (#88).
+    public let symbol: String
 }
 
 public extension Settings {
     /// Every action the menus can list, built-in ones first, then these settings' tools.
     var actionChoices: [ActionChoice] {
-        ActionRegistry.builtIn.all.map { ActionChoice(id: $0.id, title: $0.title) }
-            + tools.map { ActionChoice(id: $0.id, title: $0.title) }
+        (ActionRegistry.builtIn.all + tools.map(\.action)).map {
+            ActionChoice(id: $0.id, title: $0.title, symbol: $0.symbol)
+        }
     }
 
     /// A new tool, titled `title`, at the end of the tools; its name in the settings file is made
@@ -42,6 +45,7 @@ public extension Settings {
         contextMenus.folder = contextMenus.folder.removingAction(id)
         menuBar.file.removeAll { $0.actionID == id }
         menuBar.edit.removeAll { $0.actionID == id }
+        toolbar.removeAll { $0.actionID == id }
     }
 
     /// "Open with Hex Editor" → "open-with-hex-editor", "Öffnen" → "offnen"; "tool" if nothing is left; "-2", "-3"...
@@ -161,9 +165,9 @@ extension Settings {
     }
 }
 
-/// A menu the Tools & Menus tab edits.
+/// A menu the Tools & Menus tab edits; the toolbar (#88) is edited there too.
 public enum EditableMenu: CaseIterable, Sendable {
-    case items, folder, file, edit
+    case items, folder, file, edit, toolbar
 }
 
 public extension Settings {
@@ -177,6 +181,7 @@ public extension Settings {
         case .folder: contextMenus.folder = ContextMenus.defaults.keepingKnown(known).menus.folder
         case .file: menuBar.file = MenuBarSettings.defaults.keepingKnown(known).menus.file
         case .edit: menuBar.edit = MenuBarSettings.defaults.keepingKnown(known).menus.edit
+        case .toolbar: toolbar = ToolbarEntry.keepingKnown(ToolbarEntry.defaults, known).items
         }
     }
 

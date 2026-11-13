@@ -61,8 +61,8 @@ struct ToolsEditingTests {
         var settings = Settings()
         settings.addTool(title: "Hex")
         let choices = settings.actionChoices
-        #expect(choices.first == ActionChoice(id: "open", title: "Open"))
-        #expect(choices.last == ActionChoice(id: "hex", title: "Hex"))
+        #expect(choices.first == ActionChoice(id: "open", title: "Open", symbol: "arrow.up.forward.app"))
+        #expect(choices.last == ActionChoice(id: "hex", title: "Hex", symbol: "app.badge"))
         #expect(choices.count == ActionRegistry.builtIn.all.count + settings.tools.count)
     }
 

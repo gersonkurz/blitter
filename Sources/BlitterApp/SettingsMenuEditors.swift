@@ -224,7 +224,8 @@ struct MenuBarEditor: View {
     }
 }
 
-private struct FieldID: Hashable {
+/// Makes a detail field anew for another selection, or another item at the same place.
+struct FieldID: Hashable {
     let selection: Int?
     let count: Int
 }

@@ -48,12 +48,13 @@ Typing in the list finds names as you type. There is no search box to open first
 
 ## Hidden files
 
-**⇧⌘.** (View → Show Hidden Files) shows or hides hidden files, on both sides.
+**⇧⌘.** (View → Show Hidden Files), or the toolbar's eye button, shows or hides hidden files
+(such as `.git` or `.claude`) on both sides. The button stays pressed while they are shown.
 
 ## Keeping up to date
 
-The list follows changes on disk by itself. **⌘R** (View → Refresh) reads the folder again
-anyway.
+The list follows changes on disk by itself. **⌘R** (View → Refresh), or the toolbar's Refresh
+button, reads the folder again anyway.
 
 ## Zoom
 

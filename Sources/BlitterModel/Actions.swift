@@ -31,6 +31,9 @@ public enum ActionScope: Hashable, Sendable {
     /// The side's folder is on a volume that can be ejected: one in the tree's Volumes, not the
     /// startup disk (#84).
     case volume
+    /// Nothing in particular (#88): the view as a whole, such as showing hidden files. It always
+    /// fits.
+    case always
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
@@ -45,6 +48,7 @@ public enum ActionScope: Hashable, Sendable {
               onVolume: Bool = false) -> Bool
     {
         switch self {
+        case .always: true
         case .volume: onVolume
         case .workingCopy: inWorkingCopy && state.status == .loaded && state.selection.count <= 1
         case .filePair: Self.pair(state, other, on: .left) != nil // the order does not matter here
@@ -135,9 +139,15 @@ public struct Action: Sendable {
     /// File types (a tool's extensions, #65) as ".bin": then every selected item must be a file
     /// whose name ends in one of them. Empty: any.
     let fileTypes: [String]
+    /// Its icon in the toolbar (#88): an SF Symbols name. A toolbar entry can choose another.
+    public let symbol: String
+    /// For an action that turns something on or off (#88): whether it is on now. The toolbar
+    /// shows its button pressed, a menu item a checkmark.
+    let isOn: (@MainActor @Sendable (Workspace) -> Bool)?
 
     init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
-         effect: ActionEffect = .changes, fileTypes: [String] = [],
+         effect: ActionEffect = .changes, fileTypes: [String] = [], symbol: String,
+         isOn: (@MainActor @Sendable (Workspace) -> Bool)? = nil,
          command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
         self.id = id
@@ -147,6 +157,8 @@ public struct Action: Sendable {
         self.worksInFind = worksInFind
         self.effect = effect
         self.fileTypes = fileTypes.map { "." + $0 }
+        self.symbol = symbol
+        self.isOn = isOn
         self.command = command
     }
 
@@ -190,98 +202,6 @@ public struct ActionRegistry: Sendable {
     public func action(_ id: String) -> Action? {
         byID[id]
     }
-
-    /// The built-in actions; later tickets add their own here (copy path, tools, git, ...).
-    static let builtIn = ActionRegistry([
-        Action("open", "Open", scope: .single, effect: .opens) { workspace, side in
-            .open(side, name: workspace.state(of: side).selection.first ?? "")
-        },
-        Action("quick-look", "Quick Look", scope: .selection, effect: .view) { _, side in .togglePreview(side) },
-        Action("copy", "Copy", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
-            .copyToPasteboard(side)
-        },
-        Action("copy-path", "Copy Path", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
-            .copyPaths(side)
-        },
-        Action("copy-name", "Copy Name", scope: .selection, output: .clipboard, effect: .notAutomated) { _, side in
-            .copyNames(side)
-        },
-        Action("rename", "Rename", scope: .single, worksInFind: false, effect: .notAutomated) { _, side in
-            .requestRename(side)
-        },
-        Action("batch-rename", "Batch Rename…", scope: .selection, worksInFind: false,
-               effect: .notAutomated)
-        { _, side in
-            .requestBatchRename(side)
-        },
-        Action("copy-to-other-side", "Copy to Other Side", scope: .selection) { workspace, side in
-            .copyItems(workspace.selectedItems(on: side).map(\.path),
-                       toFolder: workspace.state(of: side.opposite).location)
-        },
-        Action("move-to-other-side", "Move to Other Side", scope: .selection) { workspace, side in
-            .moveItems(workspace.selectedItems(on: side).map(\.path),
-                       toFolder: workspace.state(of: side.opposite).location)
-        },
-        Action("reveal-in-finder", "Reveal in Finder", scope: .selection, effect: .opens) { _, side in
-            .revealInFinder(side)
-        },
-        Action("move-to-trash", "Move to Trash", scope: .selection) { _, side in .trashSelection(side) },
-        Action("delete-immediately", "Delete Immediately", scope: .selection, effect: .notAutomated) { _, side in
-            .deleteSelection(side)
-        },
-        Action("delete-immediately-without-asking", "Delete Immediately Without Asking",
-               scope: .selection, effect: .notAutomated) { _, side in .deleteSelectionWithoutAsking(side) },
-        Action("folder-sizes", "Calculate Folder Sizes", scope: .folders, effect: .view) { _, side in
-            .measureFolderSizes(side)
-        },
-        Action("new-folder", "New Folder", scope: .folder, worksInFind: false) { _, side in .newFolder(side) },
-        Action("copy-folder-path", "Copy Path", scope: .folder, output: .clipboard, effect: .notAutomated) { _, side in
-            .copyFolderPath(side)
-        },
-        // #40: in the configured diff tool. The pair is the scope's, so menus and running agree.
-        Action("compare-files", "Compare Files", scope: .filePair, effect: .opens) { workspace, side in
-            let pair = ActionScope.pair(workspace.state(of: side), workspace.state(of: side.opposite), on: side)
-            return .compare(left: pair?.0 ?? "", right: pair?.1 ?? "")
-        },
-        // #70: clone a repository into the side's folder; any folder, not only a working copy.
-        Action("git-clone", "Git Clone…", scope: .folder, worksInFind: false, effect: .view) { workspace, side in
-            .present(DialogRequest(kind: DialogRequest.gitClone, path: workspace.state(of: side).entriesLocation))
-        },
-        // #42: the history of the selected item, or of the side's folder.
-        Action("git-log", "Git Log…", scope: .workingCopy, effect: .view) { workspace, side in
-            .present(DialogRequest(kind: DialogRequest.gitLog, path: workspace.workingCopyTarget(on: side)))
-        },
-        Action("git-sync", "Git Sync…", scope: .workingCopy, effect: .view) { workspace, side in
-            .present(DialogRequest(kind: DialogRequest.gitSync, path: workspace.workingCopyTarget(on: side)))
-        },
-        Action("git-clean", "Git Clean…", scope: .workingCopy, effect: .view) { workspace, side in
-            .present(DialogRequest(kind: DialogRequest.gitClean, path: workspace.workingCopyTarget(on: side)))
-        },
-        Action("git-commit", "Git Commit…", scope: .workingCopy, effect: .view) { workspace, side in
-            .present(DialogRequest(kind: DialogRequest.gitCommit, path: workspace.workingCopyTarget(on: side)))
-        },
-        // #72: the selected folder, or the side's folder, joins the tree's Favorites.
-        Action("add-to-favorites", "Add to Favorites", scope: .oneFolder, worksInFind: false,
-               effect: .notAutomated)
-        { workspace, side in
-            let state = workspace.state(of: side)
-            let name = state.selection.first.map { Paths.appending($0, to: state.entriesLocation) }
-            return .addFavorite(name ?? state.entriesLocation)
-        },
-        // #84: the volume the side's folder is on, as Finder's Eject.
-        Action("eject", "Eject", scope: .volume, worksInFind: false) { workspace, side in
-            .eject(workspace.ejectableVolume(containing: workspace.state(of: side).location)?.path ?? "")
-        },
-        Action("undo", "Undo", scope: .lastChange) { workspace, _ in
-            .undo(entry: workspace.lastUndo?.id ?? 0)
-        },
-        Action("compare-folders", "Compare Folders", scope: .bothFolders, effect: .opens) { workspace, _ in
-            .compare(
-                left: workspace.state(of: .left).entriesLocation,
-                right: workspace.state(of: .right).entriesLocation
-            )
-        },
-    ])
 }
 
 public extension Workspace {
@@ -296,6 +216,12 @@ public extension Workspace {
                                  onVolume: onVolume)
                 && $0.fitsFileTypes(here)
         }
+    }
+
+    /// Whether the action turns something on that is on now (#88); nil for an action that turns
+    /// nothing on or off.
+    func isOn(_ id: String) -> Bool? {
+        actionRegistry.action(id)?.isOn.map { $0(self) }
     }
 
     /// Whether `perform(.runAction(id, side))` would run the action now.

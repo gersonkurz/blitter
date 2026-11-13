@@ -22,10 +22,11 @@ struct ActionsTests {
         sides.workspace.perform(.refresh(.left))
         try await sides.settle()
 
-        // Nothing selected: only what works on the folder itself (with the default tools, #18).
+        // Nothing selected: only what works on the folder itself (with the default tools, #18), and
+        // what always fits (#88).
         #expect(ids(sides.workspace.actions(for: .left)) == ["new-folder", "copy-folder-path", "git-clone",
-                                                             "add-to-favorites", "compare-folders", "open-in-terminal",
-                                                             "open-in-code"])
+                                                             "add-to-favorites", "toggle-hidden-files", "refresh",
+                                                             "compare-folders", "open-in-terminal", "open-in-code"])
 
         sides.workspace.perform(.select(.left, ["a.txt"]))
         let single = ids(sides.workspace.actions(for: .left))
@@ -49,7 +50,8 @@ struct ActionsTests {
             Issue.record("the missing folder was read")
             return
         }
-        #expect(sides.workspace.actions(for: .left).isEmpty)
+        // Only what always fits (#88): Refresh tries again.
+        #expect(ids(sides.workspace.actions(for: .left)) == ["toggle-hidden-files", "refresh"])
         var changes = 0
         sides.workspace.onChange = { changes += 1 }
         sides.workspace.perform(.runAction("new-folder", .left))

@@ -20,6 +20,8 @@ final class MainWindowController: NSWindowController {
     private(set) weak var batchRename: BatchRenameModel?
     /// Light and dark mode take different theme schemes (#21).
     private var appearanceObservation: NSKeyValueObservation?
+    /// The toolbar (#88), from the settings.
+    private(set) var toolbar: WindowToolbar?
     /// Runs after every render, e.g. to save the state for the next launch.
     var afterRender: (() -> Void)?
 
@@ -60,6 +62,8 @@ final class MainWindowController: NSWindowController {
             window.setFrameAutosaveName(name)
         }
 
+        window.toolbarStyle = .unified
+        toolbar = WindowToolbar(workspace: workspace, window: window)
         workspace.onChange = { [weak self] in self?.render() }
         appearanceObservation = window.observe(\.effectiveAppearance) { [weak self] _, _ in
             MainActor.assumeIsolated { self?.render() }
@@ -128,6 +132,7 @@ final class MainWindowController: NSWindowController {
         }
         jobsController.render()
         findController.render()
+        toolbar?.render()
         askToDeleteIfNeeded()
         automationPrompt.render(workspace, in: window)
         showBatchRenameIfNeeded()

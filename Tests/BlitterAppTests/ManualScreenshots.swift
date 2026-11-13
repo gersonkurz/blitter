@@ -94,9 +94,9 @@ final class ManualScreenshots {
             controller.model.draft.theme.dark = "tomorrow-night-blue"
             try await Self.capture(window, as: "settings-colors-chosen-\(name).png")
             controller.model.revert()
-            // The Tools & Menus tab's menu editors (#65).
+            // The Tools & Menus tab's menu editors (#65), and the toolbar's (#88).
             controller.model.tab = .tools
-            for (pane, file) in [(ToolsSettings.Pane.itemsMenu, "items"), (.fileMenu, "file")] {
+            for (pane, file) in [(ToolsSettings.Pane.itemsMenu, "items"), (.fileMenu, "file"), (.toolbar, "toolbar")] {
                 controller.model.toolsPane = pane
                 try await Self.capture(window, as: "settings-menus-\(file)-\(name).png")
             }

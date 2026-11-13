@@ -16,7 +16,7 @@ struct ToolsSettings: View {
     let reset: (EditableMenu) -> Void
 
     enum Pane: CaseIterable {
-        case tools, itemsMenu, folderMenu, fileMenu, editMenu
+        case tools, itemsMenu, folderMenu, fileMenu, editMenu, toolbar
 
         var title: String {
             switch self {
@@ -25,6 +25,7 @@ struct ToolsSettings: View {
             case .folderMenu: "Context Menu for the Folder"
             case .fileMenu: "File Menu"
             case .editMenu: "Edit Menu"
+            case .toolbar: "Toolbar"
             }
         }
 
@@ -36,6 +37,7 @@ struct ToolsSettings: View {
             case .folderMenu: .folder
             case .fileMenu: .file
             case .editMenu: .edit
+            case .toolbar: .toolbar
             }
         }
 
@@ -47,6 +49,7 @@ struct ToolsSettings: View {
             case .folderMenu: "Right-click on empty space in a list, or on a folder in the tree."
             case .fileMenu: "The File menu's items and their shortcuts."
             case .editMenu: "The items after the Edit menu's own (Copy, Paste, Find…)."
+            case .toolbar: "The window's buttons; each acts on the active side. An empty toolbar is hidden."
             }
         }
     }
@@ -83,6 +86,9 @@ struct ToolsSettings: View {
             case .editMenu:
                 MenuBarEditor(items: $draft.menuBar.edit, choices: draft.actionChoices, problem: problem(.edit))
                     .id(EditorID(pane: pane, resets: resets))
+            case .toolbar:
+                ToolbarEditor(items: $draft.toolbar, choices: draft.actionChoices)
+                    .id(EditorID(pane: pane, resets: resets))
             }
         }
         .padding()
@@ -95,7 +101,7 @@ struct ToolsSettings: View {
         switch menu {
         case .file: "File menu"
         case .edit: "Edit menu"
-        case .items, .folder: nil
+        case .items, .folder, .toolbar: nil
         }
     }
 

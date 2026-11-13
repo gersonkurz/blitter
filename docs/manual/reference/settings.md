@@ -73,8 +73,8 @@ on = "files"
 # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
 # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
 # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, add-to-favorites,
-# compare-files, compare-folders, undo, git-clone, git-log, git-commit, git-sync and git-clean
-# (only inside a git working copy), and the tools above.
+# compare-files, compare-folders, undo, eject, toggle-hidden-files, refresh, git-clone, git-log,
+# git-commit, git-sync and git-clean (only inside a git working copy), and the tools above.
 [context_menu]
 # For the clicked or selected items.
 items = [
@@ -118,6 +118,17 @@ file = [
 edit = [
     { action = "copy-path", key = "opt+cmd+c" },
     { action = "copy-name", key = "shift+opt+cmd+c" },
+]
+
+# The window's toolbar: action names in order, "-" for a gap, and { action = "…", icon = "…" }
+# for another icon than the action's own: an SF Symbols name (the SF Symbols app lists them).
+# A button acts on the active side and is dimmed while its action does not fit it; one that
+# turns something on or off (toggle-hidden-files) shows whether it is on. [] hides the toolbar.
+[toolbar]
+items = [
+    "toggle-hidden-files", "refresh", "-",
+    "new-folder", "copy-to-other-side", "move-to-other-side", "rename", "move-to-trash", "-",
+    "open-in-terminal", "open-in-code", "git-log", "git-commit", "git-sync",
 ]
 
 # Compare Files and Compare Folders show the two side by side in a visual diff tool. "auto"

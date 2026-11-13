@@ -14,6 +14,7 @@ public extension Settings {
             toolsSection,
             menusSection,
             menuBarSection,
+            toolbarSection,
             diffSection,
             themeSection,
         ]
@@ -94,8 +95,8 @@ public extension Settings {
         # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
         # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
         # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, add-to-favorites,
-        # compare-files, compare-folders, undo, git-clone, git-log, git-commit, git-sync and git-clean
-        # (only inside a git working copy), and the tools above.
+        # compare-files, compare-folders, undo, eject, toggle-hidden-files, refresh, git-clone, git-log,
+        # git-commit, git-sync and git-clean (only inside a git working copy), and the tools above.
         [context_menu]
         # For the clicked or selected items.
         items = \(menu(settings.contextMenus.items))
@@ -113,6 +114,17 @@ public extension Settings {
         [menu_bar]
         file = \(menuBar(settings.menuBar.file))
         edit = \(menuBar(settings.menuBar.edit))
+        """
+    }
+
+    private static func toolbarSection(_ settings: Settings) -> String {
+        """
+        # The window's toolbar: action names in order, "-" for a gap, and { action = "…", icon = "…" }
+        # for another icon than the action's own: an SF Symbols name (the SF Symbols app lists them).
+        # A button acts on the active side and is dimmed while its action does not fit it; one that
+        # turns something on or off (toggle-hidden-files) shows whether it is on. [] hides the toolbar.
+        [toolbar]
+        items = \(toolbar(settings.toolbar))
         """
     }
 
@@ -253,6 +265,29 @@ public extension Settings {
                 }
                 return shortcut == nil && !alternate ? quoted(id) : "{ " + parts.joined(separator: ", ") + " }"
             }
+        }
+        return "[\n" + lines.map { "    " + $0 + "," }.joined(separator: "\n") + "\n]"
+    }
+
+    /// One line per group: a line ends after each gap.
+    private static func toolbar(_ items: [ToolbarEntry]) -> String {
+        guard !items.isEmpty else {
+            return "[]"
+        }
+        var lines: [String] = []
+        var line: [String] = []
+        for item in items {
+            switch item {
+            case let .action(id, icon):
+                line.append(icon.map { "{ action = \(quoted(id)), icon = \(quoted($0)) }" } ?? quoted(id))
+            case .gap:
+                line.append("\"-\"")
+                lines.append(line.joined(separator: ", "))
+                line = []
+            }
+        }
+        if !line.isEmpty {
+            lines.append(line.joined(separator: ", "))
         }
         return "[\n" + lines.map { "    " + $0 + "," }.joined(separator: "\n") + "\n]"
     }

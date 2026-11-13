@@ -43,10 +43,21 @@ public struct Tool: Equatable, Sendable {
         Tool(id: textEditorID, title: "Open in Text Editor", app: "TextEdit", scope: .files),
     ]
 
+    /// Blitter's own tools' icons in the toolbar (#88). Any other tool shows what it does: opens
+    /// an app, or runs a command line.
+    static let symbols = [
+        terminalID: "apple.terminal",
+        "open-in-code": "chevron.left.forwardslash.chevron.right",
+        textEditorID: "doc.text",
+    ]
+
     var action: Action {
         let effect: ActionEffect = command.isEmpty ? .opens : .changes
         let (app, scope, title, command) = (app, scope, title, command)
-        return Action(id, title, scope: scope, effect: effect, fileTypes: extensions) { workspace, side in
+        let symbol = Self.symbols[id] ?? (command.isEmpty ? "app.badge" : "terminal")
+        return Action(id, title, scope: scope, effect: effect, fileTypes: extensions,
+                      symbol: symbol)
+        { workspace, side in
             let folder = workspace.state(of: side).entriesLocation
             let selected = workspace.selectedItems(on: side).map(\.path)
             let usesFolder = scope == .folder || (scope == .selectionOrFolder && selected.isEmpty)

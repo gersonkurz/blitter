@@ -165,6 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             guard let id = menuItem.representedObject as? String else {
                 return false
             }
+            menuItem.state = workspace.isOn(id) == true ? .on : .off // #88: e.g. Show Hidden Files
             return !isEditingText && workspace.canRun(id, on: workspace.activeSide)
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = workspace.showsHiddenFiles ? .on : .off

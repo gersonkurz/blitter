@@ -33,6 +33,8 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `add-to-favorites` | Add to Favorites | the one selected folder, or the side's folder when nothing is selected |
 | `eject` | Eject | the volume the side's folder is on, if it is not the startup disk |
 | `undo` | Undo | the last file operation, while one can be undone |
+| `toggle-hidden-files` | Show Hidden Files | nothing in particular: it always fits |
+| `refresh` | Refresh | nothing in particular: it always fits |
 | `compare-folders` | Compare Folders | both sides' folders |
 
 [Back to the contents](../index.md)

@@ -38,6 +38,7 @@ public extension Settings {
         result.tools = Self.tools(tools, changesFrom: original.tools, to: edited.tools)
         take(\.contextMenus)
         take(\.menuBar)
+        take(\.toolbar)
         take(\.font.face)
         take(\.font.mono)
         take(\.font.size)

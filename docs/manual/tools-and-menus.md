@@ -1,13 +1,34 @@
 # Tools and menus
 
 Everything Blitter does to files is an [action](reference/actions.md), with a name such as
-`copy-to-other-side` or `move-to-trash`. Tools you define are actions too. The context menus and
-the menu bar's File and Edit menus list actions by name, so you decide what is in them and in
-what order.
+`copy-to-other-side` or `move-to-trash`. Tools you define are actions too. The context menus,
+the menu bar's File and Edit menus and the toolbar list actions by name, so you decide what is in
+them and in what order.
 
 Edit them in **Settings…** (**⌘,**) → **Tools & Menus**, or in the [settings file](settings.md)
 itself. **Edit** at the top of the tab picks what to edit: the tools, the context menu for
-items, the context menu for the folder, the File menu or the Edit menu.
+items, the context menu for the folder, the File menu, the Edit menu or the toolbar.
+
+## The toolbar
+
+The buttons at the top of the window run actions on the active side, the same as their menu
+items. A button is dimmed while its action does not fit the active side: Rename needs exactly one
+selected item, the Git buttons a git working copy. **Show Hidden Files** stays pressed while
+hidden files are shown. Hold the pointer over a button for its name.
+
+As Blitter comes, the toolbar has Show Hidden Files and Refresh; New Folder, Copy and Move to
+Other Side, Rename and Move to Trash; then Open in Terminal, Open in Code, Git Log, Git Commit and
+Git Sync. Any action can be a button, your own tools included.
+
+![Editing the toolbar](images/settings-menus-toolbar-light.png)
+
+In **Settings…** → **Tools & Menus**, **Edit: Toolbar** lists the buttons with their icons.
+**Add** inserts an action or a gap after the selected button. A gap starts a new group of
+buttons. **Icon** gives the selected button another icon: the name of an
+[SF Symbol](https://developer.apple.com/sf-symbols/), such as `star` or `folder.badge.plus`.
+The free SF Symbols app lists them all. Leave it empty to keep the action's own icon. A tool's
+own icon is that of Blitter's three tools, or a generic one for an app (`app.badge`) or a command
+line (`terminal`). With no buttons at all, the window has no toolbar.
 
 ## Tools in the Settings window
 
@@ -153,5 +174,21 @@ items = [
   held, as Delete Immediately Without Asking does.
 
 The [default shortcuts](reference/shortcuts.md) are those Blitter starts with.
+
+### The toolbar
+
+`[toolbar]` lists the buttons in `items`. An entry is an action name, `"-"` for a gap, or an
+action with another icon:
+
+```toml
+[toolbar]
+items = [
+    "toggle-hidden-files", "refresh", "-",
+    "copy-to-other-side", "move-to-other-side", "move-to-trash", "-",
+    { action = "hex-editor", icon = "number.square" },
+]
+```
+
+A name that is no SF Symbol shows a question mark. `items = []` hides the toolbar.
 
 [Back to the contents](index.md)
