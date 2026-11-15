@@ -110,6 +110,13 @@ public enum AutomationCommandLine {
     }
 
     public static let help = """
+    usage: blitter [--new] [FOLDER [FOLDER]]   show folders in Blitter (starts it if needed)
+      .                              the active side shows the current folder
+      A B                            left side A, right side B
+      --new [A [B]]                  a new window: both sides at A (or left A, right B)
+      a file                         its folder, the file selected
+    A command's name is a command: ./state shows a folder called state.
+
     usage: blitter <command> [arguments]   (Blitter must be running)
       state                          both sides: folders, selections, sort, active side
       listing [SIDE] [--offset N] [--limit N]

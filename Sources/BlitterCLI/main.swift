@@ -2,7 +2,8 @@ import BlitterCore
 import Foundation
 
 // The `blitter` tool (#59): one request to the running Blitter per call, the result printed as
-// JSON. Exit status: 0 done, 1 Blitter answered with an error (or a usage error), 2 Blitter is
+// JSON; or folders to show (#98), printing nothing. Exit status: 0 done, 1 Blitter answered with an error (or a usage
+// error), 2 Blitter is
 // not running.
 
 /// Writes to standard error.
@@ -30,10 +31,78 @@ func serveMCP() -> Int32 {
     return 0
 }
 
+/// The Blitter.app this tool is part of (followed through a link such as /usr/local/bin/blitter),
+/// nil for a tool outside one.
+func appBundle() -> String? {
+    var size: UInt32 = 0
+    _NSGetExecutablePath(nil, &size)
+    var buffer = [CChar](repeating: 0, count: Int(size))
+    guard _NSGetExecutablePath(&buffer, &size) == 0 else {
+        return nil
+    }
+    var path = URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath().path as NSString
+    for _ in 0 ..< 3 { // blitter, Helpers, Contents
+        path = path.deletingLastPathComponent as NSString
+    }
+    return path.hasSuffix(".app") ? path as String : nil
+}
+
+/// Brings that Blitter to the front, starting it if it is not running; whether it did.
+func openApp() -> Bool {
+    guard let app = appBundle() else {
+        return false
+    }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    process.arguments = ["-a", app]
+    guard (try? process.run()) != nil else {
+        return false
+    }
+    process.waitUntilExit()
+    return process.terminationStatus == 0
+}
+
+/// `blitter [--new] [FOLDER [FOLDER]]` (#98): Blitter in front (started if need be; not for a
+/// socket of BLITTER_SOCKET's, which tests and a second instance use), then the folders shown.
+func showFolders(_ show: ShowFolders) -> Int32 {
+    let started = ProcessInfo.processInfo.environment["BLITTER_SOCKET"] == nil && openApp()
+    // A Blitter just started serves its socket a moment later: wait up to 10 seconds for it.
+    for attempt in 1 ... (started ? 100 : 1) {
+        do {
+            let client = try AutomationClient()
+            if let problem = try show.perform(with: client) {
+                complain(problem)
+                return 1
+            }
+            return 0
+        } catch let AutomationClient.Failure.notRunning(path) {
+            guard attempt < (started ? 100 : 1) else {
+                complain("blitter: Blitter is not running (nothing serves \(path)).")
+                return 2
+            }
+            usleep(100_000)
+        } catch {
+            complain("blitter: \(error)")
+            return 1
+        }
+    }
+    return 2
+}
+
 func main() -> Int32 {
     let arguments = Array(CommandLine.arguments.dropFirst())
     if arguments == ["mcp"] {
         return serveMCP()
+    }
+    do {
+        if let show = try ShowFolders.parse(arguments, in: FileManager.default.currentDirectoryPath,
+                                            home: NSHomeDirectory(), kind: ShowFolders.kind(of:))
+        {
+            return showFolders(show)
+        }
+    } catch {
+        complain(error.message)
+        return 1
     }
     let request: (method: String, params: JSONValue)
     do {

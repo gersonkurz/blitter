@@ -75,6 +75,9 @@ final class MainWindows {
         observe(controller)
         configure?(controller)
         controller.showWindow(nil)
+        // A new window is the one in front at once (#98: `blitter --new ~/a` goes on to show ~/a in
+        // it), even before it becomes main — which waits for Blitter to be active.
+        lastMain = controller
         save()
         return controller
     }

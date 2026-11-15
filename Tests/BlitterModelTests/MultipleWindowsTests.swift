@@ -133,4 +133,44 @@ struct MultipleWindowsTests {
         sides.workspace.perform(.runAction("new-window", .right))
         #expect(opened == [sides.right])
     }
+
+    /// `blitter --new` (#98) asks over the socket: a new window opens at once, with no Allow
+    /// (it changes nothing on disk).
+    @Test func automationOpensANewWindowWithoutAsking() async throws {
+        let sides = try SidesOnDisk()
+        var opened: [String] = []
+        sides.workspace.system.openWindow = { opened.append($0) }
+        let line = #"{"jsonrpc":"2.0","id":1,"method":"run","params":{"action":"new-window"}}"#
+        let reply = await sides.workspace.handleAutomation(line, client: "test")
+        #expect(reply?.contains(#""error""#) == false)
+        #expect(opened == [sides.left] && sides.workspace.automationConfirmation == nil)
+    }
+
+    /// `blitter .gitignore` and a file the fast filter leaves out (#98 review): asked for by name,
+    /// it is shown and selected — hidden files turned on, the side's filter gone.
+    @Test func aRevealedItemIsShownAndSelected() async throws {
+        let sides = try SidesOnDisk()
+        sides.file("left/.gitignore")
+        sides.file("left/a.txt")
+        sides.file("left/b.txt")
+        sides.workspace.perform(.refresh(.left))
+        try await sides.settle()
+        #expect(!sides.workspace.showsHiddenFiles && sides.names(.left) == ["a.txt", "b.txt"])
+        func select(_ name: String, reveal: Bool) async -> String? {
+            let line = #"{"jsonrpc":"2.0","id":1,"method":"select","params":{"side":"left","names":[""#
+                + name + #""],"reveal":"# + (reveal ? "true" : "false") + "}}"
+            return await sides.workspace.handleAutomation(line, client: "test")
+        }
+
+        #expect(await select(".gitignore", reveal: false)?.contains(#""notListed":[".gitignore"]"#) == true)
+        _ = await select(".gitignore", reveal: true)
+        #expect(sides.workspace.showsHiddenFiles && sides.workspace.state(of: .left).selection == [".gitignore"])
+
+        sides.workspace.perform(.setQuickFilter(.left, QuickFilter("b", mode: .filter)))
+        try await sides.settle()
+        #expect(sides.names(.left) == ["b.txt"])
+        _ = await select("a.txt", reveal: true)
+        #expect(sides.workspace.state(of: .left).quickFilter == nil)
+        #expect(sides.workspace.state(of: .left).selection == ["a.txt"])
+    }
 }

@@ -50,6 +50,7 @@ final class MainWindowsTests {
     @Test func theFrontWindowIsTheOneMainLast() {
         let one = windows.open(first)
         let two = windows.open(Workspace(sharingWith: first, location: "/tmp"))
+        #expect(windows.front === two) // a new window is in front at once (#98), before it is main
         NotificationCenter.default.post(name: NSWindow.didBecomeMainNotification, object: two.window)
         #expect(windows.front === two)
         NotificationCenter.default.post(name: NSWindow.didBecomeMainNotification, object: one.window)

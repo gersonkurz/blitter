@@ -82,7 +82,7 @@ public extension Workspace {
         case "listing": try listing(params)
         case "actions": try actionList(params)
         case "navigate": try await navigate(params)
-        case "select": try select(params)
+        case "select": try await select(params)
         case "activate": try activate(params)
         case "preview": try previewJSON(params)
         case "run": try await runAutomated(params, client: client)
@@ -178,12 +178,17 @@ extension Workspace {
     }
 
     /// Selects exactly the given names among those listed; names not listed are returned apart.
-    func select(_ params: JSONValue) throws(AutomationError) -> JSONValue {
+    /// `reveal` (#98, `blitter notes.txt`): items the list leaves out are shown first — the
+    /// side's fast filter goes, and hidden files are shown if one of the names is hidden.
+    func select(_ params: JSONValue) async throws(AutomationError) -> JSONValue {
         let side = try sideParameter(params)
         guard let list = params["names"]?.array, case let names = list.compactMap(\.string),
               names.count == list.count
         else {
             throw .invalidParams("select needs names, a list of names in the side's listing.")
+        }
+        if params["reveal"] == .bool(true) {
+            await reveal(names, on: side)
         }
         let state = state(of: side)
         let listed = Set(names.filter { state.listed($0) != nil })
@@ -228,6 +233,28 @@ extension Workspace {
         case .directory: "folder"
         case .symlink: "link"
         case .other: "other"
+        }
+    }
+}
+
+extension Workspace {
+    /// Makes the named items of the side's folder listed: no fast filter, hidden files shown if
+    /// one of them is hidden; then waits (at most 5 s) for the list to be made again.
+    func reveal(_ names: [String], on side: Side) async {
+        let state = state(of: side)
+        let wanted = Set(names)
+        guard names.contains(where: { state.listed($0) == nil }) else {
+            return
+        }
+        perform(.setQuickFilter(side, nil))
+        if !showsHiddenFiles, state.allEntries.contains(where: { wanted.contains($0.name) && $0.isHidden }) {
+            perform(.toggleHiddenFiles)
+        }
+        for _ in 0 ..< 250 where !Task.isCancelled {
+            if pendingWork[side] == nil, self.state(of: side).status != .loading {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(20))
         }
     }
 }

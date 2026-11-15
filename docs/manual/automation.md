@@ -23,6 +23,28 @@ your PATH in `~/.zshrc` instead:
 export PATH="$PATH:/Applications/Blitter.app/Contents/Helpers"
 ```
 
+### Showing folders from a terminal
+
+Give the tool folders, and Blitter shows them, starting it if it isn't running:
+
+```
+blitter .                  the active side shows the folder you are in
+blitter ~/a ~/b            the left side shows ~/a, the right side ~/b
+blitter --new              a new window, both sides at the active side's folder
+blitter --new ~/a          a new window, both sides at ~/a
+blitter --new ~/a ~/b      a new window, left ~/a, right ~/b
+blitter notes.txt          a file (or an app): its folder, with it selected
+```
+
+Paths are taken in the terminal's folder. A file you name is shown even if the list leaves it
+out: Show Hidden Files turns on for a hidden one, and that side's fast filter goes. If a folder
+can't be read, or a file isn't there, the tool says so. This changes nothing on disk, so Blitter
+doesn't ask.
+The tool's own commands (below) come first: to show a folder called `state`, type `./state`.
+`blitter --help` lists everything.
+
+### Commands
+
 The tool's commands:
 
 ```

@@ -36,7 +36,7 @@ its MCP server and the Python package all talk to Blitter this way (#27, #58).
 | `listing` | `side`, `offset` (0), `limit` (1000, at most 5000) | `location`, `total`, `offset`, `entries`: `name`, `kind` (`file`, `folder`, `link`, `other`), `size`, `modified` (ISO 8601), `hidden`, and `folderSize` once measured |
 | `actions` | `side` | the actions offered here: `id`, `title`, `effect`, `runnable` (on that side, now) |
 | `navigate` | `side`, `path` | the side (as in `state`) once the folder was read (or failed), at most 30 s later |
-| `select` | `side`, `names` | `selection`, and `notListed` for the names the listing doesn't have |
+| `select` | `side`, `names`, `reveal` (false) | `selection`, and `notListed` for the names the listing doesn't have; with `reveal`, names the list leaves out are shown first (the side's fast filter goes, hidden files are shown for a hidden name) |
 | `activate` | `side` | `activeSide` |
 | `preview` | `action`, `side` | what the action would do now: `items`, `destination`, `detail`, `effect`, `needsConfirmation`; nothing happens |
 | `run` | `action`, `side` | `done`, and `jobs`: each job's `state` (`finished`, `cancelled`) and `errors` (`path`, `message`) |
@@ -100,7 +100,11 @@ Blitter's own codes:
 ## The blitter tool and MCP
 
 The app carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`; Blitter →
-Install Command-Line Tool… links it as `/usr/local/bin/blitter` (#97). Each call is one
+Install Command-Line Tool… links it as `/usr/local/bin/blitter` (#97). Given folders instead
+of a command (`blitter [--new] [FOLDER [FOLDER]]`, #98), it brings Blitter to the front (starting
+it, unless `BLITTER_SOCKET` is set) and sends `run new-window`, `navigate` and `select` (with `reveal`) requests;
+it prints nothing, and stops with exit 1 at a folder not read (`status` not `loaded`) or a name
+`notListed`. Otherwise each call is one
 request, and the result is printed as JSON. Exit status:
 - 0: done;
 - 1: an error from Blitter, or a wrong command line;
