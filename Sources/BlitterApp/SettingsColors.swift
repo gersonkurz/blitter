@@ -28,7 +28,8 @@ struct ColorSettings: View {
     }
 }
 
-/// One mode's scheme: System, then the built-in schemes of that mode (#78).
+/// One mode's scheme: System, then the built-in schemes of that mode (#78), then those of the
+/// other mode (#94).
 struct SchemeChooser: View {
     let title: String
     @Binding var name: String
@@ -43,14 +44,12 @@ struct SchemeChooser: View {
             ScrollViewReader { scroller in
                 List(selection: Binding<String?>(get: { name }, set: { $0.map { name = $0 } })) {
                     Text("System (macOS's colors)").tag("system").id("system")
-                    ForEach(BuiltInScheme.choices(dark: isDark, chosen: name)) { scheme in
-                        HStack {
-                            Swatches(scheme: theme.scheme(named: scheme.id) ?? scheme.scheme)
-                            Text(scheme.title)
-                        }
-                        .help(scheme.author)
-                        .tag(scheme.id)
-                        .id(scheme.id)
+                    let choices = BuiltInScheme.choices(dark: isDark)
+                    Section(isDark ? "Dark" : "Light") {
+                        ForEach(choices.own, content: row)
+                    }
+                    Section(isDark ? "Light" : "Dark") {
+                        ForEach(choices.other, content: row)
                     }
                 }
                 .frame(minHeight: 200)
@@ -71,6 +70,16 @@ struct SchemeChooser: View {
         }
         .onAppear { other = isBuiltIn ? "" : name }
         .onChange(of: name) { other = isBuiltIn ? "" : name }
+    }
+
+    private func row(_ scheme: BuiltInScheme) -> some View {
+        HStack {
+            Swatches(scheme: theme.scheme(named: scheme.id) ?? scheme.scheme)
+            Text(scheme.title)
+        }
+        .help(scheme.author)
+        .tag(scheme.id)
+        .id(scheme.id)
     }
 
     private var isBuiltIn: Bool {

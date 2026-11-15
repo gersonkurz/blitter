@@ -12,10 +12,10 @@ public struct BuiltInScheme: Sendable, Identifiable {
 }
 
 public extension BuiltInScheme {
-    /// What a mode's list offers (#78): that mode's schemes only, and the chosen one even if it is
-    /// the other mode's (set so in the file), so the choice is never out of sight.
-    static func choices(dark isDark: Bool, chosen: String) -> [BuiltInScheme] {
-        all.filter { $0.isDark == isDark || $0.id == chosen }
+    /// What a mode's list offers (#78, #94): every scheme, that mode's own kind first, then the
+    /// other kind (a light scheme for dark mode is a choice too).
+    static func choices(dark isDark: Bool) -> (own: [BuiltInScheme], other: [BuiltInScheme]) {
+        (all.filter { $0.isDark == isDark }, all.filter { $0.isDark != isDark })
     }
 
     // swiftlint:disable force_unwrapping

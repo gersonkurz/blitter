@@ -83,9 +83,9 @@ goes back to the colors in the settings file. A scheme typed under **Other** tha
 downloaded yet shows once it is saved.
 
 - **Built in:** 22 schemes, among them Tomorrow Night Blue, Nord, Dracula, Gruvbox, Catppuccin,
-  Rosé Pine, One Dark and Solarized. The light mode's list shows the light ones, the dark mode's
-  the dark ones. A scheme the file sets for the other mode (say, a light one for dark mode) is
-  still shown in that list, so you can see what is chosen.
+  Rosé Pine, One Dark and Solarized. Each list shows its own kind first (the light mode's the
+  light schemes, the dark mode's the dark ones), then the other kind: a light scheme for dark
+  mode, or a dark one for light mode, is one click away.
 - **Other:** type the name of any scheme of the
   [tinted-theming collection](https://tinted-theming.github.io/tinted-gallery/) (e.g.
   `gruvbox-material-dark-hard`; it is downloaded once and kept in the `schemes` folder next to the

@@ -22,16 +22,15 @@ struct BuiltInSchemesTests {
         #expect(darkOnes)
     }
 
-    /// #78: each mode's list has only that mode's schemes, and the chosen one wherever it is from.
-    @Test func eachModeListsItsOwnSchemesAndTheChosenOne() {
-        let lights = BuiltInScheme.choices(dark: false, chosen: "system")
-        let darks = BuiltInScheme.choices(dark: true, chosen: "nord")
-        #expect(!lights.isEmpty && lights.allSatisfy { !$0.isDark })
-        #expect(!darks.isEmpty && darks.allSatisfy(\.isDark))
-        #expect(lights.count + darks.count == BuiltInScheme.all.count)
-        // A light scheme the file sets for dark mode is in the dark list too.
-        let mixed = BuiltInScheme.choices(dark: true, chosen: "rose-pine-dawn")
-        #expect(mixed.count == darks.count + 1 && mixed.contains { $0.id == "rose-pine-dawn" })
+    /// #78, #94: each mode's list has every scheme, its own kind first, then the other kind.
+    @Test func eachModeListsItsOwnSchemesFirstThenTheOthers() {
+        let light = BuiltInScheme.choices(dark: false)
+        let dark = BuiltInScheme.choices(dark: true)
+        #expect(!light.own.isEmpty && light.own.allSatisfy { !$0.isDark } && light.other.allSatisfy(\.isDark))
+        #expect(!dark.own.isEmpty && dark.own.allSatisfy(\.isDark) && dark.other.allSatisfy { !$0.isDark })
+        #expect(light.own.map(\.id) == dark.other.map(\.id) && light.other.map(\.id) == dark.own.map(\.id))
+        #expect(light.own.count + light.other.count == BuiltInScheme.all.count)
+        #expect(dark.other.contains { $0.id == "solarized-light" }) // a light scheme for dark mode
     }
 
     /// A built-in name in the settings file is resolved at once: no download, no problem.
