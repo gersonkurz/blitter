@@ -13,6 +13,7 @@ struct SettingsFileTextTests {
         settings.columns = [.name, .permissions, .git]
         settings.confirmDelete = false
         settings.gitColors = false
+        settings.theme.rows = .stripes // #91
         settings.font = FontSettings(face: "Helvetica", mono: "Menlo", size: 13.5)
         settings.tools[0].app = "Terminal"
         settings.tools.append(Tool(id: "git fetch", title: "Git \"Fetch\"", app: "", scope: .folder,
@@ -97,12 +98,14 @@ struct SettingsFileTextTests {
         var edited = original
         edited.theme.slots[.folder] = 0x9
         edited.columns.insert(.kind)
+        edited.theme.rows = .stripes // #91
         var current = Settings()
         current.theme.slots[.background] = 0x1
         current.columns.insert(.permissions)
         current.columns.remove(.size)
         let merged = current.applying(changesFrom: original, to: edited)
         #expect(merged.theme.slots[.folder] == 0x9 && merged.theme.slots[.background] == 0x1)
+        #expect(merged.theme.rows == .stripes)
         #expect(merged.columns == [.name, .modified, .kind, .permissions])
     }
 }
@@ -129,13 +132,16 @@ struct SettingsWindowSaveTests {
         #expect(document.canBeSaved && document.problems.isEmpty && document.settings.dateFormat == "HH:mm")
         var edited = document.settings
         edited.gitColors = false
+        edited.theme.rows = .stripes // #91
         workspace.perform(.saveSettings(original: document.settings, edited: edited))
         await workspace.settle()
         var expected = Settings()
         expected.dateFormat = "HH:mm"
         expected.gitColors = false
-        #expect(try String(contentsOfFile: path, encoding: .utf8) == Settings.fileText(expected))
-        #expect(workspace.settings.gitColors == false)
+        expected.theme.rows = .stripes
+        let written = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(written == Settings.fileText(expected) && written.contains("rows = \"stripes\""))
+        #expect(workspace.settings.gitColors == false && workspace.settings.theme.rows == .stripes)
         #expect(workspace.notices.isEmpty)
     }
 

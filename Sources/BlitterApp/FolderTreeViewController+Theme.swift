@@ -12,7 +12,7 @@ extension FolderTreeViewController {
         view.appearance = new.appearance
         outlineView.backgroundColor = new.color(.background)
         (view as? NSScrollView)?.backgroundColor = new.color(.background)
-        outlineView.usesAlternatingRowBackgroundColors = !new.isThemed
+        outlineView.usesAlternatingRowBackgroundColors = new.systemStripes
         return true
     }
 
@@ -44,8 +44,8 @@ extension FolderTreeViewController {
     /// Section rows keep their group semantics but not the grey group-row band of the plain
     /// style; a theme draws every row itself.
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
-        if let palette, palette.isThemed {
-            return ThemedRowView.make(in: outlineView, palette: palette)
+        if let palette, let view = ListRowView.make(in: outlineView, palette: palette, lines: false) {
+            return view // a scheme's colors; the tree never has lines (#91)
         }
         return (item as? TreeItem)?.section != nil ? SectionRowView() : nil
     }

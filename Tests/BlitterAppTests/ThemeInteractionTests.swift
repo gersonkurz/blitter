@@ -53,9 +53,13 @@ final class ThemeInteractionTests {
 
     @Test func theSystemThemeKeepsMacOSsLook() throws {
         let table = list.tableView
-        #expect(table.usesAlternatingRowBackgroundColors)
+        #expect(!table.usesAlternatingRowBackgroundColors) // lines by default (#91)
         #expect(table.backgroundColor == .controlBackgroundColor)
-        #expect(table.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ThemedRowView } == false)
+        #expect(lineRow(table)?.palette?.isThemed == false) // a line in macOS's separator color
+        #expect(lineRow(table)?.palette?.lineColor == .separatorColor)
+        let outline = try #require(treeOutline)
+        #expect(!outline.usesAlternatingRowBackgroundColors) // the tree: no stripes, no lines
+        #expect(outline.rowView(atRow: 1, makeIfNecessary: true).map { $0 is ListRowView } == false)
         #expect(try textColor(".hidden") == .secondaryLabelColor && textColor("sub") == .labelColor)
         #expect(try textColor("run.sh") == .labelColor) // executables are colored only by a theme (#31)
     }
@@ -65,7 +69,7 @@ final class ThemeInteractionTests {
         let table = list.tableView
         #expect(!table.usesAlternatingRowBackgroundColors)
         #expect(try hex(#require(table.backgroundColor)) == "002b36") // base00
-        #expect(table.rowView(atRow: 0, makeIfNecessary: true) is ThemedRowView)
+        #expect(lineRow(table)?.palette?.isThemed == true)
         #expect(try hex(textColor("sub")) == "268bd2") // folder: base0D
         #expect(try hex(textColor(".hidden")) == "657b83") // hidden: base03
         #expect(try hex(textColor("a.txt")) == "93a1a1") // text: base05
@@ -77,7 +81,8 @@ final class ThemeInteractionTests {
         #expect(side.splitViewItems[0].viewController.view.appearance?.name == .darkAqua)
         let outline = try #require(treeOutline)
         #expect(try hex(#require(outline.backgroundColor)) == "002b36")
-        #expect(outline.rowView(atRow: 0, makeIfNecessary: true) is ThemedRowView)
+        let treeRow = outline.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView
+        #expect(treeRow != nil && treeRow?.drawsLine == false)
 
         workspace.addNotice("Settings file: something.")
         workspace.onChange?()
@@ -90,10 +95,30 @@ final class ThemeInteractionTests {
         setScheme("system")
         #expect(list.view.appearance == nil)
         #expect(list.view.layer?.backgroundColor == nil)
-        #expect(table.usesAlternatingRowBackgroundColors)
-        #expect(table.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ThemedRowView } == false)
+        #expect(!table.usesAlternatingRowBackgroundColors)
+        #expect(lineRow(table)?.palette?.isThemed == false)
         #expect(try textColor("sub") == .labelColor)
         #expect(notice.textColor == .systemOrange)
+    }
+
+    /// "stripes" (#91): AppKit's stripes in the list and the tree without a scheme, the scheme's
+    /// with one; no lines either way. Back to "lines", the list's rows draw them again.
+    @Test func stripesInsteadOfLines() throws {
+        let table = list.tableView
+        let outline = try #require(treeOutline)
+        setRows(.stripes)
+        #expect(table.usesAlternatingRowBackgroundColors && outline.usesAlternatingRowBackgroundColors)
+        #expect(table.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ListRowView } == false)
+
+        setScheme("solarized-dark")
+        #expect(!table.usesAlternatingRowBackgroundColors && !outline.usesAlternatingRowBackgroundColors)
+        let row = table.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView
+        #expect(row?.palette?.rows == .stripes && row?.drawsLine == false)
+
+        setScheme("system")
+        setRows(.lines)
+        #expect(!table.usesAlternatingRowBackgroundColors && !outline.usesAlternatingRowBackgroundColors)
+        #expect(lineRow(table) != nil)
     }
 
     /// Failures read as errors: a folder that cannot be read, and a job that ended with problems.
@@ -171,6 +196,17 @@ final class ThemeInteractionTests {
             }
         }
         return nil
+    }
+
+    private func setRows(_ rows: RowStyle) {
+        workspace.settings.theme.rows = rows
+        workspace.onChange?()
+        side.view.layoutSubtreeIfNeeded()
+    }
+
+    /// The list's first row, if Blitter draws it with a line under it.
+    private func lineRow(_ table: NSTableView) -> ListRowView? {
+        (table.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView).flatMap { $0.drawsLine ? $0 : nil }
     }
 
     private func setScheme(_ name: String) {

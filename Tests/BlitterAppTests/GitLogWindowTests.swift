@@ -136,6 +136,29 @@ final class GitLogWindowTests {
         #expect(controller.statusLabel.stringValue == "2 commits")
     }
 
+    /// #91: the lists take the settings' rows when the window opens: lines by default, under real
+    /// rows only; stripes are AppKit's.
+    @Test func theListsTakeLinesOrStripes() async throws {
+        let lined = GitLogWindowController(workspace: workspace, path: "/repo", access: access)
+        defer { lined.close() }
+        try await waitUntil { lined.commitsTable.numberOfRows == 2 }
+        #expect(!lined.commitsTable.usesAlternatingRowBackgroundColors)
+        let row = lined.commitsTable.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView
+        #expect(row?.drawsLine == true && row?.palette?.isThemed == false)
+        lined.log.perform(.select("aaaa"))
+        try await waitUntil { lined.changesTable.numberOfRows == 1 }
+        #expect(!lined.changesTable.usesAlternatingRowBackgroundColors)
+        #expect((lined.changesTable.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView)?.drawsLine == true)
+
+        workspace.settings.theme.rows = .stripes
+        let striped = GitLogWindowController(workspace: workspace, path: "/repo", access: access)
+        defer { striped.close() }
+        try await waitUntil { striped.commitsTable.numberOfRows == 2 }
+        #expect(striped.commitsTable.usesAlternatingRowBackgroundColors)
+        #expect(striped.changesTable.usesAlternatingRowBackgroundColors)
+        #expect(striped.commitsTable.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ListRowView } == false)
+    }
+
     @Test func theHostOpensARegisteredKindAndForgetsItWhenClosed() throws {
         DialogHost.present(DialogRequest(kind: "no-such-kind", path: "/repo")) // nothing registered
         let before = DialogHost.open.count

@@ -43,10 +43,10 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
-        // The file list's look (#14): plain style, its background and row stripes, its row height.
+        // The file list's look (#14): plain style, its background, its row height; stripes or none
+        // come with the palette (#91).
         outlineView.style = .fullWidth
         outlineView.backgroundColor = .controlBackgroundColor
-        outlineView.usesAlternatingRowBackgroundColors = true
         outlineView.rowSizeStyle = .custom // the fonts decide the height (#62)
         outlineView.rowHeight = fonts.rowHeight
         outlineView.floatsGroupRows = false

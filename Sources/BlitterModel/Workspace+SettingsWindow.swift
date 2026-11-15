@@ -47,6 +47,7 @@ public extension Settings {
         take(\.favorites)
         take(\.theme.light)
         take(\.theme.dark)
+        take(\.theme.rows)
         for role in ThemeRole.allCases { // each role is a setting of its own
             take(\.theme.slots[role])
         }

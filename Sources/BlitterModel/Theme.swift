@@ -27,7 +27,7 @@ public struct RGB: Equatable, Hashable, Sendable {
 /// What a color means; each role takes one of the scheme's 16 slots.
 public enum ThemeRole: String, CaseIterable, Sendable {
     case background
-    /// Every other row.
+    /// Every other row, or the line under each row (#91): see `RowStyle`.
     case stripe
     case selection
     case text
@@ -58,6 +58,14 @@ public enum ThemeRole: String, CaseIterable, Sendable {
     ]
 }
 
+/// How the rows of the file lists and the Git windows' lists are told apart (#91).
+public enum RowStyle: String, CaseIterable, Sendable {
+    /// A thin line under each row; the folder tree has none.
+    case lines
+    /// Every other row in the stripe color, the folder tree's too.
+    case stripes
+}
+
 /// The colors to draw with: a scheme and which slot each role takes.
 public struct Theme: Equatable, Sendable {
     public let scheme: Base24Scheme
@@ -73,6 +81,8 @@ public struct Theme: Equatable, Sendable {
 public struct ThemeSettings: Equatable, Sendable {
     public var light = "system"
     public var dark = "system"
+    /// How rows are told apart (#91).
+    public var rows = RowStyle.lines
     public var slots = ThemeRole.defaultSlots
     public var schemes: [String: Base24Scheme] = [:]
 
@@ -117,6 +127,12 @@ public struct ThemeSettings: Equatable, Sendable {
                 } else {
                     dark = scheme
                 }
+            case let ("rows", value?):
+                guard let style = value.string.flatMap(RowStyle.init) else {
+                    problems.append("“\(name)”: expected \"lines\" or \"stripes\".")
+                    continue
+                }
+                rows = style
             case let ("roles", value?):
                 problems += readRoles(value, entries: entries)
             default:

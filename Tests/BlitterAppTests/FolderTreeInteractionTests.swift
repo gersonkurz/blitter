@@ -123,11 +123,12 @@ final class FolderTreeInteractionTests {
         #expect(selectedTitle() == "Desktop")
     }
 
-    /// #14: the tree looks like the file list, and section headers have no grey group band.
+    /// #14: the tree looks like the file list, and section headers have no grey group band; with
+    /// lines, the default, the tree has neither stripes nor lines (#91).
     @Test func theTreeHasTheFileListsLook() throws {
         #expect(outlineView.style == .fullWidth)
         #expect(outlineView.backgroundColor == .controlBackgroundColor)
-        #expect(outlineView.usesAlternatingRowBackgroundColors)
+        #expect(!outlineView.usesAlternatingRowBackgroundColors)
         #expect(outlineView.rowHeight == ListFonts.current(FontSettings()).rowHeight)
         let favorites = try #require(row(titled: "Favorites"))
         let rowView = try #require(outlineView.rowView(atRow: favorites, makeIfNecessary: true))

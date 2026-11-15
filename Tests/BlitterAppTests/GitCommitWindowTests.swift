@@ -22,7 +22,9 @@ final class GitCommitWindowTests {
     }
 
     /// `commitTakes`: how long the pretend git's commit step takes, in seconds.
-    private func controller(upstream: String?, commitTakes: Double = 0) throws -> GitCommitWindowController {
+    private func controller(upstream: String?, commitTakes: Double = 0,
+                            rows: RowStyle = .lines) throws -> GitCommitWindowController
+    {
         let script = folder + "/fake-git"
         try "#!/bin/sh\n[ \"$2\" = commit ] && sleep \(commitTakes)\necho \"git $1 $2\"\n"
             .write(toFile: script, atomically: true, encoding: .utf8)
@@ -30,6 +32,7 @@ final class GitCommitWindowTests {
         let workspace = Workspace(initialLocation: "/fake", home: "/home", lister: { _ in [] },
                                   directoryCheck: { _ in false }, volumes: { [] }, watcher: FakeWatcher.factory)
         workspace.gitRepositories[folder] = KnownRepository(GitRepoStatus(), checked: Date())
+        workspace.settings.theme.rows = rows
         let changes = GitWorkingChanges(branch: "main", upstream: upstream, files: [
             GitFileChange(path: "staged.txt", staged: "M"),
             GitFileChange(path: "src/changed.swift", unstaged: "M"),
@@ -58,6 +61,21 @@ final class GitCommitWindowTests {
     private func type(_ text: String, in window: GitCommitWindowController) {
         window.messageView.string = text
         window.textDidChange(Notification(name: NSText.didChangeNotification))
+    }
+
+    /// #91: the files list takes the settings' rows when the window opens.
+    @Test func theFilesTakeLinesOrStripes() async throws {
+        let lined = try controller(upstream: nil)
+        defer { lined.close() }
+        try await waitUntil { lined.renderedFiles.count == 5 }
+        #expect(!lined.filesTable.usesAlternatingRowBackgroundColors)
+        #expect((lined.filesTable.rowView(atRow: 0, makeIfNecessary: true) as? ListRowView)?.drawsLine == true)
+
+        let striped = try controller(upstream: nil, rows: .stripes)
+        defer { striped.close() }
+        try await waitUntil { striped.renderedFiles.count == 5 }
+        #expect(striped.filesTable.usesAlternatingRowBackgroundColors)
+        #expect(striped.filesTable.rowView(atRow: 0, makeIfNecessary: true).map { $0 is ListRowView } == false)
     }
 
     @Test func filesAreCheckedAndACommitNeedsAMessage() async throws {

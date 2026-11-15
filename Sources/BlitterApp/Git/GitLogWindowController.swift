@@ -11,6 +11,8 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
     NSSearchFieldDelegate
 {
     let log: GitLog
+    /// The lists' lines or stripes, as the settings say when the window opens (#91).
+    let rows: Palette
     let filterField = NSSearchField()
     let statusLabel = NSTextField(labelWithString: "")
     let commitsTable = ActivatingTableView()
@@ -27,6 +29,7 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
     init(workspace: Workspace, path: String, access: GitHistoryAccess = .real) {
         log = GitLog(workspace: workspace, path: path, access: access)
         dateFormatter = Formatting.dateFormatter(workspace.settings.dateFormat)
+        rows = .system(rows: workspace.settings.theme.rows)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
                               defer: false)
@@ -138,7 +141,7 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
         }
         table.style = .fullWidth
         table.rowSizeStyle = .small
-        table.usesAlternatingRowBackgroundColors = true
+        table.usesAlternatingRowBackgroundColors = rows.systemStripes
         table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         table.dataSource = self
         table.delegate = self
@@ -280,5 +283,11 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
             text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
         return cell
+    }
+}
+
+extension GitLogWindowController {
+    func tableView(_ table: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
+        ListRowView.make(in: table, palette: rows, lines: true)
     }
 }

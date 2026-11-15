@@ -151,7 +151,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.style = .fullWidth
         tableView.rowSizeStyle = .custom // the fonts decide the height (#62)
         tableView.rowHeight = fonts.rowHeight
-        tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsMultipleSelection = true
         tableView.allowsColumnReordering = true
         tableView.allowsTypeSelect = false // the fast filter takes the keys (#39)

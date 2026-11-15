@@ -63,6 +63,15 @@ saves the new size in the file by changing only the `size` line, so your comment
 
 ![The Colors tab with schemes chosen](images/settings-colors-chosen-light.png)
 
+**Rows** at the top sets how the rows of a list are told apart:
+
+- **Lines** (the default): a thin line under each row of the file lists and of the Git windows'
+  lists. The folder tree has none.
+- **Stripes**: every other row colored, in the folder tree too.
+
+Without a scheme the line is macOS's separator color; with one, it is the scheme's `stripe`
+color, the same one Stripes takes. The Git windows take the setting when they open.
+
 Blitter takes its colors from [Base16 or Base24](https://github.com/tinted-theming/home)
 schemes: one for light mode, one for dark mode. Pick each from its list; every scheme shows its
 colors, and the chosen one shows a few rows of a list as Blitter will draw them. **System** keeps
@@ -80,8 +89,9 @@ macOS's own colors.
 - Your own scheme can be in the settings file: `[theme.schemes.<name>]` with `base00 = "#181818"`
   and so on.
 
-Which of a scheme's colors each part of the window takes (the background, the selection, folders,
-hidden items, the git states) is set in the settings file, under `[theme.roles]`.
+Which of a scheme's colors each part of the window takes (the background, the stripes or lines,
+the selection, folders, hidden items, the git states) is set in the settings file, under
+`[theme.roles]`. Rows are `rows = "lines"` or `"stripes"` under `[theme]`.
 
 ### Compare
 

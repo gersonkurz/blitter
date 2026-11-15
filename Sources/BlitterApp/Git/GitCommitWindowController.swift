@@ -11,6 +11,8 @@ final class GitCommitWindowController: NSWindowController, NSTableViewDataSource
     NSTextViewDelegate
 {
     let committer: GitCommitter
+    /// The lists' lines or stripes, as the settings say when the window opens (#91).
+    let rows: Palette
     let branchLabel = NSTextField(labelWithString: "")
     let filesTable = ActivatingTableView()
     let messageView = NSTextView()
@@ -29,6 +31,7 @@ final class GitCommitWindowController: NSWindowController, NSTableViewDataSource
 
     init(workspace: Workspace, path: String, access: GitCommitAccess = .real) {
         committer = GitCommitter(workspace: workspace, path: path, access: access)
+        rows = .system(rows: workspace.settings.theme.rows)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 620),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
                               defer: false)
@@ -105,7 +108,7 @@ final class GitCommitWindowController: NSWindowController, NSTableViewDataSource
         }
         filesTable.style = .fullWidth
         filesTable.rowSizeStyle = .small
-        filesTable.usesAlternatingRowBackgroundColors = true
+        filesTable.usesAlternatingRowBackgroundColors = rows.systemStripes
         filesTable.allowsMultipleSelection = true
         filesTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         filesTable.dataSource = self
@@ -325,5 +328,11 @@ extension GitCommitWindowController {
             text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
         return cell
+    }
+}
+
+extension GitCommitWindowController {
+    func tableView(_ table: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
+        ListRowView.make(in: table, palette: rows, lines: true)
     }
 }

@@ -49,6 +49,23 @@ struct ThemeTests {
         #expect(dark.color(.hidden) == RGB(red: 0x65, green: 0x7B, blue: 0x83)) // base03, the default
     }
 
+    /// #91: lines by default, stripes on request; anything else is a problem and keeps lines.
+    @Test func rowsAreLinesOrStripes() {
+        #expect(Settings().theme.rows == .lines)
+        #expect(Settings.parse("[theme]\nrows = \"stripes\"") == (settings(rows: .stripes), []))
+        for value in ["\"grid\"", "true", "\"Lines\""] {
+            let (read, problems) = Settings.parse("[theme]\nrows = \(value)")
+            #expect(read.theme.rows == .lines, "\(value)")
+            #expect(problems == ["“theme.rows”: expected \"lines\" or \"stripes\"."], "\(value)")
+        }
+    }
+
+    private func settings(rows: RowStyle) -> Settings {
+        var settings = Settings()
+        settings.theme.rows = rows
+        return settings
+    }
+
     @Test func aSchemeOfTheUsersOwn() throws {
         let colors = (0 ..< 16).map { String(format: "base0%X = \"#%02x%02x%02x\"", $0, $0, $0, $0) }
         let (settings, problems) = Settings.parse("""

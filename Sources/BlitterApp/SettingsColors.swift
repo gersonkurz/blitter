@@ -4,14 +4,24 @@ import SwiftUI
 /// The Colors tab (#73): a scheme for light mode and one for dark mode, picked from the schemes
 /// that come with Blitter, each shown with its colors, the chosen one as a few rows of a list.
 /// Any other scheme (a tinted-theming name, a file, an address) can be typed; the roles each
-/// color takes stay in the settings file.
+/// color takes stay in the settings file. Above them: lines or stripes (#91).
 struct ColorSettings: View {
     @Binding var theme: ThemeSettings
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            SchemeChooser(title: "Light mode", name: $theme.light, isDark: false, theme: theme)
-            SchemeChooser(title: "Dark mode", name: $theme.dark, isDark: true, theme: theme)
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Rows:", selection: $theme.rows) {
+                Text("Lines").tag(RowStyle.lines)
+                Text("Stripes").tag(RowStyle.stripes)
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .help("Lines: a thin line under each row of the lists; the folder tree has none. "
+                + "Stripes: every other row colored.")
+            HStack(alignment: .top, spacing: 16) {
+                SchemeChooser(title: "Light mode", name: $theme.light, isDark: false, theme: theme)
+                SchemeChooser(title: "Dark mode", name: $theme.dark, isDark: true, theme: theme)
+            }
         }
         .padding()
     }
@@ -45,7 +55,7 @@ struct SchemeChooser: View {
                 .frame(minHeight: 200)
                 .onAppear { scroller.scrollTo(name, anchor: .center) } // the chosen one in sight
             }
-            Preview(scheme: theme.scheme(named: name), name: name, slots: theme.slots)
+            Preview(scheme: theme.scheme(named: name), name: name, slots: theme.slots, rows: theme.rows)
             TextField("Other", text: $other, prompt: Text("a tinted-theming name, a file or an https address"))
                 .onSubmit {
                     let typed = other.trimmingCharacters(in: .whitespaces)
@@ -82,11 +92,12 @@ struct Swatches: View {
     }
 }
 
-/// A few rows of a list in the scheme's colors, as the roles take them.
+/// A few rows of a list in the scheme's colors, as the roles take them, striped or lined.
 struct Preview: View {
     let scheme: Base24Scheme?
     let name: String
     let slots: [ThemeRole: Int]
+    let rows: RowStyle
 
     var body: some View {
         if let scheme {
@@ -111,7 +122,12 @@ struct Preview: View {
             .foregroundStyle(color(role, scheme))
             .padding(.horizontal, 6).padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(color(background, scheme))
+            .background(color(rows == .lines && background == .stripe ? .background : background, scheme))
+            .overlay(alignment: .bottom) {
+                if rows == .lines {
+                    Rectangle().fill(color(.stripe, scheme)).frame(height: 1)
+                }
+            }
     }
 
     private func color(_ role: ThemeRole, _ scheme: Base24Scheme) -> Color {

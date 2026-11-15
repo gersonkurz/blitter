@@ -147,6 +147,10 @@ tool = "auto"
 [theme]
 light = "system"
 dark = "system"
+# How the rows of the file lists and the Git windows' lists are told apart: "lines", a thin
+# line under each row (the folder tree has none), or "stripes", every other row colored.
+# The role "stripe" below is the color of either; without a scheme, macOS's own.
+rows = "lines"
 
 # Which of the scheme's colors each role takes: base00 … base0F, and base10 … base17 (a
 # Base16 scheme has those too, from Base24's fallbacks).

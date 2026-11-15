@@ -15,8 +15,9 @@ extension FileListViewController {
         view.wantsLayer = true
         view.layer?.backgroundColor = new.isThemed ? new.color(.background).cgColor : nil
         tableView.backgroundColor = new.color(.background)
-        // The theme's rows draw their own stripes; the system's are AppKit's.
-        tableView.usesAlternatingRowBackgroundColors = !new.isThemed
+        // The theme's rows draw their own stripes, and lines are drawn by the rows (#91); the
+        // system's stripes are AppKit's.
+        tableView.usesAlternatingRowBackgroundColors = new.systemStripes
         tableView.reloadData()
     }
 
@@ -85,9 +86,6 @@ extension FileListViewController {
     }
 
     func tableView(_ tableView: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
-        guard let palette, palette.isThemed else {
-            return nil // AppKit's own row
-        }
-        return ThemedRowView.make(in: tableView, palette: palette)
+        palette.flatMap { ListRowView.make(in: tableView, palette: $0, lines: true) } // nil: AppKit's own row
     }
 }
