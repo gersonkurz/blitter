@@ -44,9 +44,9 @@ settings file.
 
 ## What Blitter remembers
 
-Blitter starts where you left off: each side's folder, sort order and columns, whether hidden
-files are shown, and your Favorites. The window's size and position and the splitters'
-positions are kept too.
+Blitter starts where you left off: every [window](sides.md#several-windows) you had open, with
+each side's folder, sort order, columns and recent folders, whether hidden files are shown, and
+your Favorites. Each window's size and position and the splitters' positions are kept too.
 
 Your settings are in `~/.config/blitter/settings.toml`. See [Settings](settings.md).
 
