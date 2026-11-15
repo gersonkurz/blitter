@@ -19,6 +19,10 @@ public final class Workspace {
         didSet { settingsChanged(from: oldValue) }
     }
 
+    /// The colors the Settings window shows in the whole window (#93): its draft's, from when it
+    /// has read the file until it closes. Nil: the settings' own.
+    public internal(set) var themeTrial: ThemeSettings?
+
     /// Messages for the user that stay until dismissed, e.g. problems in the settings file.
     public internal(set) var notices: [Notice] = []
     var nextNoticeID = 0
@@ -207,6 +211,7 @@ public final class Workspace {
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
         case let .saveSettings(original, edited): saveSettings(from: original, to: edited)
+        case let .tryTheme(theme): tryTheme(theme)
         case let .zoomFont(zoom): zoomFont(zoom)
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)

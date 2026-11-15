@@ -61,7 +61,7 @@ final class JobsViewController: NSViewController {
     /// Returns true if the theme changed; the strip's own colors are set here, its rows' by
     /// the caller.
     private func renderPalette() -> Bool {
-        guard let new = Palette.changed(from: palette, workspace.settings.theme, for: view) else {
+        guard let new = Palette.changed(from: palette, workspace.shownTheme, for: view) else {
             return false
         }
         palette = new

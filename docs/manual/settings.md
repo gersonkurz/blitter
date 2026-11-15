@@ -75,8 +75,12 @@ they open.
 
 Blitter takes its colors from [Base16 or Base24](https://github.com/tinted-theming/home)
 schemes: one for light mode, one for dark mode. Pick each from its list; every scheme shows its
-colors, and the chosen one shows a few rows of a list as Blitter will draw them. **System** keeps
-macOS's own colors.
+colors. **System** keeps macOS's own colors.
+
+What you choose here, and Lines or Stripes, shows in the whole window at once, so you can try it
+on your own folders. **Save** keeps it; **Revert**, or closing the Settings window without saving,
+goes back to the colors in the settings file. A scheme typed under **Other** that Blitter has not
+downloaded yet shows once it is saved.
 
 - **Built in:** 22 schemes, among them Tomorrow Night Blue, Nord, Dracula, Gruvbox, Catppuccin,
   Rosé Pine, One Dark and Solarized. The light mode's list shows the light ones, the dark mode's

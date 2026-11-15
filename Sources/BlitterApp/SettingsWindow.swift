@@ -4,7 +4,8 @@ import SwiftUI
 
 /// The Settings window's state (#64): the settings file as it was read, and the draft the window
 /// shows. Save writes what changed into the file as it is then (a command); Revert drops the
-/// draft. While nothing is edited, the window follows the file when it changes.
+/// draft. While nothing is edited, the window follows the file when it changes. While it is open,
+/// the whole window shows the draft's colors (#93).
 @MainActor
 @Observable
 final class SettingsWindowModel {
@@ -15,6 +16,9 @@ final class SettingsWindowModel {
         didSet {
             if draft != oldValue {
                 draftProblems = draft.problems
+            }
+            if draft.theme != oldValue.theme {
+                tryColors()
             }
         }
     }
@@ -70,7 +74,23 @@ final class SettingsWindowModel {
             draft = document.settings.applying(changesFrom: draftBefore, to: draft)
             draftProblems = isDirty ? draft.problems : []
             loading = nil
+            tryColors()
         }
+    }
+
+    /// The draft's colors in the whole window, once the file is read (#93): edited, saved,
+    /// reverted or as the file has them, what the window shows is what the Colors tab shows —
+    /// there is no other state to keep in step with saves and reads (#93 review). Closing the
+    /// window ends it.
+    private func tryColors() {
+        if document != nil {
+            workspace.perform(.tryTheme(draft.theme))
+        }
+    }
+
+    /// The window closes: what was not saved is no longer tried.
+    func endTrial() {
+        workspace.perform(.tryTheme(nil))
     }
 
     /// The settings were read again (a save, an editor, a zoom): shown, unless the draft has changes.
@@ -194,6 +214,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_: Notification) {
+        model.endTrial() // colors not saved go (#93)
         Self.current = nil // a new window reads the file again
     }
 }

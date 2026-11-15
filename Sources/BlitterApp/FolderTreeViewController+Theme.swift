@@ -5,7 +5,7 @@ import BlitterModel
 extension FolderTreeViewController {
     /// Returns true if the colors changed, so the tree is rebuilt in the new ones.
     func renderPalette() -> Bool {
-        guard let new = Palette.changed(from: palette, workspace.settings.theme, for: view) else {
+        guard let new = Palette.changed(from: palette, workspace.shownTheme, for: view) else {
             return false
         }
         palette = new

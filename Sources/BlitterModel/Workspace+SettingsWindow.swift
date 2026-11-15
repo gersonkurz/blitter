@@ -169,3 +169,26 @@ public extension Workspace {
         _ = await finishSavingSettings()
     }
 }
+
+public extension Workspace {
+    /// The colors the views draw with: the settings', or the ones being tried (#93). A tried
+    /// theme is the file's as the Settings window edits it, so the schemes the settings found
+    /// (downloaded, read from a file) are added for the names it does not hold itself.
+    var shownTheme: ThemeSettings {
+        guard var trial = themeTrial else {
+            return settings.theme
+        }
+        trial.schemes.merge(settings.theme.schemes) { own, _ in own }
+        return trial
+    }
+}
+
+extension Workspace {
+    func tryTheme(_ theme: ThemeSettings?) -> Bool {
+        guard theme != themeTrial else {
+            return false
+        }
+        themeTrial = theme
+        return true
+    }
+}

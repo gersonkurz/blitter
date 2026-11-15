@@ -31,7 +31,7 @@ final class GitCommitWindowController: NSWindowController, NSTableViewDataSource
 
     init(workspace: Workspace, path: String, access: GitCommitAccess = .real) {
         committer = GitCommitter(workspace: workspace, path: path, access: access)
-        rows = .system(rows: workspace.settings.theme.rows)
+        rows = .system(rows: workspace.shownTheme.rows)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 620),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
                               defer: false)

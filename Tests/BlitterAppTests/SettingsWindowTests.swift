@@ -60,6 +60,48 @@ final class SettingsWindowTests {
         #expect(SettingsWindowController.current?.model === model)
     }
 
+    /// #93: while the window is open, the whole window shows the draft's colors: chosen, not
+    /// saved, reverted, saved; closing goes back to the file's. Other edits are not colors.
+    @Test func chosenColorsShowAtOnceUntilSavedOrNot() async throws {
+        #expect(workspace.themeTrial == nil)
+        let model = try await openWindow()
+        #expect(workspace.themeTrial == model.draft.theme && workspace.shownTheme.dark == "system")
+        model.draft.theme.dark = "nord"
+        #expect(workspace.shownTheme.dark == "nord")
+        #expect(workspace.settings.theme.dark == "system") // nothing saved
+        model.draft.gitColors = false
+        #expect(workspace.shownTheme.dark == "nord")
+        model.revert()
+        #expect(workspace.shownTheme.dark == "system")
+
+        model.draft.theme.rows = .stripes
+        #expect(workspace.shownTheme.rows == .stripes)
+        model.save()
+        try await waitUntil { self.workspace.settings.theme.rows == .stripes && !model.isDirty }
+        #expect(workspace.shownTheme.rows == .stripes) // kept
+
+        model.draft.theme.light = "nord"
+        #expect(workspace.shownTheme.light == "nord")
+        SettingsWindowController.current?.close()
+        #expect(workspace.themeTrial == nil && workspace.shownTheme.light == "system")
+        #expect(workspace.shownTheme.rows == .stripes) // the file's
+    }
+
+    /// #93 review: a choice made while a save is under way is what shows once the save is read
+    /// back, not what was saved.
+    @Test func aChoiceMadeWhileSavingStaysShown() async throws {
+        let model = try await openWindow()
+        workspace.settingsFileBeforeReplace = { Thread.sleep(forTimeInterval: 0.3) }
+        model.draft.theme.rows = .stripes
+        model.save()
+        #expect(model.isSaving)
+        model.draft.theme.rows = .lines // back, while saving
+        try await waitUntil { self.workspace.settings.theme.rows == .stripes && !model.isSaving }
+        try await waitUntil { self.workspace.settingsReads > 1 }
+        #expect(model.draft.theme.rows == .lines && model.isDirty)
+        #expect(workspace.shownTheme.rows == .lines)
+    }
+
     @Test func whatTheFileCannotHoldCannotBeSaved() async throws {
         let model = try await openWindow()
         model.draft.dateFormat = ""

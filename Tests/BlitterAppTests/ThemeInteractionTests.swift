@@ -100,6 +100,17 @@ final class ThemeInteractionTests {
         #expect(notice.textColor == .systemOrange)
     }
 
+    /// #93: colors tried by the Settings window recolor the list at once, and go again.
+    @Test func triedColorsShowAndGo() throws {
+        var trial = ThemeSettings()
+        (trial.light, trial.dark) = ("nord", "nord")
+        workspace.perform(.tryTheme(trial))
+        side.view.layoutSubtreeIfNeeded()
+        #expect(try hex(#require(list.tableView.backgroundColor)) == "2e3440")
+        workspace.perform(.tryTheme(nil))
+        #expect(list.tableView.backgroundColor == .controlBackgroundColor)
+    }
+
     /// "stripes" (#91): AppKit's stripes in the list and the tree without a scheme, the scheme's
     /// with one; no lines either way. Back to "lines", the list's rows draw them again.
     @Test func stripesInsteadOfLines() throws {

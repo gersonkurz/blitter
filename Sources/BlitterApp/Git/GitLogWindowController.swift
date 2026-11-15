@@ -29,7 +29,7 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
     init(workspace: Workspace, path: String, access: GitHistoryAccess = .real) {
         log = GitLog(workspace: workspace, path: path, access: access)
         dateFormatter = Formatting.dateFormatter(workspace.settings.dateFormat)
-        rows = .system(rows: workspace.settings.theme.rows)
+        rows = .system(rows: workspace.shownTheme.rows)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
                               defer: false)

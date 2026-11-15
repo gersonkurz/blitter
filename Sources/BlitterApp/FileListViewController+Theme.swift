@@ -5,7 +5,7 @@ import BlitterModel
 extension FileListViewController {
     /// A new theme, or the appearance changed: redraw everything in the new colors.
     func renderPalette() {
-        guard let new = Palette.changed(from: palette, workspace.settings.theme, for: view) else {
+        guard let new = Palette.changed(from: palette, workspace.shownTheme, for: view) else {
             return
         }
         palette = new

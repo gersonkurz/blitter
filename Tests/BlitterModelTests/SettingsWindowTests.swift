@@ -265,3 +265,25 @@ struct SettingsWindowSaveTests {
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "# mine\n")
     }
 }
+
+/// #93: colors tried by the Settings window, over the settings' own.
+@MainActor
+struct ThemeTrialTests {
+    @Test func aTriedThemeShowsWithTheSchemesTheSettingsFound() throws {
+        let workspace = Workspace(initialLocation: "/", home: "/home", lister: { _ in [] },
+                                  directoryCheck: { _ in false }, volumes: { [] }, watcher: FakeWatcher.factory)
+        let found = try #require(BuiltInScheme.all.first?.scheme)
+        workspace.settings.theme.schemes["fetched"] = found // e.g. downloaded when the file was read
+        var changes = 0
+        workspace.onChange = { changes += 1 }
+        var trial = ThemeSettings()
+        trial.dark = "fetched"
+        workspace.perform(.tryTheme(trial))
+        #expect(changes == 1 && workspace.themeTrial == trial)
+        #expect(workspace.shownTheme.scheme(named: "fetched") == found && workspace.shownTheme.dark == "fetched")
+        workspace.perform(.tryTheme(trial)) // the same again: nothing changes
+        #expect(changes == 1)
+        workspace.perform(.tryTheme(nil))
+        #expect(workspace.shownTheme == workspace.settings.theme && changes == 2)
+    }
+}
