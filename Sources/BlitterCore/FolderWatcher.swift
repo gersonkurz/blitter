@@ -32,8 +32,8 @@ public protocol FolderWatching: AnyObject, Sendable {
 /// - Nothing is lost while a folder waits: its stream starts at the newest event the watcher had
 ///   seen when the folder was asked for (or when the watcher was made), so FSEvents replays what
 ///   happened since. Create the watcher before reading the folders it will watch.
-/// - A folder that cannot be opened (not there yet, access refused) is not watched; the next
-///   `watch`, even with the same set, tries it again.
+/// - A folder that cannot be opened (not there yet, access refused), or whose stream does not
+///   start, is not watched; the next `watch`, even with the same set, tries it again.
 /// - FSEvents reports resolved paths (`/private/tmp` for `/tmp`); they are mapped back to the
 ///   paths given to `watch`.
 ///
@@ -52,6 +52,8 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
     private var watched: Set<String> = []
     /// Watched path → its running stream.
     private var streams: [String: StreamHandle] = [:]
+    /// Starts a stream; false if it did not start. Tests replace it (set before the first `watch`).
+    var start: @Sendable (FSEventStreamRef) -> Bool = { FSEventStreamStart($0) }
     /// Folders whose stream is being made on a background thread. One at a time per folder: a
     /// folder asked for again while its stream is still being made waits for that one, so a
     /// folder that hangs never ties up more than one thread, however often it is revisited.
@@ -209,7 +211,13 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
             return
         }
         FSEventStreamSetDispatchQueue(handle.stream, queue)
-        FSEventStreamStart(handle.stream)
+        guard start(handle.stream) else {
+            // Not watched after all (#102): let it go, and the next `watch` tries the folder again,
+            // as one that could not be opened.
+            FSEventStreamInvalidate(handle.stream)
+            handle.release(started: false)
+            return
+        }
         streams[path] = handle
     }
 

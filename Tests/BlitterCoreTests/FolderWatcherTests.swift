@@ -1,4 +1,5 @@
 @testable import BlitterCore
+import CoreServices
 import Foundation
 import Synchronization
 import Testing
@@ -127,6 +128,36 @@ struct FolderWatcherTests {
 
         try FileManager.default.removeItem(atPath: watchedPath)
         #expect(try await batches.wait { $0.joined().contains { $0.path == watchedPath } })
+        withExtendedLifetime(watcher) {}
+    }
+
+    /// #102: a stream that does not start is not kept; the next `watch` of the same folder tries
+    /// again, and then changes are reported.
+    @Test func aStreamThatDoesNotStartIsTriedAgain() async throws {
+        let folder = try TemporaryFolder()
+        let batches = Batches()
+        let attempts = Mutex(0)
+        let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
+        watcher.start = { stream in
+            let attempt = attempts.withLock { count in
+                count += 1
+                return count
+            }
+            return attempt > 1 && FSEventStreamStart(stream) // the first one fails
+        }
+        watcher.watch([folder.path])
+        for _ in 0 ..< 1000 where attempts.withLock({ $0 }) == 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(attempts.withLock { $0 } == 1)
+        #expect(!watcher.isStreaming(folder.path)) // not kept
+
+        watcher.watch([folder.path]) // the same set: tried again
+        try await watcher.waitUntilStreaming(folder.path)
+        #expect(attempts.withLock { $0 } == 2)
+        try await batches.resetWhenQuiet() // replayed events of the folder's creation are not the proof
+        folder.createFile("seen")
+        #expect(try await batches.wait { $0.joined().contains { $0.path == folder.path } })
         withExtendedLifetime(watcher) {}
     }
 
