@@ -102,6 +102,12 @@ public final class FolderWatcher: FolderWatching, @unchecked Sendable {
         }
     }
 
+    /// Whether the folder's stream runs now. Streams are made on a background thread, so tests
+    /// wait for this instead of sleeping a fixed time (#87).
+    func isStreaming(_ path: String) -> Bool {
+        queue.sync { streams[path] != nil }
+    }
+
     /// The real path of a folder that opens now, as FSEvents' root watching opens it.
     public static func watchablePath(_ path: String) -> String? {
         let descriptor = open(path, O_EVTONLY)

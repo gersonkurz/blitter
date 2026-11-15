@@ -56,7 +56,7 @@ struct FolderWatcherTests {
         let batches = Batches()
         let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
         watcher.watch([folder.path])
-        try await Task.sleep(for: .milliseconds(300)) // the stream starts asynchronously
+        try await watcher.waitUntilStreaming(folder.path) // the stream starts asynchronously
 
         folder.createFile("new.txt")
         #expect(try await batches.wait { $0.joined().contains { $0.path == folder.path } })
@@ -123,7 +123,7 @@ struct FolderWatcherTests {
         let batches = Batches()
         let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
         watcher.watch([watchedPath])
-        try await Task.sleep(for: .milliseconds(300))
+        try await watcher.waitUntilStreaming(watchedPath) // a fixed wait lost the race under load (#87)
 
         try FileManager.default.removeItem(atPath: watchedPath)
         #expect(try await batches.wait { $0.joined().contains { $0.path == watchedPath } })
@@ -137,7 +137,8 @@ struct FolderWatcherTests {
         let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
         watcher.watch([first.path])
         watcher.watch([second.path])
-        try await Task.sleep(for: .milliseconds(300))
+        try await watcher.waitUntilStreaming(second.path)
+        #expect(!watcher.isStreaming(first.path))
 
         first.createFile("ignored")
         second.createFile("seen")
@@ -196,7 +197,7 @@ struct FolderWatcherTests {
         }, onChange: { batches.append($0) })
         defer { gate.signal() }
         watcher.watch([local.path, stalled])
-        try await Task.sleep(for: .milliseconds(300))
+        try await watcher.waitUntilStreaming(local.path) // the stalled one never streams
 
         local.createFile("still-seen")
         #expect(try await batches.wait { $0.joined().contains { $0.path == local.path } })
@@ -256,7 +257,7 @@ struct FolderWatcherTests {
             holder.watcher = nil // deinit runs right here, on the watcher's queue
         }
         holder.watcher?.watch([folder.path])
-        try await Task.sleep(for: .milliseconds(300))
+        try await #require(holder.watcher).waitUntilStreaming(folder.path)
         folder.createFile("trigger")
         #expect(try await batches.wait { !$0.isEmpty })
         #expect(holder.watcher == nil)
@@ -278,5 +279,18 @@ private final class WatcherHolder: @unchecked Sendable {
             }
             _ = old
         }
+    }
+}
+
+extension FolderWatcher {
+    /// Waits, at most 10 s, until each folder's stream runs: it is made on a background thread,
+    /// which under a full parallel test run can take longer than any fixed sleep (#87).
+    func waitUntilStreaming(_ paths: String...) async throws {
+        var tries = 0
+        while !paths.allSatisfy(isStreaming), tries < 1000 {
+            tries += 1
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(paths.allSatisfy(isStreaming), "no stream for \(paths)")
     }
 }
