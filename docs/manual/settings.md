@@ -69,8 +69,9 @@ saves the new size in the file by changing only the `size` line, so your comment
   lists. The folder tree has none.
 - **Stripes**: every other row colored, in the folder tree too.
 
-Without a scheme the line is macOS's separator color; with one, it is the scheme's `stripe`
-color, the same one Stripes takes. The Git windows take the setting when they open.
+The line is the background with a little of the text color mixed in, so it shows in dark
+schemes too; the stripes take the scheme's `stripe` color. The Git windows take the setting when
+they open.
 
 Blitter takes its colors from [Base16 or Base24](https://github.com/tinted-theming/home)
 schemes: one for light mode, one for dark mode. Pick each from its list; every scheme shows its

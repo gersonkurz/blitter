@@ -152,7 +152,7 @@ public extension Settings {
         dark = \(quoted(settings.theme.dark))
         # How the rows of the file lists and the Git windows' lists are told apart: "lines", a thin
         # line under each row (the folder tree has none), or "stripes", every other row colored.
-        # The role "stripe" below is the color of either; without a scheme, macOS's own.
+        # A line is the background with a little of the text color; stripes take the role "stripe".
         rows = \(quoted(settings.theme.rows.rawValue))
 
         # Which of the scheme's colors each role takes: base00 … base0F, and base10 … base17 (a

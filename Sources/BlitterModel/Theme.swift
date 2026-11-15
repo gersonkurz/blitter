@@ -27,7 +27,7 @@ public struct RGB: Equatable, Hashable, Sendable {
 /// What a color means; each role takes one of the scheme's 16 slots.
 public enum ThemeRole: String, CaseIterable, Sendable {
     case background
-    /// Every other row, or the line under each row (#91): see `RowStyle`.
+    /// Every other row, in "stripes" (#91).
     case stripe
     case selection
     case text

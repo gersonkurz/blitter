@@ -56,7 +56,6 @@ final class ThemeInteractionTests {
         #expect(!table.usesAlternatingRowBackgroundColors) // lines by default (#91)
         #expect(table.backgroundColor == .controlBackgroundColor)
         #expect(lineRow(table)?.palette?.isThemed == false) // a line in macOS's separator color
-        #expect(lineRow(table)?.palette?.lineColor == .separatorColor)
         let outline = try #require(treeOutline)
         #expect(!outline.usesAlternatingRowBackgroundColors) // the tree: no stripes, no lines
         #expect(outline.rowView(atRow: 1, makeIfNecessary: true).map { $0 is ListRowView } == false)
@@ -169,6 +168,25 @@ final class ThemeInteractionTests {
                                )) // swiftlint:disable:this force_unwrapping
         #expect(hex(light.color(.background)) == "f8f8f8")
         #expect(hex(dark.color(.background)) == "002b36")
+    }
+
+    /// #92: the line is the background with a fifth of the text: in Nord #535863 on #2e3440, where
+    /// the stripe color #3b4252 hardly shows. Without a scheme, the same mix in either mode.
+    @Test func theLineShowsInDarkSchemesToo() throws {
+        var settings = ThemeSettings()
+        settings.dark = "nord"
+        let nord = try Palette(settings, appearance: #require(NSAppearance(named: .darkAqua)))
+        #expect(hex(nord.lineColor) == "535863")
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let system = try Palette(ThemeSettings(), appearance: #require(NSAppearance(named: name)))
+            var (line, background) = (NSColor.clear, NSColor.clear)
+            try #require(NSAppearance(named: name)).performAsCurrentDrawingAppearance {
+                line = system.lineColor.usingColorSpace(.sRGB) ?? .clear
+                background = NSColor.controlBackgroundColor.usingColorSpace(.sRGB) ?? .clear
+            }
+            let difference = abs(line.brightnessComponent - background.brightnessComponent)
+            #expect(difference > 0.12 && difference < 0.3, "\(name.rawValue): \(difference)")
+        }
     }
 
     // MARK: Helpers
