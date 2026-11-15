@@ -228,7 +228,7 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         (item as? TreeItem)?.section != nil
     }
 
-    /// The sections are the fixed root of the tree (PLAN.md): always open, no disclosure triangle.
+    /// The sections are the fixed root of the tree: always open, no disclosure triangle.
     func outlineView(_: NSOutlineView, shouldCollapseItem item: Any) -> Bool {
         (item as? TreeItem)?.section == nil
     }

@@ -37,7 +37,7 @@ build config="Debug": generate
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{quote(config)}} \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify --quiet
 
-# Make the manual's screenshots from the app (docs/manual/images); see docs/PLAN.md, Manual.
+# Make the manual's screenshots from the app (docs/manual/images); see CLAUDE.md, Manual.
 # In English (US), whatever this Mac's language: sizes read "3.3 MB" as the manual does.
 screenshots: generate
     TEST_RUNNER_BLITTER_SCREENSHOTS=1 xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Debug \
