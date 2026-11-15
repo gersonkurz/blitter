@@ -6,17 +6,27 @@ import BlitterModel
 /// holds the main thread until it closes.
 extension MainWindowController {
     func showMenu(_ shown: ShownMenu, side: Side, for seconds: Double) {
-        DispatchQueue.main.async { [weak self] in
-            self?.popUp(shown, side: side, closingAfter: seconds)
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+        popUpOnceActive(shown, side: side, closingAfter: seconds, tries: 20)
+    }
+
+    /// Activating Blitter takes a moment, and a menu popped up before it is active closes at once
+    /// (#86: about one menu in three never showed). So the menu waits, at most a second, for it.
+    private func popUpOnceActive(_ shown: ShownMenu, side: Side, closingAfter seconds: Double, tries: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            if NSApp.isActive || tries == 0 {
+                self?.popUp(shown, side: side, closingAfter: seconds)
+            } else {
+                self?.popUpOnceActive(shown, side: side, closingAfter: seconds, tries: tries - 1)
+            }
         }
     }
 
     private func popUp(_ shown: ShownMenu, side: Side, closingAfter seconds: Double) {
-        guard let window, let list = fileList(of: side) else {
+        guard let list = fileList(of: side) else {
             return
         }
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
         // Over the side's list, wholly on screen: nothing but the list shows at its edges.
         var place = list.contextMenuToShow()
         if shown != .context {

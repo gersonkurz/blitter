@@ -45,7 +45,8 @@ screenshots: generate
         -testLanguage en -testRegion US -only-testing:BlitterAppTests/ManualScreenshots | xcbeautify --quiet
 
 # The manual's pictures of open menus (#69): the real app, isolated (BLITTER_PROFILE), on demo
-# folders, driven over its automation socket. Needs Screen Recording for this terminal.
+# folders, driven over its automation socket. Needs Screen Recording for this terminal, and the
+# Mac to itself for its half a minute: menus open only in the active app.
 menu-screenshots: (build "Debug")
     #!/usr/bin/env bash
     set -euo pipefail
@@ -54,7 +55,7 @@ menu-screenshots: (build "Debug")
     trap 'rm -rf "$work"' EXIT
     swiftc -O tools/menu-window.swift -o "$work/menu-window"
     set +e
-    "$work/menu-window" $$ >/dev/null 2>"$work/check" # 2: no Screen Recording permission
+    "$work/menu-window" --check 2>"$work/check" # 2: no Screen Recording permission
     check=$?
     set -e
     if [ "$check" -eq 2 ]; then cat "$work/check" >&2; exit 2; fi
@@ -83,19 +84,29 @@ menu-screenshots: (build "Debug")
     printf '[favorites]\nfolders = ["%s/Projects", "%s/Pictures", "/Applications"]\n' "$demo" "$demo" > "$profile/settings.toml"
     BLITTER_PROFILE="$profile" "$app/Contents/MacOS/Blitter" >/dev/null 2>&1 &
     pid=$!
-    trap 'kill $pid 2>/dev/null || true; rm -rf "$work" "$demo"' EXIT # never another Blitter
+    # Never another Blitter; waited for, so bash does not report it "Terminated" (#86).
+    trap 'kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true; rm -rf "$work" "$demo"' EXIT
     export BLITTER_SOCKET="$profile/automation.sock"
     cli="$app/Contents/Helpers/blitter"
     for _ in $(seq 50); do "$cli" state >/dev/null 2>&1 && break; sleep 0.2; done
     "$cli" navigate left "$demo/Projects/blitter" >/dev/null
     "$cli" navigate right "$demo/Pictures/Iceland 2026" >/dev/null
     "$cli" activate left >/dev/null
+    # A menu can fail to open (#86): Blitter must be the active app, and an app you are using
+    # meanwhile keeps it from becoming one. So each menu is asked for up to three times.
     shoot() { # name, params
-        "$cli" call showMenu "$2" >/dev/null
-        sleep 1.5
-        bounds=$("$work/menu-window" "$pid")
-        screencapture -x -R "$bounds" "docs/manual/images/$1.png"
-        sleep 3 # until it closed
+        for _ in 1 2 3; do
+            "$cli" call showMenu "$2" >/dev/null
+            sleep 1.5
+            if bounds=$("$work/menu-window" "$pid" 2>/dev/null); then
+                screencapture -x -R "$bounds" "docs/manual/images/$1.png"
+                sleep 3 # until it closed
+                return 0
+            fi
+            sleep 3 # one that opened late has closed again
+        done
+        echo "error: no picture of $1: its menu did not open (three tries; leave the Mac alone while it runs)" >&2
+        exit 1
     }
     "$cli" select left README.md >/dev/null
     shoot menu-items '{"menu": "context", "side": "left", "seconds": 4}'
