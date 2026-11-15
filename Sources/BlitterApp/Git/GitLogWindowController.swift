@@ -3,8 +3,9 @@ import BlitterCore
 import BlitterGit
 import BlitterModel
 
-/// The Git Log window (#42): a filter, the commits, and the files the selected one changed. A
-/// double-click (or Return) on a file shows it before and after in the diff tool.
+/// The Git Log window (#42): a filter, the commits, the selected one's message (#89) and the
+/// files it changed. A double-click (or Return) on a file shows it before and after in the diff
+/// tool; on a commit, or Compare Commit, the whole commit (#89).
 @MainActor
 final class GitLogWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate,
     NSSearchFieldDelegate
@@ -12,8 +13,12 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
     let log: GitLog
     let filterField = NSSearchField()
     let statusLabel = NSTextField(labelWithString: "")
-    let commitsTable = NSTableView()
+    let commitsTable = ActivatingTableView()
     let changesTable = ActivatingTableView()
+    /// The selected commit's whole message (#89), to read and copy from.
+    let messageView = NSTextView()
+    let compareCommitButton = NSButton(title: "Compare Commit", target: nil, action: nil)
+    private var renderedMessage: String?
     private var renderedCommits: [GitCommit] = []
     private var renderedChanges: [GitChange]? = []
     private var isRendering = false
@@ -53,16 +58,24 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
         changesTable.target = self
         changesTable.doubleAction = #selector(compareClicked(_:))
         changesTable.onReturn = { [weak self] in self?.compareSelected() }
+        commitsTable.target = self
+        commitsTable.doubleAction = #selector(compareCommitClicked(_:))
+        commitsTable.onReturn = { [weak self] in self?.log.perform(.compareCommit) }
+        compareCommitButton.target = self
+        compareCommitButton.action = #selector(compareCommit(_:))
+        compareCommitButton.toolTip = "Show the commit's changed files, before and after, in the diff tool"
+        let messageScroll = makeMessagePane()
 
         let split = NSSplitView()
         split.isVertical = false
         split.dividerStyle = .thin
         split.addArrangedSubview(scrolling(commitsTable))
+        split.addArrangedSubview(messageScroll)
         split.addArrangedSubview(scrolling(changesTable))
         split.setHoldingPriority(.defaultLow - 1, forSubviewAt: 0)
 
         let root = NSView()
-        for view in [filterField, statusLabel, split] {
+        for view in [filterField, statusLabel, compareCommitButton, split] {
             view.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(view)
         }
@@ -72,7 +85,9 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
             filterField.widthAnchor.constraint(equalToConstant: 340),
             statusLabel.centerYAnchor.constraint(equalTo: filterField.centerYAnchor),
             statusLabel.leadingAnchor.constraint(equalTo: filterField.trailingAnchor, constant: 12),
-            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -10),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: compareCommitButton.leadingAnchor, constant: -10),
+            compareCommitButton.centerYAnchor.constraint(equalTo: filterField.centerYAnchor),
+            compareCommitButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             split.topAnchor.constraint(equalTo: filterField.bottomAnchor, constant: 10),
             split.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: root.trailingAnchor),
@@ -80,6 +95,28 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
             changesTable.enclosingScrollView?.heightAnchor.constraint(greaterThanOrEqualToConstant: 120),
         ].compactMap(\.self))
         return root
+    }
+
+    /// The selected commit's message (#89): read-only, selectable, in the fixed-width font commit
+    /// messages are written for.
+    private func makeMessagePane() -> NSScrollView {
+        messageView.isEditable = false
+        messageView.isSelectable = true
+        messageView.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        messageView.textContainerInset = NSSize(width: 6, height: 6)
+        messageView.autoresizingMask = [.width]
+        messageView.isVerticallyResizable = true
+        messageView.textContainer?.widthTracksTextView = true
+        let scroll = NSScrollView()
+        scroll.documentView = messageView
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
+        // About five lines to start with; the splitters give it more or less.
+        let height = scroll.heightAnchor.constraint(equalToConstant: 110)
+        height.priority = .defaultLow
+        height.isActive = true
+        return scroll
     }
 
     private struct Column {
@@ -129,7 +166,14 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
                 : "\(log.shown.count) of \(log.commits.count) commits")
                 + (truncated ? " (the latest \(GitLog.limit.formatted()))" : "")
         }
-        statusLabel.stringValue = log.problem ?? status
+        statusLabel.stringValue = log.problem
+            ?? (log.isPreparingComparison ? "Writing the commit's files for the diff tool…" : status)
+        compareCommitButton.isEnabled = log.selected != nil && !log.isPreparingComparison
+        let message = log.selected == nil ? "" : log.message ?? ""
+        if message != renderedMessage {
+            renderedMessage = message
+            messageView.string = message
+        }
         if log.shown != renderedCommits {
             renderedCommits = log.shown
             commitsTable.reloadData()
@@ -156,6 +200,17 @@ final class GitLogWindowController: NSWindowController, NSTableViewDataSource, N
         }
         let row = commitsTable.selectedRow
         log.perform(.select(row >= 0 && row < renderedCommits.count ? renderedCommits[row].hash : nil))
+    }
+
+    /// A double-click on a commit: the whole commit (#89). Not on the header.
+    @objc private func compareCommitClicked(_: Any?) {
+        if commitsTable.clickedRow >= 0 {
+            log.perform(.compareCommit)
+        }
+    }
+
+    @objc private func compareCommit(_: Any?) {
+        log.perform(.compareCommit)
     }
 
     @objc private func compareClicked(_: Any?) {

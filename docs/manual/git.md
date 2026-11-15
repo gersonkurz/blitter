@@ -68,9 +68,12 @@ or on the side's folder when nothing is selected. With several items selected th
 offered: select one, or clear the selection for the folder.
 
 - **Git Log…**: the commits, newest first, with a filter by message, author or hash. Select a
-  commit to see the files it changed; a double-click (or **Return**) on a file shows it before
-  and after in the [compare tool](file-operations.md#compare). For a file or a folder, the log
-  shows only the commits that changed it.
+  commit to see its whole message and the files it changed; a double-click (or **Return**) on a
+  file shows it before and after in the [compare tool](file-operations.md#compare). A
+  double-click (or **Return**) on the commit, or **Compare Commit**, shows the whole commit
+  there: two folders with the files it changed, before and after. A file it added is only in
+  the second folder, one it deleted only in the first. For a file or a folder, the log shows
+  only the commits that changed it.
 - **Git Commit…**: the changed and untracked files, each with a checkbox. **Space** checks or
   unchecks the selected files; **Check All** and **Uncheck All** do all of them. A
   double-click shows a file's changes in the compare tool. Write the message, or pick one under

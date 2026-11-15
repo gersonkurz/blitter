@@ -56,6 +56,23 @@ struct GitHistoryTests {
         return (folder, root)
     }
 
+    /// #89: the whole message, subject and body, as written; the log keeps only the subject.
+    @Test func aCommitsWholeMessage() throws {
+        let folder = try TemporaryFolder()
+        let root = FolderWatcher.realPath(folder.path)
+        try git(["init", "-q", "-b", "main"], in: root)
+        try write("a", root + "/a.txt")
+        try git(["add", "."], in: root)
+        try git(["commit", "-q", "-m", "Subject — ünïcode", "-m", "Body line one.\nBody line two.", "-m", "Fixes #1"],
+                in: root, date: 1_700_000_000)
+        let commit = try #require(Git.log(of: root)?.first)
+        #expect(commit.subject == "Subject — ünïcode")
+        #expect(Git.message(of: commit.hash, in: root)
+            == "Subject — ünïcode\n\nBody line one.\nBody line two.\n\nFixes #1")
+        #expect(Git.message(of: "0000000000000000000000000000000000000000", in: root) == nil)
+        _ = folder
+    }
+
     @Test func theLogListsEveryCommitNewestFirstWithItsFirstParent() throws {
         let (folder, root) = try history()
         _ = folder

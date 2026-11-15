@@ -62,6 +62,21 @@ public extension Git {
             .map(parseChanges)
     }
 
+    /// A commit's whole message (#89): the subject, then the body, as written. Nil if git fails or
+    /// `cancelled` is set.
+    static func message(of hash: String, in root: String, git: String? = executable, timeout: TimeInterval = 30,
+                        cancelled: CancellationFlag = CancellationFlag()) -> String?
+    {
+        guard let git else {
+            return nil
+        }
+        return run(git, ["log", "-1", "--format=%B", hash, "--"], in: root, until: Date().addingTimeInterval(timeout),
+                   cancelled: cancelled)
+            // Lossy on purpose, as the log's subjects: a message that is not UTF-8 still shows.
+            // swiftlint:disable:next optional_data_string_conversion
+            .map { String(decoding: $0, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
     /// A file's contents at a revision; nil if it was not there (added or deleted), git fails,
     /// or `cancelled` is set (git is stopped then).
     static func contents(of path: String, at revision: String, in root: String, git: String? = executable,

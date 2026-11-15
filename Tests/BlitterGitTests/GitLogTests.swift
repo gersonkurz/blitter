@@ -56,6 +56,8 @@ private final class FakeHistory: Sendable {
                 return nil
             }
             return path == "broken.txt" ? nil : Data("\(path)@\(revision)".utf8)
+        }, message: { _, hash, _ in
+            hash == "c2" ? "Add Agnus\n\nThe address generator, with its blitter." : "Message of \(hash)"
         })
     }
 }

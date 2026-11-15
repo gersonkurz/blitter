@@ -17,13 +17,38 @@ enum CompareCopies {
 
     /// Writes `data` as `<folder>/<label>/<name>` and returns its path.
     static func write(_ data: Data, name: String, label: String, in folder: String) -> Result<String, GitFailure> {
-        let subfolder = folder + "/" + label
+        write(data, at: name, in: folder + "/" + label)
+    }
+
+    /// Writes `data` at `path` (relative, as git names a file in the working copy) below
+    /// `folder`, making the folders on the way (#89). A path that would lead out of `folder`
+    /// (`..`, absolute) is refused.
+    static func write(_ data: Data, at path: String, in folder: String) -> Result<String, GitFailure> {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard !path.hasPrefix("/"), !parts.isEmpty, !parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." })
+        else {
+            return .failure(GitFailure(message: "“\(path)” is not a path inside the working copy."))
+        }
+        let target = folder + "/" + path
+        if case let .failure(failure) = makeFolder((target as NSString).deletingLastPathComponent) {
+            return .failure(failure)
+        }
         do {
-            try FileManager.default.createDirectory(atPath: subfolder, withIntermediateDirectories: true)
-            try data.write(to: URL(fileURLWithPath: subfolder + "/" + name))
-            return .success(subfolder + "/" + name)
+            // Never over another copy: two names that are one on disk fail, not lose a file (#89 review).
+            try data.write(to: URL(fileURLWithPath: target), options: .withoutOverwriting)
+            return .success(target)
         } catch {
             return .failure(GitFailure(message: "A copy to compare could not be written: "
+                    + error.localizedDescription))
+        }
+    }
+
+    static func makeFolder(_ path: String) -> Result<Void, GitFailure> {
+        do {
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+            return .success(())
+        } catch {
+            return .failure(GitFailure(message: "A folder to compare could not be made: "
                     + error.localizedDescription))
         }
     }

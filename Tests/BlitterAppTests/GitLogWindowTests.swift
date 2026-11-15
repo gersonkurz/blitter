@@ -28,7 +28,9 @@ final class GitLogWindowTests {
     }, changes: { _, commit, _ in
         commit.hash == "aaaa" ? [GitChange(status: "A", path: "a.txt")]
             : [GitChange(status: "R", path: "new.txt", oldPath: "old.txt")]
-    }, contents: { _, _, _, _ in Data("x".utf8) })
+    }, contents: { _, _, _, _ in Data("x".utf8) }, message: { _, hash, _ in
+        hash == "aaaa" ? "first" : "Agnus\n\nThe chip that drives the blitter."
+    })
 
     private func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0 ..< 300 where !condition() {
@@ -74,6 +76,66 @@ final class GitLogWindowTests {
         #expect(launched.calls.first?.last?.hasSuffix("/bbbbbbbbbb/new.txt") == true)
     }
 
+    /// #89: the selected commit's message, and the whole commit in the diff tool from the button
+    /// or Return on the commit.
+    @Test func theMessageShowsAndTheWholeCommitGoesToTheDiffTool() async throws {
+        let launched = LaunchRecorder()
+        workspace.launchTool = { arguments, _ in launched.append(arguments) }
+        let controller = GitLogWindowController(workspace: workspace, path: "/repo", access: access)
+        controller.showWindow(nil)
+        defer { controller.close() }
+        try await waitUntil { controller.commitsTable.numberOfRows == 2 }
+        #expect(controller.messageView.string.isEmpty && !controller.compareCommitButton.isEnabled)
+
+        controller.commitsTable.selectRowIndexes([0], byExtendingSelection: false)
+        try await waitUntil { controller.messageView.string == "Agnus\n\nThe chip that drives the blitter." }
+        #expect(controller.compareCommitButton.isEnabled)
+        controller.commitsTable.onReturn?()
+        try await waitUntil { !launched.calls.isEmpty }
+        let call = try #require(launched.calls.first)
+        #expect(call.count == 3 && call[1].hasSuffix("/aaaa") && call[2].hasSuffix("/bbbbbbbbbb"))
+        #expect(FileManager.default.fileExists(atPath: call[1] + "/old.txt"))
+        #expect(FileManager.default.fileExists(atPath: call[2] + "/new.txt"))
+
+        controller.commitsTable.selectRowIndexes([1], byExtendingSelection: false)
+        try await waitUntil { controller.messageView.string == "first" }
+        controller.compareCommitButton.performClick(nil)
+        try await waitUntil { launched.calls.count == 2 }
+        #expect(launched.calls.last?[1].hasSuffix("/none") == true)
+
+        controller.commitsTable.deselectAll(nil)
+        try await waitUntil { controller.messageView.string.isEmpty }
+        #expect(!controller.compareCommitButton.isEnabled)
+    }
+
+    /// #89 review: while the commit is written out, the button is off and the status line says
+    /// why, at once; when it is done, the diff tool opens and the button is back.
+    @Test func preparingACommitShowsAtOnce() async throws {
+        let launched = LaunchRecorder()
+        workspace.launchTool = { arguments, _ in launched.append(arguments) }
+        let gate = Gate()
+        let held = GitHistoryAccess(log: access.log, changes: access.changes, contents: { _, _, _, cancelled in
+            for _ in 0 ..< 300 where gate.isClosed && !cancelled.isSet {
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            return Data("x".utf8)
+        }, message: access.message)
+        let controller = GitLogWindowController(workspace: workspace, path: "/repo", access: held)
+        controller.showWindow(nil)
+        defer { controller.close() }
+        try await waitUntil { controller.commitsTable.numberOfRows == 2 }
+        controller.commitsTable.selectRowIndexes([0], byExtendingSelection: false)
+        try await waitUntil { controller.changesTable.numberOfRows == 1 && controller.compareCommitButton.isEnabled }
+        controller.compareCommitButton.performClick(nil)
+        #expect(!controller.compareCommitButton.isEnabled)
+        #expect(controller.statusLabel.stringValue == "Writing the commit's files for the diff tool…")
+        gate.open()
+        try await waitUntil { !launched.calls.isEmpty }
+        #expect(launched.calls.count == 1)
+        try await waitUntil { controller.compareCommitButton.isEnabled }
+        #expect(controller.statusLabel.stringValue == "2 commits")
+    }
+
     @Test func theHostOpensARegisteredKindAndForgetsItWhenClosed() throws {
         DialogHost.present(DialogRequest(kind: "no-such-kind", path: "/repo")) // nothing registered
         let before = DialogHost.open.count
@@ -103,6 +165,20 @@ final class GitLogWindowTests {
 }
 
 /// Collects launched command lines from any thread.
+/// Holds reads back until it is opened.
+final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var closed = true
+
+    var isClosed: Bool {
+        lock.withLock { closed }
+    }
+
+    func open() {
+        lock.withLock { closed = false }
+    }
+}
+
 final class LaunchRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [[String]] = []

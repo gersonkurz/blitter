@@ -8,25 +8,31 @@ public struct GitHistoryAccess: Sendable {
     public var changes: @Sendable (_ root: String, _ commit: GitCommit, _ cancelled: CancellationFlag) -> [GitChange]?
     public var contents: @Sendable (_ root: String, _ path: String, _ revision: String,
                                     _ cancelled: CancellationFlag) -> Data?
+    /// A commit's whole message (#89).
+    public var message: @Sendable (_ root: String, _ hash: String, _ cancelled: CancellationFlag) -> String?
 
     public static let real = GitHistoryAccess(
         log: { Git.log(of: $0, path: $1, cancelled: $2) },
         changes: { Git.changes(in: $0, commit: $1, cancelled: $2) },
-        contents: { Git.contents(of: $1, at: $2, in: $0, cancelled: $3) }
+        contents: { Git.contents(of: $1, at: $2, in: $0, cancelled: $3) },
+        message: { Git.message(of: $1, in: $0, cancelled: $2) }
     )
 
     public init(log: @escaping @Sendable (String, String?, CancellationFlag) -> [GitCommit]?,
                 changes: @escaping @Sendable (String, GitCommit, CancellationFlag) -> [GitChange]?,
-                contents: @escaping @Sendable (String, String, String, CancellationFlag) -> Data?)
+                contents: @escaping @Sendable (String, String, String, CancellationFlag) -> Data?,
+                message: @escaping @Sendable (String, String, CancellationFlag) -> String?)
     {
         self.log = log
         self.changes = changes
         self.contents = contents
+        self.message = message
     }
 }
 
 /// The Git Log (#42): the history of a working copy, or of a file or folder in it, a filter
-/// over it, and the files the selected commit changed, each shown in the diff tool on request.
+/// over it, and the selected commit's message and the files it changed (#89); a file, or the
+/// whole commit, is shown in the diff tool on request.
 /// Everything git does runs in the background; a newer request cancels the older one. The
 /// window renders this and changes it only through `perform`.
 @MainActor
@@ -45,6 +51,9 @@ public final class GitLog {
         case select(String?)
         /// Show a changed file of the selected commit, before and after, in the diff tool.
         case compare(GitChange)
+        /// Show the selected commit as a whole in the diff tool (#89): its changed files before
+        /// and after, as two folders.
+        case compareCommit
     }
 
     /// How many commits are read, newest first.
@@ -61,6 +70,13 @@ public final class GitLog {
     public private(set) var selected: GitCommit?
     /// The files `selected` changed; nil while they are read.
     public private(set) var changes: [GitChange]? = []
+    /// `selected`'s whole message (#89); nil while it is read, or if it could not be.
+    public private(set) var message: String?
+    /// Whether the whole commit is being written out for the diff tool (#89).
+    public private(set) var isPreparingComparison = false
+    /// Whether `changes` is empty because they could not be read, not because there are none
+    /// (#89 review): a comparison then reads them itself, never shows an empty commit.
+    private var changesFailed = false
     /// Why the last comparison could not be shown, until the next one.
     public private(set) var problem: String?
     public var onChange: (() -> Void)?
@@ -95,6 +111,7 @@ public final class GitLog {
         case let .filter(text): setFilter(text)
         case let .select(hash): select(hash)
         case let .compare(change): compare(change)
+        case .compareCommit: compareCommit()
         }
     }
 
@@ -155,8 +172,14 @@ public final class GitLog {
             return
         }
         selected = hash.flatMap { hash in commits.first { $0.hash == hash } }
+        message = nil
+        changesFailed = false
+        // A comparison being prepared is for the commit that was selected: it ends (#89 review).
+        work.cancel("compare-commit")
+        isPreparingComparison = false
         guard let root, let commit = selected else {
             work.cancel("changes")
+            work.cancel("message")
             changes = []
             onChange?()
             return
@@ -165,9 +188,15 @@ public final class GitLog {
         onChange?()
         let access = access
         run("changes") { cancelled in
-            access.changes(root, commit, cancelled) ?? []
+            access.changes(root, commit, cancelled)
         } then: { [weak self] changes in
-            self?.changes = changes
+            self?.changes = changes ?? []
+            self?.changesFailed = changes == nil
+        }
+        run("message") { cancelled in
+            access.message(root, commit.hash, cancelled)
+        } then: { [weak self] message in
+            self?.message = message
         }
     }
 
@@ -228,6 +257,36 @@ public final class GitLog {
                 write(before, revision: commit.parent ?? "none").flatMap { left in
                     write(after, revision: commit.hash).map { right in (left, right) }
                 }
+            }
+        }
+    }
+
+    /// The selected commit's changed files, before and after, in two folders named by the short
+    /// revisions, then the two folders in the diff tool (#89), as `git difftool --dir-diff` shows
+    /// a commit. An added file is only in the "after" folder, a deleted one only in "before". The
+    /// files are read a few at a time; selecting another commit cancels it. While it is prepared,
+    /// asking again does nothing (#89 review).
+    private func compareCommit() {
+        guard let root, let commit = selected, !isPreparingComparison else {
+            return
+        }
+        problem = nil
+        isPreparingComparison = true
+        onChange?() // the window shows it at once: the button off, the status line says why
+        let (access, workspace) = (access, workspace)
+        let known = changesFailed ? nil : changes
+        run("compare-commit") { cancelled -> Result<(before: String, after: String), GitFailure>? in
+            let changes = known ?? access.changes(root, commit, cancelled)
+            guard let changes, !cancelled.isSet else {
+                return cancelled.isSet ? nil : .failure(GitFailure(message: "The commit's files could not be read."))
+            }
+            return CommitCopies.write(changes, of: commit, root: root, access: access, cancelled: cancelled)
+        } then: { [weak self] result in
+            self?.isPreparingComparison = false
+            switch result {
+            case let .success(folders): workspace.perform(.compare(left: folders.before, right: folders.after))
+            case let .failure(failure): self?.problem = failure.message
+            case nil: break // cancelled
             }
         }
     }
