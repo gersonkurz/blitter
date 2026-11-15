@@ -99,7 +99,8 @@ Blitter's own codes:
 
 ## The blitter tool and MCP
 
-The app carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`. Each call is one
+The app carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`; Blitter →
+Install Command-Line Tool… links it as `/usr/local/bin/blitter` (#97). Each call is one
 request, and the result is printed as JSON. Exit status:
 - 0: done;
 - 1: an error from Blitter, or a wrong command line;

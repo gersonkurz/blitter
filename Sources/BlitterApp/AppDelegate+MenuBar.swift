@@ -36,6 +36,24 @@ extension AppDelegate {
         }
     }
 
+    /// The Blitter menu: About, Settings…, the command-line tool (#97), Quit.
+    func makeAppMenu() -> NSMenu {
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "About Blitter",
+                        action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                        keyEquivalent: "")
+        appMenu.addItem(.separator())
+        let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(.separator())
+        // #97: its title follows the tool's state (validateMenuItem).
+        appMenu.addItem(withTitle: Self.commandLineToolTitle(commandLineToolStatus),
+                        action: #selector(toggleCommandLineTool(_:)), keyEquivalent: "").target = self
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit Blitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        return appMenu
+    }
+
     /// Rebuilds when the menus or the tools change: an item's title can come from a tool.
     func updateMenuBar() {
         updateFavoritesMenu()

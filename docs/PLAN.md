@@ -55,6 +55,8 @@ BlitterCore  (file system: enumeration, watching, file operation jobs; no AppKit
 
 **Rule: every user action is a command in BlitterModel.** The UI only calls commands; the automation socket calls the same commands and actions, so it stays a thin adapter.
 
+One deliberate exception: **Install Command-Line Tool…** (#97) changes the Mac, not the workspace, and asks for an administrator's password. It is an app menu item only, never a command, so automation can never trigger that prompt; its file-system work still runs off the main thread.
+
 ## Released
 
 ### 0.1.0: the MVP

@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         windows.front
     }
 
+    /// What is at `/usr/local/bin/blitter` (#97), as last read off the main thread.
+    var commandLineToolStatus = CommandLineTool.Status.notInstalled
     /// The automation socket (#58), while the app runs.
     private var automationServer: LineSocketServer?
     /// The menus whose action items come from the settings (#24), and what they were built from.
@@ -30,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     var renderedFavorites: [TreeRoot]?
 
     func applicationDidFinishLaunching(_: Notification) {
+        refreshCommandLineTool()
         // Hosting the app tests: the menu is all they need. No window, nothing saved, so a test
         // run never touches the user's workspace or layout.
         guard !AppEnvironment.isHostedTest else {
@@ -89,6 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
     }
 
+    /// A terminal may have changed the command-line tool's link meanwhile (#97).
+    func applicationDidBecomeActive(_: Notification) {
+        refreshCommandLineTool()
+    }
+
     func applicationWillTerminate(_: Notification) {
         automationServer?.stop()
     }
@@ -138,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         windowController?.fileList(of: workspace.activeSide)?.showRecentFolders()
     }
 
-    @objc private func openSettings(_: Any?) {
+    @objc func openSettings(_: Any?) {
         SettingsWindowController.show(workspace)
     }
 
@@ -182,6 +190,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             return active.canGoForward
         case #selector(goToParent(_:)):
             return active.canGoToParent
+        case #selector(toggleCommandLineTool(_:)):
+            menuItem.title = Self.commandLineToolTitle(commandLineToolStatus)
+            return true
         default:
             return true
         }
@@ -190,16 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func makeMainMenu() -> NSMenu {
         let mainMenu = NSMenu()
 
-        let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About Blitter",
-                        action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-                        keyEquivalent: "")
-        appMenu.addItem(.separator())
-        let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: ",")
-        settings.target = self
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Blitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        mainMenu.addItem(submenu: appMenu)
+        mainMenu.addItem(submenu: makeAppMenu())
 
         let editMenu = makeEditMenu()
         mainMenu.addItem(submenu: editMenu)

@@ -12,7 +12,18 @@ Trash, the clipboard and renaming are not offered at all.
 
 ## The blitter tool
 
-Blitter carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`:
+Blitter carries a command-line tool at `Blitter.app/Contents/Helpers/blitter`. To type just
+`blitter` in a terminal, choose **Blitter → Install Command-Line Tool…**: it puts a link to it in
+`/usr/local/bin`, which every Mac's terminal searches. macOS asks for an administrator's password
+once. The link follows Blitter through updates; **Uninstall Command-Line Tool…** removes it. Only
+a Blitter in the Applications folder offers this. Without a password, add the tool's folder to
+your PATH in `~/.zshrc` instead:
+
+```
+export PATH="$PATH:/Applications/Blitter.app/Contents/Helpers"
+```
+
+The tool's commands:
 
 ```
 blitter state
