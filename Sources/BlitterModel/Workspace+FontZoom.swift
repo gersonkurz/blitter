@@ -49,10 +49,11 @@ extension Workspace {
         previous?.cancel()
         let delay = delay ?? fontSizeSaveDelay
         let beforeReplace = settingsFileBeforeReplace
-        fontSizeSave = Task { [weak self] in
+        fontSizeSave = Task { [self] in
+            // Holds this window until done: the save is every window's (#96 review).
             try? await Task.sleep(for: delay)
             await previous?.value
-            guard let self, generation == fontSizeSaveGeneration, let size = pendingFontSize else {
+            guard generation == fontSizeSaveGeneration, let size = pendingFontSize else {
                 return // a newer zoom saves
             }
             let (problem, created) = await Self.editSettingsFile(

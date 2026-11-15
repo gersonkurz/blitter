@@ -5,9 +5,10 @@ import BlitterCore
 /// and shows the old contents until the new ones arrive.
 extension Workspace {
     /// Every state change goes through here, so the watched folders always match what is shown.
+    /// Every window looks again: what changed may be shared (#96).
     func notifyChange() {
         updateWatchedFolders()
-        onChange?()
+        app.notifyAll()
     }
 
     /// The sides' folders and every expanded tree folder. A folder is watched from the moment it

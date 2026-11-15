@@ -1,7 +1,8 @@
 import BlitterCore
 import Foundation
 
-/// The state of the whole window: both sides, which of them is active, and the view options.
+/// The state of one window: both sides, which of them is active, and the view options. What
+/// all windows share (the settings, the jobs, the notices) is `app`'s (#96).
 @MainActor
 public final class Workspace {
     public typealias Lister = @Sendable (String) async throws -> [DirectoryEntry]
@@ -9,43 +10,15 @@ public final class Workspace {
     public typealias VolumeList = @Sendable () async -> [MountedVolume]
     public typealias WatcherFactory = (@escaping @Sendable ([FolderChange]) -> Void) -> any FolderWatching
 
+    /// What every window shares (#96).
+    public let app: AppModel
     var sides: [Side: SideState]
     let home: String
     let lister: Lister
     let directoryCheck: DirectoryCheck
     let volumes: VolumeList
-    /// The user's configuration; defaults until the settings file has been read.
-    public internal(set) var settings = Settings() {
-        didSet { settingsChanged(from: oldValue) }
-    }
-
-    /// The colors the Settings window shows in the whole window (#93): its draft's, from when it
-    /// has read the file until it closes. Nil: the settings' own.
-    public internal(set) var themeTrial: ThemeSettings?
-
-    /// Messages for the user that stay until dismissed, e.g. problems in the settings file.
-    public internal(set) var notices: [Notice] = []
-    var nextNoticeID = 0
-    var settingsNotice: Notice?
-    /// The settings file, or nil to use the defaults only (tests).
-    let settingsFile: String?
-    var settingsWork: Task<Void, Never>?
-    /// A zoomed font size not yet in the settings file (#63), and the saves writing it there,
-    /// one after the other.
-    public internal(set) var pendingFontSize: Double?
-    var fontSizeSave: Task<Void, Never>?
-    var fontSizeSaveGeneration = 0
-    /// How long zooming must pause before the size is saved: a wheel zooms in many steps.
-    var fontSizeSaveDelay: Duration = .milliseconds(500)
-    /// Tests: runs between reading the settings file and replacing it (a zoom's or the Settings
-    /// window's save), as an editor's save might.
-    var settingsFileBeforeReplace: (@Sendable () -> Void)?
-    /// The Settings window's save (#64), and how often the settings were read: the window reads
-    /// the file again when it changed and nothing is edited.
-    var settingsSave: Task<Void, Never>?
-    var settingsSaveGeneration = 0
-    var lastSettingsSaveProblem: String?
-    public internal(set) var settingsReads = 0
+    /// How this window's watcher is made; another window makes its own the same way.
+    let makeWatcher: WatcherFactory
     /// Git (#22): the working copies whose status is known, by root; reading them; and how.
     var gitRepositories: [String: KnownRepository] = [:]
     var gitWork: [Side: Task<Void, Never>] = [:]
@@ -57,8 +30,6 @@ public final class Workspace {
     public internal(set) var gitVersion = 0
     /// Opening, revealing, Quick Look and the clipboard, provided by the app.
     public var system = SystemServices()
-    /// Favorites from the window state (the file's list wins), one not yet saved there, its save (#72).
-    var stateFavorites: [String], pendingFavorites: [String]?, favoritesSave: Task<Void, Never>?, favoritesSaves = 0
     /// Places at the top of every side's tree: favorites, volumes, cloud drives.
     public internal(set) var treeRoots: [TreeRoot]
     /// Volumes, iCloud Drive and the CloudStorage providers, each read and published on its own,
@@ -67,17 +38,10 @@ public final class Workspace {
     var rootsWork: [TreeRoots.Part: Task<Void, Never>] = [:]
     /// Subfolder reads per side and folder path.
     var treeWork: [Side: [String: Task<Void, Never>]] = [:]
-    /// File operations in the background.
-    let jobQueue: JobQueue
-    /// Who wants to know how a job ended (`whenJobDone`).
+    /// Who wants to know how a job this window started ended (`whenJobDone`).
     var jobObservers: [Int: [(Job) -> Void]] = [:]
-    /// What to do after a job succeeded, e.g. select a renamed item.
+    /// What to do after a job this window started succeeded, e.g. select a renamed item.
     var jobFollowUps: [Int: (Workspace) -> Void] = [:]
-    /// How to undo the jobs done, oldest first (#61).
-    public internal(set) var undoJournal: [UndoEntry] = []
-    var nextUndoID = 0
-    /// The undo job running, if any (#61).
-    var runningUndo: Int?
     var nextRenameToken = 0
     /// Watches the folders both sides show, and the expanded tree folders, for changes on disk.
     var watcher: (any FolderWatching)?
@@ -96,9 +60,6 @@ public final class Workspace {
         $0,
         environment: $1
     ) }
-    /// Color schemes being fetched, by the name the settings give them (#34), and how.
-    var schemeWork: [String: Task<Void, Never>] = [:]
-    public var fetch: @Sendable (URL) async throws -> Data = Downloads.fetch
     /// Free space (#51): the read running per side, the sides whose listing changed meanwhile,
     /// and how it is read (tests replace it).
     var freeSpaceWork: [Side: Task<Void, Never>] = [:]
@@ -132,20 +93,44 @@ public final class Workspace {
     /// Batch Rename asked for, waiting for the window to show it.
     public internal(set) var batchRenameRequest: BatchRenameRequest?
     var nextBatchRenameToken = 0
-    /// Every action the user can run, by id (#15).
-    /// Built from the settings' tools; replaced when they change.
-    public internal(set) var actionRegistry = ActionRegistry(tools: Tool.defaults)
-
-    public init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
-                lister: @escaping Lister = listDirectory, directoryCheck: @escaping DirectoryCheck = isDirectory,
-                volumes: @escaping VolumeList = mountedVolumes,
-                watcher makeWatcher: WatcherFactory = { FolderWatcher(onChange: $0) },
-                jobs: JobQueue = JobQueue(), restoring saved: WorkspaceState? = nil, settingsFile: String? = nil)
+    /// The first window: it makes what all windows share, and reads the settings file.
+    public convenience init(initialLocation: String = UserPaths.home, home: String = UserPaths.home,
+                            lister: @escaping Lister = listDirectory,
+                            directoryCheck: @escaping DirectoryCheck = isDirectory,
+                            volumes: @escaping VolumeList = mountedVolumes,
+                            watcher makeWatcher: @escaping WatcherFactory = { FolderWatcher(onChange: $0) },
+                            jobs: JobQueue = JobQueue(), restoring saved: WorkspaceState? = nil,
+                            settingsFile: String? = nil)
     {
-        jobQueue = jobs
-        self.settingsFile = settingsFile
+        let app = AppModel(settingsFile: settingsFile, jobs: jobs,
+                           favorites: saved?.favorites ?? TreeRoots.defaultFavorites(home: home))
+        self.init(app: app, initialLocation: initialLocation, home: home, lister: lister,
+                  directoryCheck: directoryCheck, volumes: volumes, watcher: makeWatcher, restoring: saved)
+        loadSettings()
+    }
+
+    /// Another window (#96): what `other` shares, folders read the same way, and its own sides —
+    /// as saved, or both at `location`.
+    public convenience init(sharingWith other: Workspace, location: String, restoring saved: WorkspaceState? = nil) {
+        self.init(app: other.app, initialLocation: location, home: other.home, lister: other.lister,
+                  directoryCheck: other.directoryCheck, volumes: other.volumes, watcher: other.makeWatcher,
+                  restoring: saved)
+        system = other.system
+        gitAccess = other.gitAccess
+        gitRefreshInterval = other.gitRefreshInterval
+        findDiffTool = other.findDiffTool
+        launchTool = other.launchTool
+        readFreeSpace = other.readFreeSpace
+        measureFolder = other.measureFolder
+        clock = other.clock
+    }
+
+    private init(app: AppModel, initialLocation: String, home: String, lister: @escaping Lister,
+                 directoryCheck: @escaping DirectoryCheck, volumes: @escaping VolumeList,
+                 watcher makeWatcher: @escaping WatcherFactory, restoring saved: WorkspaceState?)
+    {
+        self.app = app
         sides = [.left: SideState(location: initialLocation), .right: SideState(location: initialLocation)]
-        stateFavorites = saved?.favorites ?? TreeRoots.defaultFavorites(home: home)
         if let saved {
             sides = [.left: SideState(restoring: saved.left), .right: SideState(restoring: saved.right)]
             showsHiddenFiles = saved.showsHiddenFiles
@@ -154,8 +139,13 @@ public final class Workspace {
         self.lister = lister
         self.directoryCheck = directoryCheck
         self.volumes = volumes
-        treeRoots = TreeRoots.favorites(stateFavorites, home: home)
-        if settingsFile == nil { // the default settings are final: a saved sort must be on a shown column
+        self.makeWatcher = makeWatcher
+        treeRoots = []
+        app.add(self)
+        treeRoots = TreeRoots.favorites(favorites, home: home) // the file's, if already read
+        // The settings are final (the defaults only, or already read for another window): a
+        // saved sort must be on a shown column.
+        if app.settingsFile == nil || app.settingsReads > 0 {
             for side in Side.allCases where sortsByHiddenColumn(side) {
                 sides[side]?.sort = ListSort()
             }
@@ -171,9 +161,6 @@ public final class Workspace {
         }
         loadTreeRoots()
         updateWatchedFolders()
-        loadSettings()
-        jobs.onChange = { [weak self] in self?.notifyChange() }
-        jobs.onFinish = { [weak self] job in self?.jobFinished(job) }
     }
 
     public func state(of side: Side) -> SideState {

@@ -1,6 +1,6 @@
 # Blitter: Plan
 
-Last updated: 2026-11-09
+Last updated: 2026-11-15
 
 ## Goal
 
@@ -50,7 +50,7 @@ BlitterCore  (file system: enumeration, watching, file operation jobs; no AppKit
 ```
 
 - **BlitterCore** holds `getattrlistbulk` enumeration, FSEvents watching, the job queue for copy/move/delete/rename, and cloud placeholder handling. It must not import AppKit.
-- **BlitterModel** holds the state of each side (location, history, selection, sort, active side) and the commands that act on it.
+- **BlitterModel** holds the state of each side (location, history, selection, sort, active side) and the commands that act on it. Each window has a `Workspace` (its two sides); what all windows share (the settings and their file, notices, the job queue and its undo journal, the colors being tried) is one `AppModel` (#96), and a change there is a change for every window.
 - **BlitterApp** holds the views and controllers. It renders model state and calls commands.
 
 **Rule: every user action is a command in BlitterModel.** The UI only calls commands; the automation socket calls the same commands and actions, so it stays a thin adapter.
@@ -82,7 +82,9 @@ Also in 0.2.0:
 
 ## Next
 
-Not planned yet: the owner picks the next release's scope from real use and the issues.
+The owner picks the next release's scope from real use and the issues. So far:
+
+- **Several main windows** (#96): File → New Window, each window with its own two sides; the jobs, settings, Favorites and undo are shared.
 
 ## Later
 

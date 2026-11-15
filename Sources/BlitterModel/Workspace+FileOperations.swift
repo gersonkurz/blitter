@@ -247,22 +247,19 @@ extension Workspace {
         jobObservers[id, default: []].append(handler)
     }
 
+    /// A job ended (`AppModel` records its undo and, if it worked, takes it from the strips —
+    /// only jobs that need attention stay): this window reads again what it changed, and if this
+    /// window started it, does what it asked for afterwards.
     func jobFinished(_ job: Job) {
         for handler in jobObservers.removeValue(forKey: job.id) ?? [] {
             handler(job)
         }
-        recordUndo(of: job)
         let followUp = jobFollowUps.removeValue(forKey: job.id)
-        let succeeded = job.state == .finished && job.errors.isEmpty
-        if succeeded {
+        if job.state == .finished, job.errors.isEmpty {
             followUp?(self)
         }
         reload(showing: Self.changedFolders(by: job.operation))
-        if succeeded {
-            // Only jobs that need attention stay in the list.
-            jobQueue.dismiss(job.id)
-        }
-        notifyChange()
+        updateWatchedFolders()
     }
 
     static func changedFolders(by operation: FileOperation) -> Set<String> {

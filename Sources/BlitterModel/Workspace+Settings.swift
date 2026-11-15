@@ -38,7 +38,7 @@ extension Workspace {
         }
         settingsWork?.cancel()
         let home = home
-        settingsWork = Task { [weak self] in
+        settingsWork = Task { [self] in // held until read: the settings are every window's (#96 review)
             var result: (settings: Settings, problems: [String])
             do {
                 result = try await Self.readSettings(path)
@@ -48,7 +48,7 @@ extension Workspace {
             // The schemes the theme names that are not in the file (#34): read, or to be fetched.
             let schemes = Self.schemesFolder(of: path)
             let (resolved, downloads) = await Self.resolveSchemes(result.settings, folder: schemes, home: home)
-            guard !Task.isCancelled, let self else {
+            guard !Task.isCancelled else {
                 return
             }
             settingsWork = nil
@@ -77,32 +77,45 @@ extension Workspace {
             newSettings.favorites = pendingFavorites
         }
         var changed = false
+        let windows = app.workspaces // every window shows these settings (#96)
         if newSettings != settings {
             let favoritesBefore = favorites
             settings = newSettings
             if favorites != favoritesBefore {
-                favoritesChanged(from: favoritesBefore) // changed in the file
+                for window in windows {
+                    window.favoritesChanged(from: favoritesBefore) // changed in the file
+                }
             }
             changed = true
         }
         // Every read, the first one too: the columns are only now known for sure (#25).
-        for side in Side.allCases where keepSortVisible(side) {
-            changed = true
+        for window in windows {
+            for side in Side.allCases where window.keepSortVisible(side) {
+                changed = true
+            }
         }
-        let text = problems.isEmpty ? nil : "Settings file: " + problems.joined(separator: " ")
-        if text != settingsNotice?.text {
-            if let old = settingsNotice {
-                notices.removeAll { $0.id == old.id }
-                settingsNotice = nil
-            }
-            if let text {
-                settingsNotice = addNotice(text)
-            }
+        if showSettingsProblems(problems) {
             changed = true
         }
         if changed {
             notifyChange()
         }
+    }
+
+    /// The settings file's problems as one notice, replaced on every read; whether it changed.
+    private func showSettingsProblems(_ problems: [String]) -> Bool {
+        let text = problems.isEmpty ? nil : "Settings file: " + problems.joined(separator: " ")
+        guard text != settingsNotice?.text else {
+            return false
+        }
+        if let old = settingsNotice {
+            notices.removeAll { $0.id == old.id }
+            settingsNotice = nil
+        }
+        if let text {
+            settingsNotice = addNotice(text)
+        }
+        return true
     }
 
     func openWithApp(_ app: String, _ paths: [String], title: String) -> Bool {

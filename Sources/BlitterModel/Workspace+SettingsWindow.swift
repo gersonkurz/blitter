@@ -111,12 +111,9 @@ extension Workspace {
         let previous = settingsSave
         let favorites = favoritesSave // a Favorites change from the tree that started before (#72)
         let beforeReplace = settingsFileBeforeReplace
-        settingsSave = Task { [weak self] in
+        settingsSave = Task { [self] in // held until saved: the settings are every window's (#96 review)
             await previous?.value // saves run one after the other, in order
             await favorites?.value
-            guard let self else {
-                return
-            }
             await finishSavingFontSize()
             let (problem, created) = await Self.editSettingsFile(
                 path, what: "settings", beforeReplace: beforeReplace,

@@ -24,11 +24,8 @@ extension Workspace {
     func download(_ downloads: [SchemeDownload]) {
         for download in downloads where schemeWork[download.name] == nil {
             let fetch = fetch
-            schemeWork[download.name] = Task { [weak self] in
+            schemeWork[download.name] = Task { [self] in // held until done: every window's (#96 review)
                 let failure = await Self.fetchScheme(download, with: fetch)
-                guard let self else {
-                    return
-                }
                 schemeWork[download.name] = nil
                 if let failure {
                     addNotice("The color scheme “\(download.name)” could not be fetched: \(failure)")

@@ -91,7 +91,9 @@ public extension Workspace {
         settings.favorites = written
         stateFavorites = paths
         pendingFavorites = written
-        favoritesChanged(from: before)
+        for window in app.workspaces { // every window's tree has them (#96)
+            window.favoritesChanged(from: before)
+        }
         saveFavorites()
     }
 
@@ -135,10 +137,12 @@ public extension Workspace {
         let previous = favoritesSave
         let window = settingsSave // a Settings window save that started before: this one comes after it
         let beforeReplace = settingsFileBeforeReplace
-        favoritesSave = Task { [weak self] in
+        favoritesSave = Task { [self] in
+            // Holds this window until done: the save is every window's (#96 review), so closing
+            // the window that started it must not drop it.
             await previous?.value
             await window?.value
-            guard let self, generation == favoritesSaves else {
+            guard generation == favoritesSaves else {
                 return // a newer change saves
             }
             let (problem, created) = await Self.editSettingsFile(
