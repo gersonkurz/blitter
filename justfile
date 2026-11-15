@@ -161,32 +161,63 @@ package: generate
     set -euo pipefail
     stage=build/package
     rm -rf "$stage"
-    mkdir -p "$stage/root"
+    mkdir -p "$stage"
     identity="${MACOS_CODESIGN_IDENTITY:-Developer ID Application}"
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration Release \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} CODE_SIGN_IDENTITY="$identity" \
         | xcbeautify --quiet
     app="{{derived_data}}/Build/Products/Release/Blitter.app"
     codesign --verify --strict --deep "$app"
-    cp -R "$app" "$stage/root/"
-    ln -s /Applications "$stage/root/Applications"
     name="Blitter-{{version}}.dmg"
-    diskutil image create from --format ULFO --volumeName "Blitter {{version}}" "$stage/root" "$stage/$name"
-    codesign --sign "$identity" --identifier com.p-nand-q.blitter.dmg --timestamp "$stage/$name"
-    codesign --verify --strict "$stage/$name"
+    tools/make-dmg.sh "$app" "{{version}}" "$stage/$name"
     mkdir -p releases
     mv -f "$stage/$name" "releases/$name"
-    (cd releases && shasum -a 256 *.dmg > checksums.txt)
+    (cd releases && shasum -a 256 "$name" > checksums.txt)
     echo "Created releases/$name"
 
-# Notarize and staple the packaged DMG (needs Apple notary credentials, not just the signing
-# certificate). Store them once: xcrun notarytool store-credentials blitter-notary --apple-id <you>
-# --team-id 9T5S26964D
+# Needs Apple notary credentials, stored once:
+# xcrun notarytool store-credentials blitter-notary --apple-id <you> --team-id 9T5S26964D
+# First the app is notarized and stapled, so a copy in /Applications opens without asking Apple
+# (offline too); then the DMG, made again around it, in turn. Each must come back Accepted.
+# Notarize and staple the packaged release (#99): the app, then the DMG around it.
 notarize profile="blitter-notary":
-    xcrun notarytool submit "releases/Blitter-{{version}}.dmg" --keychain-profile "{{profile}}" --wait
-    xcrun stapler staple "releases/Blitter-{{version}}.dmg"
-    spctl --assess --type open --context context:primary-signature -v "releases/Blitter-{{version}}.dmg"
-    (cd releases && shasum -a 256 *.dmg > checksums.txt)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dmg="releases/Blitter-{{version}}.dmg"
+    stage=build/notarize
+    rm -rf "$stage"
+    mkdir -p "$stage"
+    submit() { # file: notarized, or stop with the submission's id for its log
+        result=$(xcrun notarytool submit "$1" --keychain-profile "{{profile}}" --wait --output-format json)
+        if ! grep -Eq '"status" *: *"Accepted"' <<<"$result"; then
+            echo "error: $1 was not accepted: $result" >&2
+            echo "Why: xcrun notarytool log <id> --keychain-profile {{profile}}" >&2
+            exit 1
+        fi
+        echo "Accepted: $1"
+    }
+    mount=$(mktemp -d)
+    hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg" -quiet
+    ditto "$mount/Blitter.app" "$stage/Blitter.app"
+    hdiutil detach "$mount" -quiet
+    rmdir "$mount"
+    ditto -c -k --keepParent "$stage/Blitter.app" "$stage/Blitter.zip"
+    submit "$stage/Blitter.zip"
+    xcrun stapler staple "$stage/Blitter.app"
+    tools/make-dmg.sh "$stage/Blitter.app" "{{version}}" "$stage/Blitter-{{version}}.dmg"
+    submit "$stage/Blitter-{{version}}.dmg"
+    xcrun stapler staple "$stage/Blitter-{{version}}.dmg"
+    spctl --assess --type open --context context:primary-signature -v "$stage/Blitter-{{version}}.dmg"
+    # What users get: the app as it comes out of the final DMG, with its own ticket.
+    mount=$(mktemp -d)
+    hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$stage/Blitter-{{version}}.dmg" -quiet
+    status=0
+    xcrun stapler validate "$mount/Blitter.app" && spctl --assess --type execute -v "$mount/Blitter.app" || status=$?
+    hdiutil detach "$mount" -quiet
+    rmdir "$mount"
+    if [ "$status" -ne 0 ]; then echo "error: the app in the DMG has no valid ticket" >&2; exit 1; fi
+    mv -f "$stage/Blitter-{{version}}.dmg" "$dmg"
+    (cd releases && shasum -a 256 "Blitter-{{version}}.dmg" > checksums.txt)
 
 # Remove build output and the generated project
 clean:
