@@ -14,7 +14,8 @@ The [settings file reference](reference/settings.md) lists every setting with it
 ## The Settings window
 
 Six tabs: Files, Favorites, Fonts, Colors, Compare, and Tools & Menus. Change what you like, then **Save**
-(**⌘S**), or **Revert** to drop your changes.
+(**⌘S**), or **Revert** to drop your changes. Save closes the window once the settings are written;
+if they cannot be, the window stays open and says why.
 
 - Saving writes the whole file anew, with Blitter's own comments. **Comments of your own in the
   file are not kept.**

@@ -157,6 +157,16 @@ public extension Workspace {
         return lastSettingsSaveProblem
     }
 
+    /// Waits until the settings file being read (after a save, a change on disk) is applied (#95).
+    func finishReadingSettings() async {
+        while let work = settingsWork {
+            await work.value
+            if settingsWork == work { // ended without clearing (cancelled, or its workspace is gone)
+                break
+            }
+        }
+    }
+
     /// Whether something is still to be written into the settings file: a zoomed size, a save.
     var isSavingSettings: Bool {
         pendingFontSize != nil || settingsSave != nil || favoritesSave != nil

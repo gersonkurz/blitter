@@ -39,6 +39,8 @@ final class SettingsWindowModel {
     private(set) var isSaving = false
     /// Why the last save failed; the draft keeps its changes, to save again.
     private(set) var saveProblem: String?
+    /// A save worked and the window has nothing left to show (#95): it closes.
+    var onSaved: (() -> Void)?
     private var readsSeen = -1
     private var loading: Task<Void, Never>?
     /// How the file is read: the workspace's document (tests make it wait).
@@ -83,15 +85,18 @@ final class SettingsWindowModel {
     /// there is no other state to keep in step with saves and reads (#93 review). Closing the
     /// window ends it.
     private func tryColors() {
-        if document != nil {
+        if document != nil, isOpen {
             workspace.perform(.tryTheme(draft.theme))
         }
     }
 
-    /// The window closes: what was not saved is no longer tried.
+    /// The window closes: what was not saved is no longer tried, and its model tries nothing more.
     func endTrial() {
+        isOpen = false
         workspace.perform(.tryTheme(nil))
     }
+
+    private var isOpen = true
 
     /// The settings were read again (a save, an editor, a zoom): shown, unless the draft has changes.
     func workspaceChanged() {
@@ -121,8 +126,26 @@ final class SettingsWindowModel {
             } else {
                 original = saved
                 workspaceChanged() // the file as saved, unless editing went on
+                await closeIfDone()
             }
         }
+    }
+
+    /// After a save: once the file as saved is applied (so closing never shows the colors from
+    /// before), the window closes — unless something was edited meanwhile, which would be lost:
+    /// a change, or a field half typed (a shortcut, #95 review).
+    private func closeIfDone() async {
+        guard !hasEdits else {
+            return
+        }
+        await workspace.finishReadingSettings()
+        if !hasEdits, !isSaving {
+            onSaved?()
+        }
+    }
+
+    private var hasEdits: Bool {
+        isDirty || !inputProblems.isEmpty
     }
 
     /// The draft's favorites as written; while the file has none, the ones the tree shows (#72).
@@ -206,6 +229,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.center()
         super.init(window: window)
         window.delegate = self
+        model.onSaved = { [weak self] in self?.close() }
     }
 
     @available(*, unavailable)

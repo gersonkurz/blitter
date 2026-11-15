@@ -48,16 +48,18 @@ final class SettingsWindowTests {
         model.draft.font.face = "Helvetica"
         model.draft.gitColors = false
         #expect(model.isDirty && model.canSave)
+        SettingsWindowController.show(workspace) // ⌘, again: the same window
+        #expect(SettingsWindowController.current?.model === model)
         model.save()
         try await waitUntil { !model.isSaving } // clean once it is in the file
         #expect(!model.isDirty && model.saveProblem == nil)
-        try await waitUntil { self.workspace.settings.font.face == "Helvetica" }
+        // Saved and read back: the window closes (#95), with the saved settings applied.
+        try await waitUntil { SettingsWindowController.current == nil }
+        #expect(workspace.settings.font.face == "Helvetica")
         let saved = try Settings.parse(String(contentsOfFile: path, encoding: .utf8))
         #expect(saved.problems.isEmpty)
         #expect(saved.settings.dateFormat == "HH:mm" && !saved.settings.gitColors && saved.settings.font
             .face == "Helvetica")
-        SettingsWindowController.show(workspace) // ⌘, again: the same window
-        #expect(SettingsWindowController.current?.model === model)
     }
 
     /// #93: while the window is open, the whole window shows the draft's colors: chosen, not
@@ -77,12 +79,16 @@ final class SettingsWindowTests {
         model.draft.theme.rows = .stripes
         #expect(workspace.shownTheme.rows == .stripes)
         model.save()
-        try await waitUntil { self.workspace.settings.theme.rows == .stripes && !model.isDirty }
-        #expect(workspace.shownTheme.rows == .stripes) // kept
+        try await waitUntil { SettingsWindowController.current == nil } // saved: closed (#95)
+        #expect(workspace.settings.theme.rows == .stripes && workspace.themeTrial == nil)
+        #expect(workspace.shownTheme.rows == .stripes) // kept: the file's now
+        model.draft.theme.dark = "nord" // a closed window's model tries nothing any more
+        #expect(workspace.themeTrial == nil)
 
-        model.draft.theme.light = "nord"
+        let again = try await openWindow()
+        again.draft.theme.light = "nord"
         #expect(workspace.shownTheme.light == "nord")
-        SettingsWindowController.current?.close()
+        SettingsWindowController.current?.close() // closed without saving
         #expect(workspace.themeTrial == nil && workspace.shownTheme.light == "system")
         #expect(workspace.shownTheme.rows == .stripes) // the file's
     }
@@ -100,6 +106,20 @@ final class SettingsWindowTests {
         try await waitUntil { self.workspace.settingsReads > 1 }
         #expect(model.draft.theme.rows == .lines && model.isDirty)
         #expect(workspace.shownTheme.rows == .lines)
+        #expect(SettingsWindowController.current?.model === model) // edited meanwhile: stays open (#95)
+    }
+
+    /// #95 review: a field half typed while saving (a shortcut not yet complete) keeps the
+    /// window open, though the draft itself is what was saved.
+    @Test func aFieldHalfTypedWhileSavingKeepsTheWindowOpen() async throws {
+        let model = try await openWindow()
+        workspace.settingsFileBeforeReplace = { Thread.sleep(forTimeInterval: 0.3) }
+        model.draft.gitColors = false
+        model.save()
+        model.inputProblems["menu_bar.file.0"] = "“cmd+” is not a shortcut yet."
+        try await waitUntil { !model.isSaving && self.workspace.settings.gitColors == false }
+        try await Task.sleep(for: .milliseconds(200)) // a close would have happened by now
+        #expect(!model.isDirty && SettingsWindowController.current?.model === model)
     }
 
     @Test func whatTheFileCannotHoldCannotBeSaved() async throws {
@@ -138,6 +158,7 @@ final class SettingsWindowTests {
         try await waitUntil { !model.isSaving }
         #expect(model.saveProblem?.contains("could not be saved") == true)
         #expect(model.isDirty && !model.draft.gitColors && model.canSave)
+        #expect(SettingsWindowController.current?.model === model) // not saved: stays open (#95)
         model.workspaceChanged() // a reload must not drop the changes either
         try await Task.sleep(for: .milliseconds(100))
         #expect(!model.draft.gitColors)
@@ -147,6 +168,7 @@ final class SettingsWindowTests {
         try await waitUntil { !model.isSaving }
         #expect(model.saveProblem == nil && !model.isDirty)
         #expect(try Settings.parse(String(contentsOfFile: path, encoding: .utf8)).settings.gitColors == false)
+        try await waitUntil { SettingsWindowController.current == nil } // saved this time: closed
     }
 
     /// The file is read slowly; the user edits meanwhile: the edit stays when the read arrives.
