@@ -59,8 +59,8 @@ final class ActivatingTableView: NSTableView, @preconcurrency NSViewContentSelec
     }
 }
 
-/// A combo box that reports when it gains keyboard focus, which makes its side the active side.
-final class ActivatingComboBox: NSComboBox {
+/// A text field that reports when it gains keyboard focus, which makes its side the active side.
+final class ActivatingTextField: NSTextField {
     var onBecomeFirstResponder: (() -> Void)?
 
     override func becomeFirstResponder() -> Bool {

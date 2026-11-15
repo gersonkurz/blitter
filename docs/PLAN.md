@@ -35,7 +35,7 @@ Replace Path Finder for daily work with a native macOS file manager: two sides, 
 - The two sides are always side by side, never stacked.
 - Each side is a folder tree plus a detailed file list, with an editable path field at the top.
 - **Source/destination is a core concept.** The active side is the source, and the other side is the destination. Copy, move and compare work from source to destination.
-- No tabs. The recent-folders strip (0.2.0) covers what tabs would.
+- No tabs. The recent folders in the path field's menu (#74, #90) cover what tabs would.
 
 ## Architecture
 
@@ -97,7 +97,7 @@ Ideas wait here until real use asks for them; each becomes an issue when it is p
 | What | Why |
 |---|---|
 | Archives as folders | The owner doesn't trust it and never uses it. |
-| Tabs | Two sides plus the recent-folders strip. |
+| Tabs | Two sides plus the recent folders in the path field's menu. |
 | A built-in scripting language | Automation goes through the socket: AI assistants, the CLI, Python. |
 | App Store, sandbox | A sandboxed file manager isn't practical. |
 | A Markdown viewer of its own | Quick Look extensions (QLMarkdown) preview in place with Space; a viewer app can be a tool. |

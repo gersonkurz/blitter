@@ -37,12 +37,12 @@ final class NavigationButtonsTests {
         window.close()
     }
 
-    @Test func theButtonsSitLeftOfThePathFieldWithTheirSymbols() throws {
+    @Test func theButtonsSitLeftOfThePathFieldWithTheirSymbols() {
         let buttons = list.navigationButtons
         for button in [buttons.back, buttons.upward, buttons.forward] {
             #expect(button.image != nil)
         }
-        let path = try #require(list.view.subviews.first { $0 is NSComboBox })
+        let path = list.pathField
         #expect(buttons.frame.maxX <= path.frame.minX)
         #expect(abs(buttons.frame.midY - path.frame.midY) < 2)
     }

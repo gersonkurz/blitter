@@ -129,6 +129,8 @@ final class FileListInteractionTests {
         let forward = try #require(menuItem(in: "Go", titled: "Forward"))
         let parent = try #require(menuItem(in: "Go", titled: "Enclosing Folder"))
         let goTo = try #require(menuItem(in: "Go", titled: "Go to Folder…"))
+        let recent = try #require(menuItem(in: "Go", titled: "Recent Folders")) // #90
+        #expect(recent.keyEquivalent == "y" && recent.keyEquivalentModifierMask == .command)
         for item in [back, forward, parent] {
             #expect(item.keyEquivalentModifierMask == .command)
         }
@@ -145,9 +147,8 @@ final class FileListInteractionTests {
         (controller.view.subviews.compactMap { $0 as? NSScrollView }.first?.documentView as! NSTableView)
     }
 
-    private var pathField: NSComboBox {
-        // swiftlint:disable:next force_cast
-        controller.view.subviews.first { $0 is NSComboBox } as! NSComboBox
+    private var pathField: NSTextField {
+        controller.pathField
     }
 
     private func menuItem(in menu: String, titled title: String) -> NSMenuItem? {

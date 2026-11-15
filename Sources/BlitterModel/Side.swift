@@ -53,10 +53,7 @@ public struct SideState: Sendable {
     public internal(set) var backStack: [String] = []
     /// Folders to go forward to after going back, the next one last.
     public internal(set) var forwardStack: [String] = []
-    /// Folders this side visited, the most recent first, without duplicates. The path field's
-    /// dropdown offers them.
-    public internal(set) var recentLocations: [String]
-    /// The recent folders strip's folders (#74), saved with the window state.
+    /// The folders the path field's menu offers (#74, #90), saved with the window state.
     public internal(set) var recentFolders = RecentFolders()
     /// An entry to select once the listing of its folder contains it: the folder we came up from,
     /// or one a job created or renamed. Bound to its folder, so it never selects a same-named
@@ -152,7 +149,6 @@ public struct SideState: Sendable {
     init(location: String) {
         self.location = location
         entriesLocation = location
-        recentLocations = [location]
     }
 
     public var canGoBack: Bool {

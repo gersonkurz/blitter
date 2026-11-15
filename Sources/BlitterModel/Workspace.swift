@@ -268,7 +268,6 @@ extension Workspace {
         var state = restored
         state.fallsBackToHome = false
         state.location = home
-        state.recentLocations = [home]
         sides[side] = state
         pendingWork[side] = nil
         load(side)

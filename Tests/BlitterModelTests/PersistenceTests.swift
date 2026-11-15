@@ -43,7 +43,7 @@ struct PersistenceTests {
         await workspace.settle()
         var state = workspace.savedState
         #expect(state.right.recentFolders?.visits.keys.sorted() == ["/Users/me", "/Users/me/Documents"])
-        state.right.recentFolders = nil // the strip's own test: RecentFoldersTests (#74)
+        state.right.recentFolders = nil // the recent folders' own test: RecentFoldersTests (#74)
         #expect(state == saved(left: "/Users/me", right: "/Users/me/Documents",
                                sort: ListSort(column: .size, ascending: false), hidden: true))
     }

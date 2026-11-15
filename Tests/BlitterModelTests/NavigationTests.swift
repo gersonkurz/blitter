@@ -112,7 +112,7 @@ struct NavigationTests {
         #expect(names(workspace) == ["a.txt"])
         #expect(state.backStack == ["/Users/me"])
         #expect(state.canGoBack && !state.canGoForward)
-        #expect(state.recentLocations == ["/Users/me/Documents", "/Users/me"])
+        #expect(workspace.recentFolders(of: .left) == ["/Users/me"])
         #expect(changes == 3) // the navigation, the listing, and the tree's subfolders of /Users/me
         // The other side did not move.
         #expect(workspace.state(of: .right).location == "/Users/me")
@@ -157,7 +157,7 @@ struct NavigationTests {
         await workspace.settle()
         #expect(!workspace.state(of: .left).canGoForward)
         #expect(workspace.state(of: .left).backStack == ["/Users/me", "/Users/me/Documents"])
-        #expect(workspace.state(of: .left).recentLocations == ["/", "/Users/me/Documents", "/Users/me", "/tmp"])
+        #expect(Set(workspace.recentFolders(of: .left)) == ["/Users/me/Documents", "/Users/me", "/tmp"])
     }
 
     @Test func goToParentSelectsTheFolderWeCameFrom() async {
@@ -316,7 +316,8 @@ struct NavigationTests {
         #expect(workspace.state(of: .left).location == "/Users/me")
     }
 
-    @Test func recentLocationsAreCapped() async {
+    /// The path field's menu (#90): every pinned folder, and the 20 most frecent others.
+    @Test func theRecentFoldersMenuIsCapped() async {
         var folders = tree
         for index in 0 ..< 30 {
             folders["/f\(index)"] = []
@@ -326,8 +327,10 @@ struct NavigationTests {
             workspace.perform(.navigate(.left, path: "/f\(index)"))
         }
         await workspace.settle()
-        let recent = workspace.state(of: .left).recentLocations
-        #expect(recent.count == 20)
-        #expect(recent.first == "/f29")
+        workspace.perform(.recentFolder(.left, "/f0", .pin))
+        let recent = workspace.recentFolders(of: .left)
+        #expect(recent.count == 1 + RecentFolders.shown && RecentFolders.shown == 20)
+        #expect(recent.first == "/f0" && !recent.contains("/f29")) // pinned first; the own folder left out
+        #expect(recent[1] == "/f28") // then the most recent
     }
 }

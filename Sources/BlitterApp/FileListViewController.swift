@@ -3,17 +3,19 @@ import BlitterCore
 import BlitterModel
 import UniformTypeIdentifiers
 
-/// One side's file list: a path field with the recent folders and a detail table. It renders the
+/// One side's file list: a path field with the recent folders' menu and a detail table. It renders the
 /// side's state from the workspace and turns user input into workspace commands.
 @MainActor
 final class FileListViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
-    NSComboBoxDelegate
+    NSTextFieldDelegate
 {
     let workspace: Workspace
     let side: Side
     /// The general pasteboard; tests use one of their own, so they never touch the user's clipboard.
     var pasteboard = NSPasteboard.general
-    let pathField = ActivatingComboBox()
+    let pathField = ActivatingTextField()
+    /// Opens the side's recent folders (#90), at the path field's right.
+    let recentFoldersButton = NSButton()
     private(set) lazy var navigationButtons = NavigationButtons(side: side)
     let statusLabel = NSTextField(labelWithString: "")
     let tableView = ActivatingTableView()
@@ -21,7 +23,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     private(set) var entries: [ListedEntry] = []
     /// The folder `entries` belong to.
     private(set) var location = ""
-    private var renderedRecentLocations: [String] = []
     lazy var inlineRename = makeInlineRename()
     /// The rename request the view has already started editing for.
     var handledRenameToken: Int?
@@ -43,7 +44,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     /// The fast filter's highlighted names the list was last drawn with (#39).
     var highlightedNames: Set<String> = []
     let quickFilterBar = QuickFilterBar()
-    private(set) lazy var recentFoldersBar = RecentFoldersBar(side: side)
     let statusBar = SideStatusBar()
     var shownFolderSizes: [String: FolderSize] = [:]
 
@@ -79,13 +79,12 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         statusLabel.maximumNumberOfLines = 0
 
         navigationButtons.onCommand = { [weak self] command in self?.workspace.perform(command) }
-        recentFoldersBar.onCommand = { [weak self] command in self?.workspace.perform(command) }
         let root = NSView()
         for subview in [
             navigationButtons,
             pathField,
+            recentFoldersButton,
             scrollView,
-            recentFoldersBar,
             quickFilterBar,
             statusBar,
             statusLabel,
@@ -98,11 +97,13 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             navigationButtons.centerYAnchor.constraint(equalTo: pathField.centerYAnchor),
             pathField.topAnchor.constraint(equalTo: root.topAnchor, constant: 6),
             pathField.leadingAnchor.constraint(equalTo: navigationButtons.trailingAnchor, constant: 6),
-            pathField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
+            pathField.trailingAnchor.constraint(equalTo: recentFoldersButton.leadingAnchor, constant: -2),
+            recentFoldersButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
+            recentFoldersButton.centerYAnchor.constraint(equalTo: pathField.centerYAnchor),
             scrollView.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: recentFoldersBar.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: quickFilterBar.topAnchor),
             quickFilterBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             quickFilterBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             quickFilterBar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
@@ -113,17 +114,17 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             statusLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: 300),
-        ] + recentFoldersBarConstraints(in: root))
+        ])
         view = root
     }
 
     private func configurePathField() {
         pathField.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         pathField.controlSize = .small
-        pathField.completes = false
-        pathField.numberOfVisibleItems = 20
+        pathField.bezelStyle = .roundedBezel
         pathField.lineBreakMode = .byTruncatingHead
-        // Navigate on Return or on picking a recent folder, never just because focus moved away.
+        pathField.cell?.isScrollable = true
+        // Navigate on Return, never just because focus moved away.
         pathField.cell?.sendsActionOnEndEditing = false
         pathField.target = self
         pathField.action = #selector(pathEntered(_:))
@@ -134,6 +135,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
             }
             workspace.perform(.activate(side))
         }
+        configureRecentFoldersButton()
     }
 
     /// "v2" since #13: the v0.1 layouts showed Kind, and AppKit would restore it; everyone starts
@@ -192,11 +194,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         renderPalette()
         pathField.textColor = pathFieldColor(isActive: isActive)
         navigationButtons.render(state)
-        if state.recentLocations != renderedRecentLocations {
-            renderedRecentLocations = state.recentLocations
-            pathField.removeAllItems()
-            pathField.addItems(withObjectValues: state.recentLocations)
-        }
 
         renderFonts()
         renderDateFormat(workspace.settings.dateFormat)
@@ -237,7 +234,6 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
 
         renderStatus(state.status)
         statusBar.render(state)
-        recentFoldersBar.render(workspace.recentFolders(of: side), pinned: state.recentFolders.pinned)
     }
 }
 
@@ -257,7 +253,7 @@ extension FileListViewController {
         state.find?.displayLocation ?? state.location
     }
 
-    @objc private func pathEntered(_ sender: NSComboBox) {
+    @objc private func pathEntered(_ sender: NSTextField) {
         let typed = sender.stringValue
         // Hand focus back to the list first, so the field shows the resolved path afterwards.
         view.window?.makeFirstResponder(tableView)
@@ -266,6 +262,10 @@ extension FileListViewController {
     }
 
     func control(_: NSControl, textView _: NSTextView, doCommandBy selector: Selector) -> Bool {
+        if selector == #selector(NSResponder.moveDown(_:)) { // ↓ opens the recent folders, as a combo box would
+            showRecentFolders()
+            return true
+        }
         guard selector == #selector(NSResponder.cancelOperation(_:)) else {
             return false
         }

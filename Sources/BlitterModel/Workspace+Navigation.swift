@@ -97,25 +97,13 @@ extension Workspace {
         return true
     }
 
-    static let maxRecentLocations = 20
-
-    /// The arrival in `location`: in the path field's recent folders and the recent folders strip
-    /// (#74), which also counts the folder the side started in once it leaves it.
+    /// The arrival in `location`, counted in the side's recent folders (#74), which also count the
+    /// folder the side started in once it leaves it.
     private func remember(_ location: String, comingFrom previous: String, in state: inout SideState) {
-        Self.remember(location, in: &state)
         if state.recentFolders.visits[previous] == nil {
             state.recentFolders.visit(previous, at: clock())
         }
         state.recentFolders.visit(location, at: clock())
-    }
-
-    /// The path field's recent folders: `location` first, each once, at most `maxRecentLocations`.
-    private static func remember(_ location: String, in state: inout SideState) {
-        state.recentLocations.removeAll { $0 == location }
-        state.recentLocations.insert(location, at: 0)
-        if state.recentLocations.count > maxRecentLocations {
-            state.recentLocations.removeLast()
-        }
     }
 
     /// A navigation the user asked for wins over a symbolic link still being checked.

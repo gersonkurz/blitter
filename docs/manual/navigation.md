@@ -23,23 +23,22 @@ The field at the top of each side shows its folder. You can type a path into it:
 - Press **Return** to go there. **Escape** drops what you typed.
 - `~` is your home folder. A path without a leading `/` is taken relative to the side's folder,
   and `..` goes up, e.g. `../other`.
-- The arrow at the right of the field lists the side's 20 most recent folders.
 - Typing the side's own folder again reads it again.
 
 ## Recent folders
 
-![The recent folders strip below the right side's list](images/main-window-light.png)
+The **⌄** button at the right of the path field lists the folders the side was in recently.
+**⌘Y** (Go → Recent Folders) opens the list for the active side, and so does **↓** while you type
+in the path field. Type the start of a path to jump to it in the list.
 
-Below each file list, a strip shows the folders that side was in recently, as buttons:
-
-- The order is by frecency: folders you go to often and lately come first. The folder the side
-  shows is left out; what does not fit is left out too, the least frecent first.
-- Click a folder to go there; its full path is in the tooltip.
-- Right-click one to **Pin to Recent Folders**: pinned folders (with a pin) always come first, in
-  the order you pinned them. **Unpin** and **Remove from Recent Folders** are there too.
-- Each side has its own strip, and Blitter keeps them for the next launch.
-
-The arrow at the right of the path field still lists the side's last 20 folders in order.
+- Pinned folders come first, with a pin, in the order you pinned them.
+- The others follow by frecency: folders you go to often and lately come first. The list shows
+  the 20 most frecent; the folder the side shows is left out.
+- Choose a folder to go there.
+- **Pin This Folder** at the bottom pins the side's own folder; **Unpin This Folder** unpins it.
+- Hold **⌥** while the list is open: a pinned folder then offers **Unpin**, the others **Remove
+  from Recent Folders**.
+- Each side has its own list, and Blitter keeps it for the next launch.
 
 ## The folder tree
 

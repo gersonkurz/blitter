@@ -132,6 +132,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         windowController?.focusPathField(of: workspace.activeSide)
     }
 
+    /// Opens the active side's recent folders (#90); picking one is the navigation.
+    @objc private func showRecentFolders(_: Any?) {
+        windowController?.fileList(of: workspace.activeSide)?.showRecentFolders()
+    }
+
     @objc private func openSettings(_: Any?) {
         SettingsWindowController.show(workspace)
     }
@@ -225,6 +230,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         goMenu.addItem(.separator())
         addItem(to: goMenu, title: "Go to Folder…", action: #selector(goToFolder(_:)), key: "g",
                 modifiers: [.command, .shift])
+        addItem(to: goMenu, title: "Recent Folders", action: #selector(showRecentFolders(_:)), key: "y",
+                modifiers: [.command])
         goMenu.addItem(.separator())
         goMenu.addItem(withTitle: "Favorites", action: nil, keyEquivalent: "").submenu = favoritesMenu
         mainMenu.addItem(submenu: goMenu)

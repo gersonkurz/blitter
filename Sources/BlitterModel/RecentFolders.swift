@@ -1,8 +1,8 @@
 import Foundation
 
 /// A side's recent folders (#74): every folder it went to, counted, with when it was last there,
-/// and the folders pinned to the strip. The strip lists the pinned ones first, then the others by
-/// frecency: how often, weighted by how recently. Saved with the window state.
+/// and the folders pinned. The path field's menu (#90) lists the pinned ones first, then the
+/// others by frecency: how often, weighted by how recently. Saved with the window state.
 public struct RecentFolders: Codable, Equatable, Sendable {
     public struct Visit: Codable, Equatable, Sendable {
         public var count: Int
@@ -15,6 +15,8 @@ public struct RecentFolders: Codable, Equatable, Sendable {
 
     /// Folders remembered; the least frecent go first.
     static let limit = 100
+    /// Folders the menu lists besides the pinned ones (#90): the most frecent.
+    public static let shown = 20
 
     public init() {}
 
@@ -51,15 +53,15 @@ public struct RecentFolders: Codable, Equatable, Sendable {
         unpin(path)
     }
 
-    /// The strip's folders: the pinned ones, then the others by frecency (ties: the most recent),
-    /// without `current`.
+    /// The menu's folders: the pinned ones, then at most `shown` others by frecency (ties: the
+    /// most recent), without `current`.
     public func ordered(at date: Date, without current: String) -> [String] {
         let pins = Set(pinned)
         let others = visits.filter { $0.key != current && !pins.contains($0.key) }.sorted { lhs, rhs in
             let (left, right) = (Self.score(lhs.value, at: date), Self.score(rhs.value, at: date))
             return left != right ? left > right : lhs.value.last > rhs.value.last
         }
-        return pinned.filter { $0 != current } + others.map(\.key)
+        return pinned.filter { $0 != current } + others.prefix(Self.shown).map(\.key)
     }
 
     /// Visits weighted by how long ago the last one was.
@@ -78,7 +80,7 @@ public struct RecentFolders: Codable, Equatable, Sendable {
 
 // MARK: Commands
 
-/// What the strip's menu does to a folder (#74).
+/// What the path field's menu does to a folder (#74, #90).
 public enum RecentFolderChange: Sendable {
     case pin, unpin, remove
 }
@@ -98,7 +100,8 @@ extension Workspace {
 }
 
 public extension Workspace {
-    /// The side's recent folders strip as it is now (the side's own folder left out).
+    /// The side's recent folders as the path field's menu lists them now (#90): pinned first, the
+    /// side's own folder left out.
     func recentFolders(of side: Side) -> [String] {
         let state = state(of: side)
         return state.recentFolders.ordered(at: clock(), without: state.location)

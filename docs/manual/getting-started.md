@@ -21,9 +21,9 @@ The window shows two [sides](sides.md) next to each other. Each side has:
 
 - a **folder tree** on the left: your Favorites, the mounted volumes, iCloud Drive and other
   cloud drives;
-- **Back**, **Up** and **Forward** buttons and a **path field** you can type into;
+- **Back**, **Up** and **Forward** buttons, a **path field** you can type into, and the
+  **⌄** button with the side's [recent folders](navigation.md#recent-folders);
 - the **file list** of the side's folder;
-- the **recent folders** strip: the folders the side was in lately, a click away;
 - a **status line**: how many items, how many selected and their size, and the free space on
   the volume.
 

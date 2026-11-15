@@ -7,7 +7,7 @@ public struct WorkspaceState: Codable, Equatable, Sendable {
         /// The file list's columns if the user changed them (#25), else nil. Names, so a column
         /// a later version drops cannot make the whole state unreadable.
         public var columns: [String]?
-        /// The recent folders strip (#74); nil in a state saved before it.
+        /// The recent folders (#74, #90); nil in a state saved before it.
         public var recentFolders: RecentFolders?
 
         public init(location: String, sort: ListSort, columns: [String]? = nil, recentFolders: RecentFolders? = nil) {

@@ -3,7 +3,7 @@ import BlitterCore
 import Foundation
 import Testing
 
-/// #74: each side's recent folders strip: pinned first, then by frecency; kept for the next launch.
+/// #74, #90: each side's recent folders: pinned first, then by frecency; kept for the next launch.
 @MainActor
 struct RecentFoldersTests {
     private let day: TimeInterval = 86400
@@ -58,7 +58,24 @@ struct RecentFoldersTests {
             #expect(recent.visits["/new"]?.count == visit)
         }
         #expect(recent.visits.count == RecentFolders.limit)
-        #expect(recent.ordered(at: now, without: "/").contains("/new"))
+        // Remembered, though it is not among the most frecent the menu shows yet (#90).
+        #expect(!recent.ordered(at: now, without: "/").contains("/new"))
+        for _ in 0 ..< 9 {
+            recent.visit("/new", at: now)
+        }
+        #expect(recent.ordered(at: now, without: "/").first == "/new") // 12 visits: the most frecent
+    }
+
+    /// The menu lists every pinned folder, then the `shown` most frecent others (#90).
+    @Test func theMenuShowsThePinnedAndTheMostFrecent() {
+        let now = Date(timeIntervalSince1970: 1_000_000_000)
+        var recent = RecentFolders()
+        for index in 0 ..< 30 {
+            recent.visit("/f\(index)", at: now - Double(index)) // /f0 the most recent
+        }
+        recent.pin("/f29")
+        let ordered = recent.ordered(at: now, without: "/f0")
+        #expect(ordered == ["/f29"] + (1 ... RecentFolders.shown).map { "/f\($0)" })
     }
 
     /// Among equal scores the one visited longest ago goes, not a newer one (#74 review).
@@ -82,9 +99,9 @@ struct RecentFoldersTests {
         return workspace
     }
 
-    /// Going around: the folder a side started in counts too; the strip leaves out the folder the
+    /// Going around: the folder a side started in counts too; the menu leaves out the folder the
     /// side shows; pins and visits are kept for the next launch.
-    @Test func navigationFillsTheStripAndItIsKept() async throws {
+    @Test func navigationFillsTheRecentFoldersAndTheyAreKept() async throws {
         let workspace = await makeWorkspace()
         let ticks = Ticks()
         workspace.clock = { ticks.next() } // a second later each time: ties go to the later visit
@@ -110,7 +127,7 @@ struct RecentFoldersTests {
         #expect(changes == 1 && !workspace.recentFolders(of: .left).contains("/c"))
     }
 
-    /// A state saved before the strip existed still reads.
+    /// A state saved before the recent folders existed still reads.
     @Test func anOlderStateStillReads() throws {
         let json = #"{"left":{"location":"/a","sort":{"column":"name","ascending":true}},"#
             + #""right":{"location":"/b","sort":{"column":"name","ascending":true}},"showsHiddenFiles":false}"#
