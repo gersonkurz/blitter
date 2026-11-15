@@ -160,15 +160,15 @@ final class GitLogWindowTests {
     }
 
     @Test func theHostOpensARegisteredKindAndForgetsItWhenClosed() throws {
-        DialogHost.present(DialogRequest(kind: "no-such-kind", path: "/repo")) // nothing registered
+        DialogHost.present(DialogRequest(kind: "no-such-kind", path: "/repo"), for: workspace) // nothing registered
         let before = DialogHost.open.count
-        DialogHost.register("test-log") { [workspace, access] request in
-            GitLogWindowController(workspace: workspace, path: request.path, access: access)
+        DialogHost.register("test-log") { [access] request, asking in
+            GitLogWindowController(workspace: asking, path: request.path, access: access) // the asking window's (#96)
         }
         weak var closedController: NSWindowController?
         weak var closedLog: GitLog?
         try autoreleasepool {
-            DialogHost.present(DialogRequest(kind: "test-log", path: "/repo"))
+            DialogHost.present(DialogRequest(kind: "test-log", path: "/repo"), for: workspace)
             #expect(DialogHost.open.count == before + 1)
             let controller = try #require(DialogHost.open.last as? GitLogWindowController)
             let window = try #require(controller.window)

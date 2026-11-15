@@ -121,4 +121,16 @@ struct MultipleWindowsTests {
         }
         #expect(first.app.workspaces.count == 1) // then it goes
     }
+
+    /// New Window (#96) asks the app for a window at the active side's folder, from the menu
+    /// action as from automation.
+    @Test func newWindowOpensAtTheActiveSidesFolder() throws {
+        let sides = try SidesOnDisk()
+        var opened: [String] = []
+        sides.workspace.system.openWindow = { opened.append($0) }
+        sides.workspace.perform(.activate(.right))
+        #expect(sides.workspace.canRun("new-window", on: .right))
+        sides.workspace.perform(.runAction("new-window", .right))
+        #expect(opened == [sides.right])
+    }
 }

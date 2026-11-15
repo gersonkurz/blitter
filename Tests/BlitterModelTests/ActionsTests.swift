@@ -25,7 +25,8 @@ struct ActionsTests {
         // Nothing selected: only what works on the folder itself (with the default tools, #18), and
         // what always fits (#88).
         #expect(ids(sides.workspace.actions(for: .left)) == ["new-folder", "copy-folder-path", "git-clone",
-                                                             "add-to-favorites", "toggle-hidden-files", "refresh",
+                                                             "add-to-favorites", "new-window", "toggle-hidden-files",
+                                                             "refresh",
                                                              "compare-folders", "open-in-terminal", "open-in-code"])
 
         sides.workspace.perform(.select(.left, ["a.txt"]))
@@ -51,7 +52,7 @@ struct ActionsTests {
             return
         }
         // Only what always fits (#88): Refresh tries again.
-        #expect(ids(sides.workspace.actions(for: .left)) == ["toggle-hidden-files", "refresh"])
+        #expect(ids(sides.workspace.actions(for: .left)) == ["new-window", "toggle-hidden-files", "refresh"])
         var changes = 0
         sides.workspace.onChange = { changes += 1 }
         sides.workspace.perform(.runAction("new-folder", .left))

@@ -2,25 +2,26 @@ import AppKit
 import BlitterModel
 
 /// Shows the dialogs and windows the Model asks for (#42), by kind: each kind's window is
-/// registered at launch. Open windows are kept until they close; then nothing holds them, so a
+/// registered at launch, and made for the main window's workspace that asked (#96). Open windows are kept until they
+/// close; then nothing holds them, so a
 /// closed window and its model (a whole history, say) are freed.
 @MainActor
 enum DialogHost {
-    private static var factories: [String: (DialogRequest) -> NSWindowController] = [:]
+    private static var factories: [String: (DialogRequest, Workspace) -> NSWindowController] = [:]
     private(set) static var open: [NSWindowController] = []
     /// The close observer of each open window, removed when it closes.
     private static var observers: [ObjectIdentifier: NSObjectProtocol] = [:]
 
-    static func register(_ kind: String, _ factory: @escaping (DialogRequest) -> NSWindowController) {
+    static func register(_ kind: String, _ factory: @escaping (DialogRequest, Workspace) -> NSWindowController) {
         factories[kind] = factory
     }
 
     /// A kind nobody registered shows nothing.
-    static func present(_ request: DialogRequest) {
+    static func present(_ request: DialogRequest, for workspace: Workspace) {
         guard let factory = factories[request.kind] else {
             return
         }
-        let controller = factory(request)
+        let controller = factory(request, workspace)
         open.append(controller)
         if let window = controller.window {
             let id = ObjectIdentifier(controller)

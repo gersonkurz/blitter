@@ -4,12 +4,20 @@ import BlitterModel
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate {
-    private let stateStore = StateStore()
-    /// Starts where the last session ended.
-    lazy var workspace = AppEnvironment.isHostedTest ? Workspace()
-        : AppEnvironment.isProfile ? Workspace(settingsFile: UserPaths.settingsFile)
-        : Workspace(restoring: stateStore.load(), settingsFile: UserPaths.settingsFile)
-    private(set) var windowController: MainWindowController?
+    /// The main windows (#96): the only owner of their workspaces.
+    let windows = MainWindows()
+    /// The test host opens no window: its menus act on a workspace of their own.
+    private lazy var hostWorkspace = Workspace()
+    /// What the menus, shortcuts and automation act on: the front main window's workspace.
+    var workspace: Workspace {
+        windows.front?.workspace ?? hostWorkspace
+    }
+
+    /// The front main window; nil in the test host, which opens none.
+    var windowController: MainWindowController? {
+        windows.front
+    }
+
     /// The automation socket (#58), while the app runs.
     private var automationServer: LineSocketServer?
     /// The menus whose action items come from the settings (#24), and what they were built from.
@@ -22,52 +30,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     var renderedFavorites: [TreeRoot]?
 
     func applicationDidFinishLaunching(_: Notification) {
-        NSApp.mainMenu = makeMainMenu()
         // Hosting the app tests: the menu is all they need. No window, nothing saved, so a test
         // run never touches the user's workspace or layout.
         guard !AppEnvironment.isHostedTest else {
+            NSApp.mainMenu = makeMainMenu()
             return
         }
-        let controller = MainWindowController(workspace: workspace)
-        workspace.system = .appKit(window: controller)
-        DialogHost.register(DialogRequest.gitLog) { [workspace] request in
-            GitLogWindowController(workspace: workspace, path: request.path)
-        }
-        DialogHost.register(DialogRequest.gitSync) { [workspace] request in
-            GitSyncWindowController(workspace: workspace, path: request.path)
-        }
-        DialogHost.register(DialogRequest.gitCommit) { [workspace] request in
-            GitCommitWindowController(workspace: workspace, path: request.path)
-        }
-        DialogHost.register(DialogRequest.gitClone) { [workspace] request in
-            GitCloneWindowController(workspace: workspace, folder: request.path)
-        }
-        DialogHost.register(DialogRequest.gitClean) { [workspace] request in
-            GitCleanWindowController(workspace: workspace, path: request.path)
-        }
-        controller.afterRender = { [weak self] in
-            guard let self else {
-                return
+        registerDialogs()
+        windows.configure = { [weak self] controller in
+            controller.afterRender = { [weak self] in
+                guard let self else {
+                    return
+                }
+                windows.save()
+                updateMenuBar() // the settings file may have changed the menus
+                SettingsWindowController.current?.model.workspaceChanged()
             }
-            if !AppEnvironment.isProfile {
-                stateStore.save(workspace.savedState)
-            }
-            updateMenuBar() // the settings file may have changed the menus
-            SettingsWindowController.current?.model.workspaceChanged()
         }
-        controller.showWindow(nil)
-        windowController = controller
+        // The last session's windows (not while isolated: BLITTER_PROFILE keeps nothing); the
+        // first one's workspace makes what all share and reads the settings.
+        windows.store = AppEnvironment.isProfile ? nil : StateStore()
+        let saved = windows.store?.load() ?? []
+        windows.restore(saved, first: Workspace(restoring: saved.first?.state, settingsFile: UserPaths.settingsFile))
+        NSApp.mainMenu = makeMainMenu() // after the windows: the menus are the front one's
         observeVolumes()
         startAutomation()
         NSApp.activate()
     }
 
-    /// Serves the automation socket; requests go to the workspace on the main actor. A second
-    /// Blitter leaves the socket to the first one and says so.
+    /// Serves the automation socket; requests go to the front window's workspace on the main
+    /// actor (#96). A second Blitter leaves the socket to the first one and says so.
     private func startAutomation() {
-        let workspace = workspace
-        let server = LineSocketServer(path: UserPaths.automationSocket) { line, client in
-            await workspace.handleAutomation(line, client: "\(client.name) (pid \(client.pid))")
+        // Nothing kept: each request takes the window in front then (#96 review).
+        let server = LineSocketServer(path: UserPaths.automationSocket) { [weak self] line, client in
+            guard let target = await self?.workspace else {
+                return nil
+            }
+            return await target.handleAutomation(line, client: "\(client.name) (pid \(client.pid))")
         }
         automationServer = server // stopped at quit, started or not
         Task.detached { // starting touches the disk: off the main thread (#58 review)
@@ -75,7 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 try server.start()
             } catch {
                 let text = "Automation is off: \(Self.describe(error))"
-                await MainActor.run { workspace.perform(.showNotice(text)) }
+                await MainActor.run { [weak self] in self?.workspace.perform(.showNotice(text)) }
             }
         }
     }
@@ -107,7 +106,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         {
             center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.workspace.perform(.refreshTreeRoots)
+                    for controller in self?.windows.controllers ?? [] { // every window's tree (#96)
+                        controller.workspace.perform(.refreshTreeRoots)
+                    }
                 }
             }
         }

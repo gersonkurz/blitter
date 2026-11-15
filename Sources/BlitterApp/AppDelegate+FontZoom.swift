@@ -19,6 +19,7 @@ extension AppDelegate {
     /// is written first. The main thread stays
     /// free meanwhile; a save that hangs (a stalled network home) gives up after a few seconds.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        windows.isQuitting = true // every window open now opens again at the next launch (#96)
         guard workspace.isSavingSettings else {
             return .terminateNow
         }

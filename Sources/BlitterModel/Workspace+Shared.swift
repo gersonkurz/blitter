@@ -62,6 +62,12 @@ public extension Workspace {
 }
 
 extension Workspace {
+    /// Another window (#96); the app makes it, sharing this window's `app`.
+    func openWindow(at folder: String) -> Bool {
+        system.openWindow(folder)
+        return false
+    }
+
     var settingsFile: String? {
         app.settingsFile
     }

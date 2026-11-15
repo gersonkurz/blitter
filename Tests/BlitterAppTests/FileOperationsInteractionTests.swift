@@ -195,17 +195,19 @@ final class FileOperationsInteractionTests {
             edit: []
         )
         delegate.updateMenuBar()
-        #expect(fileMenu.items.map { $0.isSeparatorItem ? "-" : $0.title } == ["Copy Path", "-", "Move to Trash"])
+        // Below the File menu's own New Window (#96).
+        #expect(fileMenu.items.map { $0.isSeparatorItem ? "-" : $0.title }
+            == ["New Window", "-", "Copy Path", "-", "Move to Trash"])
         let f12 = try String(Character(#require(UnicodeScalar(UInt32(NSF12FunctionKey)))))
-        #expect(fileMenu.items[0].keyEquivalent == f12 && fileMenu.items[0].keyEquivalentModifierMask == .control)
-        #expect(fileMenu.items[2].keyEquivalent.isEmpty)
+        #expect(fileMenu.items[2].keyEquivalent == f12 && fileMenu.items[2].keyEquivalentModifierMask == .control)
+        #expect(fileMenu.items[4].keyEquivalent.isEmpty)
         // The settings' items are gone; the Edit menu's own (and those macOS adds) stay.
         #expect(settingsItems(editMenu).isEmpty)
         #expect(editMenu.items.contains { $0.title == "Select All" })
 
         delegate.workspace.settings.menuBar = original
         delegate.updateMenuBar()
-        #expect(fileMenu.items.first?.title == "New Folder")
+        #expect(fileMenu.items.map(\.title).prefix(3) == ["New Window", "", "New Folder"])
         #expect(settingsItems(editMenu) == ["Copy Path", "Copy Name"])
     }
 
@@ -220,10 +222,10 @@ final class FileOperationsInteractionTests {
         }
         delegate.workspace.settings.menuBar.file = [.action("open-in-terminal", shortcut: nil, alternate: false)]
         delegate.updateMenuBar()
-        #expect(fileMenu.items.map(\.title) == ["Open in Terminal"])
+        #expect(fileMenu.items.map(\.title) == ["New Window", "", "Open in Terminal"])
         delegate.workspace.settings.tools[0].title = "Open in Warp"
         delegate.updateMenuBar()
-        #expect(fileMenu.items.map(\.title) == ["Open in Warp"])
+        #expect(fileMenu.items.map(\.title) == ["New Window", "", "Open in Warp"])
     }
 
     /// The items a menu got from `[menu_bar]` (tagged 24), separators left out.

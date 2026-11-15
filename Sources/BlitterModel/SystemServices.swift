@@ -20,6 +20,8 @@ public struct SystemServices {
         -> Void = { _, _, _ in }
     /// Show a dialog or window (#42); the app knows which kinds it has.
     public var present: (DialogRequest) -> Void = { _ in }
+    /// Open another main window (#96), both its sides at the folder.
+    public var openWindow: (String) -> Void = { _ in }
     /// Put plain text on the clipboard (paths or names, #16).
     public var copyText: (String) -> Void = { _ in }
     /// Eject the volume mounted at the path (#84) without waiting for it; calls back on the main

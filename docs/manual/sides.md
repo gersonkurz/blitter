@@ -14,6 +14,21 @@ Blitter always shows two sides next to each other. One of them is the **active s
 - Clicking anywhere in a side makes it active: its list, its tree, its path field or its
   buttons.
 
+## Several windows
+
+**File → New Window** (**⌘N**) opens another window, both its sides at the active side's folder,
+the size of the window in front. Each window has two sides of its own, with their own history,
+recent folders and active side.
+
+- **F5** and **F6** copy and move between the two sides of one window. To copy or move between
+  windows, drag the items from one window to the other.
+- Menu commands and shortcuts act on the window in front. A Git window belongs to the window it
+  was opened from.
+- The windows share the rest: the settings, Favorites, Undo, and the running file operations,
+  which every window's jobs strip shows.
+- Blitter keeps each window's sides and place, and opens them all again at the next launch.
+  Closing the last window quits Blitter.
+
 ## Sizes
 
 - The splitter between the two sides, and the one between each side's tree and list, can be

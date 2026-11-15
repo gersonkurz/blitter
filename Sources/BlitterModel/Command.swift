@@ -51,6 +51,9 @@ public enum Command: Sendable {
     /// The Settings window's changes (#64), from the settings it showed to those it shows now,
     /// written into the settings file as it is now.
     case saveSettings(original: Settings, edited: Settings)
+    /// Open another main window (#96) with both its sides at the folder: its own sides, the
+    /// same jobs, settings and favorites.
+    case newWindow(folder: String)
     /// Show these colors in the whole window while the Settings window tries them (#93); nil:
     /// the settings' own again.
     case tryTheme(ThemeSettings?)

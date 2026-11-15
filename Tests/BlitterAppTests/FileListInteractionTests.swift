@@ -129,6 +129,8 @@ final class FileListInteractionTests {
         let forward = try #require(menuItem(in: "Go", titled: "Forward"))
         let parent = try #require(menuItem(in: "Go", titled: "Enclosing Folder"))
         let goTo = try #require(menuItem(in: "Go", titled: "Go to Folder…"))
+        let newWindow = try #require(menuItem(in: "File", titled: "New Window")) // #96
+        #expect(newWindow.keyEquivalent == "n" && newWindow.keyEquivalentModifierMask == .command)
         let recent = try #require(menuItem(in: "Go", titled: "Recent Folders")) // #90
         #expect(recent.keyEquivalent == "y" && recent.keyEquivalentModifierMask == .command)
         for item in [back, forward, parent] {

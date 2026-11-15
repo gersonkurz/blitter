@@ -1,11 +1,12 @@
 # Automation
 
 While Blitter runs, other programs can drive it: read what each side shows, go to folders,
-select items, and run actions. That is how an AI assistant such as Claude or Codex, a script, or
+select items, and run actions. With [several windows](sides.md#several-windows) open, they drive
+the window in front. That is how an AI assistant such as Claude or Codex, a script, or
 the `blitter` command-line tool works with Blitter.
 
 **Nothing changes without you.** An action that changes files or opens something outside
-Blitter runs only after you click **Allow** in a sheet in Blitter's window. The sheet says which
+Blitter runs only after you click **Allow** in a sheet in that window. The sheet says which
 program asks and exactly what will happen; **Deny** is the default button. Deletes that skip the
 Trash, the clipboard and renaming are not offered at all.
 

@@ -199,6 +199,7 @@ public final class Workspace {
         case .toggleHiddenFiles: toggleHiddenFiles()
         case let .saveSettings(original, edited): saveSettings(from: original, to: edited)
         case let .tryTheme(theme): tryTheme(theme)
+        case let .newWindow(folder): openWindow(at: folder)
         case let .zoomFont(zoom): zoomFont(zoom)
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)

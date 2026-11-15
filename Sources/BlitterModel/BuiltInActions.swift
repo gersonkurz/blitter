@@ -142,6 +142,9 @@ extension ActionRegistry {
         Action("undo", "Undo", scope: .lastChange, symbol: "arrow.uturn.backward") { workspace, _ in
             .undo(entry: workspace.lastUndo?.id ?? 0)
         },
+        // #96: another window, both its sides at this side's folder.
+        Action("new-window", "New Window", scope: .always, effect: .view, symbol: "macwindow.badge.plus",
+               command: { workspace, side in .newWindow(folder: workspace.state(of: side).location) }),
         // #88: the View menu's own, as actions so the toolbar (and menus, and automation) can name them.
         Action("toggle-hidden-files", "Show Hidden Files", scope: .always, effect: .view, symbol: "eye.slash",
                isOn: { $0.showsHiddenFiles }, command: { _, _ in .toggleHiddenFiles }),

@@ -161,8 +161,8 @@ items = [
 |---|---|
 | ![The File menu](images/menu-file.png) | ![The Edit menu](images/menu-edit.png) |
 
-`[menu_bar]` lists the File menu's items (`file`) and the items at the end of the Edit menu
-(`edit`). An entry is an action name, `"-"`, or an action with a shortcut:
+`[menu_bar]` lists the File menu's items (`file`), below its own **New Window**, and the items at
+the end of the Edit menu (`edit`). An entry is an action name, `"-"`, or an action with a shortcut:
 
 ```toml
 { action = "copy-to-other-side", key = "f5" }

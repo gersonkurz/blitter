@@ -49,6 +49,10 @@ extension AppDelegate {
         renderedMenuBar = menus
         renderedTools = tools
         fileMenu.removeAllItems()
+        // The File menu's own (#96), above the settings' items: a settings file of before keeps it.
+        let newWindow = fileMenu.addItem(withTitle: "New Window", action: #selector(newWindow(_:)), keyEquivalent: "n")
+        newWindow.target = self
+        fileMenu.addItem(.separator())
         add(menus.file, to: fileMenu)
         for item in editMenu.items where item.tag == Self.fromSettings {
             editMenu.removeItem(item)

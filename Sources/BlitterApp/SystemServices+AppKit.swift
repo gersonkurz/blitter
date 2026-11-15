@@ -36,7 +36,12 @@ extension SystemServices {
             NSPasteboard.general.writeObjects(items.map(\.url))
         }
         services.openWithApp = { app, paths, failed in ExternalApps.open(paths, with: app, failed: failed) }
-        services.present = DialogHost.present
+        services.present = { [weak window] request in
+            if let workspace = window?.workspace {
+                DialogHost.present(request, for: workspace) // for the window that asked (#96)
+            }
+        }
+        services.openWindow = { [weak window] folder in window?.openWindow?(folder) }
         services.eject = { path, failed in
             Task {
                 do {

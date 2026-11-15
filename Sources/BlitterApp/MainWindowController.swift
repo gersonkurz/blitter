@@ -2,11 +2,12 @@ import AppKit
 import BlitterModel
 import SwiftUI
 
-/// The main window: the two sides next to each other, below them the Find panel (#48) while it
+/// A main window: the two sides next to each other, below them the Find panel (#48) while it
 /// is shown, and the strip of running file operations, which takes no space while there are none.
+/// There can be several (#96), each with a workspace of its own.
 @MainActor
 final class MainWindowController: NSWindowController {
-    private let workspace: Workspace
+    let workspace: Workspace
     private let sideControllers: [SideViewController]
     private let jobsController: JobsViewController
     let findController: FindPanelController
@@ -24,8 +25,12 @@ final class MainWindowController: NSWindowController {
     private(set) var toolbar: WindowToolbar?
     /// Runs after every render, e.g. to save the state for the next launch.
     var afterRender: (() -> Void)?
+    /// Opens another main window at a folder (#96); the app sets it.
+    var openWindow: ((String) -> Void)?
 
-    init(workspace: Workspace) {
+    /// `frame`: where the window was (`NSWindow.frameDescriptor`); nil: where the first window
+    /// was before #96, else centered.
+    init(workspace: Workspace, frame: String? = nil) {
         self.workspace = workspace
         sideControllers = Side.allCases.map { SideViewController(workspace: workspace, side: $0) }
         jobsController = JobsViewController(workspace: workspace)
@@ -35,6 +40,7 @@ final class MainWindowController: NSWindowController {
                               backing: .buffered,
                               defer: false)
         window.title = "Blitter"
+        window.isReleasedWhenClosed = false // its controller owns it; a closed one goes with it (#96)
         super.init(window: window)
 
         let splitViewController = NSSplitViewController()
@@ -55,11 +61,12 @@ final class MainWindowController: NSWindowController {
         let content = makeContent(splitViewController)
         window.contentViewController = content
         window.setContentSize(NSSize(width: 1400, height: 800))
-        if let name = AppEnvironment.autosaveName("MainWindow") {
-            if !window.setFrameUsingName(name) {
-                window.center()
-            }
-            window.setFrameAutosaveName(name)
+        if let frame {
+            window.setFrame(from: frame)
+        } else if let name = AppEnvironment.autosaveName("MainWindow"), window.setFrameUsingName(name) {
+            // The single window's place, saved by AppKit before #96.
+        } else {
+            window.center()
         }
 
         window.toolbarStyle = .unified

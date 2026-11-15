@@ -9,6 +9,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 
 | Keys | |
 |---|---|
+| ⌘N | a [new window](sides.md#several-windows) |
 | Tab | switch the active side |
 | Return | open the selected folder or file |
 | ⌘↑ | enclosing folder |
