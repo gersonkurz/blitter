@@ -165,7 +165,7 @@ final class ManualScreenshots {
     // MARK: Capture
 
     /// The whole window, title bar included, drawn as it is on screen.
-    private static func capture(_ window: NSWindow, as name: String) async throws {
+    static func capture(_ window: NSWindow, as name: String) async throws {
         try await Task.sleep(for: .milliseconds(300)) // SwiftUI and icons settle
         let view = try #require(window.contentView?.superview)
         view.layoutSubtreeIfNeeded()
@@ -177,7 +177,7 @@ final class ManualScreenshots {
         try png.write(to: images.appendingPathComponent(name))
     }
 
-    private static func waitUntil(_ condition: () -> Bool) async throws {
+    static func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0 ..< 300 where !condition() {
             try await Task.sleep(for: .milliseconds(10))
         }
