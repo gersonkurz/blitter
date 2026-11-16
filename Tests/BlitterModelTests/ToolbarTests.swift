@@ -9,8 +9,9 @@ struct ToolbarTests {
     @Test func theDefaultsAreKnownActionsAndTheDefaultFileSpellsThemOut() {
         let ids = Settings().toolbar.compactMap(\.actionID)
         #expect(ids == [
-            "toggle-hidden-files", "refresh", "new-folder", "copy-to-other-side", "move-to-other-side", "rename",
-            "move-to-trash", "open-in-terminal", "open-in-code", "git-log", "git-commit", "git-sync",
+            "toggle-hidden-files", "toggle-drag-copies", "refresh", "new-folder", "copy-to-other-side",
+            "move-to-other-side", "rename", "move-to-trash", "open-in-terminal", "open-in-code", "git-log",
+            "git-commit", "git-sync",
         ])
         #expect(Settings().toolbar.filter { $0 == .gap }.count == 2)
         let known = Set(Settings().actionChoices.map(\.id))
@@ -112,5 +113,41 @@ struct ToolbarTests {
         #expect(workspace.toolbarButton("move-to-trash") == ToolbarButtonState(isEnabled: true, isOn: nil))
         workspace.perform(.switchActiveSide)
         #expect(!workspace.toolbarButton("move-to-trash").isEnabled)
+    }
+
+    /// #107: Drag and Drop Copies is on while a plain drag copies. It switches the mode for every
+    /// window until the setting changes, which starts again from the new default.
+    @Test func dragAndDropCopiesSwitchesTheModeUntilTheSettingChanges() async {
+        let folders = FakeFolders(["/home": []])
+        let workspace = Workspace(initialLocation: "/home", home: "/home", lister: folders.list,
+                                  directoryCheck: folders.isDirectory, volumes: { [] }, watcher: FakeWatcher.factory)
+        await workspace.settle()
+        let other = Workspace(sharingWith: workspace, location: "/home")
+        await other.settle()
+        #expect(workspace.dragDrop == .move)
+        #expect(workspace.toolbarButton("toggle-drag-copies") == ToolbarButtonState(isEnabled: true, isOn: false))
+        var changes = 0
+        other.onChange = { changes += 1 }
+        workspace.perform(.runAction("toggle-drag-copies", workspace.activeSide))
+        #expect(workspace.dragDrop == .copy && other.dragDrop == .copy && changes > 0) // every window's
+        #expect(other.toolbarButton("toggle-drag-copies").isOn == true)
+        #expect(workspace.automationState["dragDrop"] == .string("copy"))
+        other.perform(.toggleDragDrop)
+        #expect(workspace.dragDrop == .move)
+        workspace.perform(.toggleDragDrop)
+
+        var settings = workspace.settings
+        settings.dragDrop = .copy // the setting changes: the new default holds
+        workspace.settings = settings
+        #expect(workspace.dragDrop == .copy)
+        workspace.perform(.toggleDragDrop)
+        #expect(workspace.dragDrop == .move && workspace.toolbarButton("toggle-drag-copies").isOn == false)
+        settings.dragDrop = .move
+        workspace.settings = settings
+        #expect(workspace.dragDrop == .move)
+        settings.confirmDelete = false // another setting leaves the switched mode alone
+        workspace.perform(.toggleDragDrop)
+        workspace.settings = settings
+        #expect(workspace.dragDrop == .copy)
     }
 }

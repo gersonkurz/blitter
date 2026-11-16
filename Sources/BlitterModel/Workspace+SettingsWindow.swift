@@ -35,6 +35,7 @@ public extension Settings {
         take(\.diffTool)
         take(\.confirmDelete)
         take(\.gitColors)
+        take(\.dragDrop)
         result.tools = Self.tools(tools, changesFrom: original.tools, to: edited.tools)
         take(\.contextMenus)
         take(\.menuBar)

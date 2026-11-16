@@ -197,6 +197,7 @@ public final class Workspace {
         case let .selectQuickFilterMatch(side, forward): selectQuickFilterMatch(side, forward: forward)
         case let .select(side, names): select(side, names)
         case .toggleHiddenFiles: toggleHiddenFiles()
+        case .toggleDragDrop: toggleDragDrop()
         case let .saveSettings(original, edited): saveSettings(from: original, to: edited)
         case let .tryTheme(theme): tryTheme(theme)
         case let .newWindow(folder): openWindow(at: folder)

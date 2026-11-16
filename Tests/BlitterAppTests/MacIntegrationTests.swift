@@ -8,20 +8,32 @@ import Testing
 struct DropRulesTests {
     private let all: NSDragOperation = [.copy, .move, .generic, .link]
 
-    @Test func movesByDefaultAndCopiesWithOption() {
-        #expect(DropRules.operation(for: all, sources: ["/a/x"], into: "/b") == .move) // a plain drag
-        #expect(DropRules.operation(for: .copy, sources: ["/a/x"], into: "/b") == .copy) // ⌥ held
-        #expect(DropRules.operation(for: .move, sources: ["/a/x"], into: "/b") == .move) // ⌘ held
-        #expect(DropRules.operation(for: .generic, sources: ["/a/x"], into: "/b") == .move) // ⌘, older systems
-        #expect(DropRules.operation(for: [.copy, .link], sources: ["/a/x"], into: "/b") == .copy) // copy only
-        #expect(DropRules.operation(for: .link, sources: ["/a/x"], into: "/b") == [])
+    /// #107: a plain drag does what the setting (or the View menu) says; ⌥ and ⌘ always win.
+    @Test func aPlainDragFollowsTheModeAndOptionCopiesCommandMoves() {
+        for plain in DragOperation.allCases {
+            func drop(_ allowed: NSDragOperation) -> NSDragOperation {
+                DropRules.operation(for: allowed, sources: ["/a/x"], into: "/b", plain: plain)
+            }
+            #expect(drop(all) == (plain == .copy ? .copy : .move)) // a plain drag
+            #expect(drop([.copy, .move, .generic]) == (plain == .copy ? .copy : .move)) // ours, plain
+            #expect(drop(.copy) == .copy) // ⌥ held
+            #expect(drop(.move) == .move) // ⌘ held
+            #expect(drop(.generic) == .move) // ⌘, older systems
+            #expect(drop([.copy, .link]) == .copy) // a source that only copies
+            #expect(drop(.link) == [])
+        }
     }
 
     @Test func dropsThatWouldDoNothingOrHarmAreRefused() {
-        #expect(DropRules.operation(for: all, sources: ["/a/x"], into: "/a") == []) // its own folder
-        #expect(DropRules.operation(for: all, sources: ["/a/x"], into: "/a/x") == []) // onto itself
-        #expect(DropRules.operation(for: all, sources: ["/a/x"], into: "/a/x/sub") == []) // into itself
-        #expect(DropRules.operation(for: all, sources: [], into: "/b") == [])
+        for plain in DragOperation.allCases {
+            func drop(_ sources: [String], into folder: String) -> NSDragOperation {
+                DropRules.operation(for: all, sources: sources, into: folder, plain: plain)
+            }
+            #expect(drop(["/a/x"], into: "/a") == []) // its own folder
+            #expect(drop(["/a/x"], into: "/a/x") == []) // onto itself
+            #expect(drop(["/a/x"], into: "/a/x/sub") == []) // into itself
+            #expect(drop([], into: "/b") == [])
+        }
     }
 }
 
@@ -142,6 +154,17 @@ final class MacIntegrationTests {
         #expect(!FileManager.default.fileExists(atPath: root + "/outside/dropped.txt"))
     }
 
+    /// #107: switched to copying (View > Drag and Drop Copies), a plain drop copies.
+    @Test func aPlainDropCopiesWhileTheModeSaysCopy() async throws {
+        workspace.perform(.toggleDragDrop)
+        let drop = FakeDrop([root + "/outside/dropped.txt"], allowed: [.copy, .move, .generic])
+        #expect(list.tableView(list.tableView, validateDrop: drop, proposedRow: 5, proposedDropOperation: .above)
+            == .copy)
+        #expect(list.tableView(list.tableView, acceptDrop: drop, row: 5, dropOperation: .above))
+        try await waitUntil { self.names() == ["sub", "a.txt", "dropped.txt"] }
+        #expect(FileManager.default.fileExists(atPath: root + "/outside/dropped.txt")) // a copy
+    }
+
     @Test func aDropWithOptionCopiesIntoTheFolderRowUnderThePointer() async throws {
         let drop = FakeDrop([root + "/outside/dropped.txt"], allowed: .copy)
         #expect(list.tableView(list.tableView, acceptDrop: drop, row: 0, dropOperation: .on)) // row 0 is "sub"
@@ -203,6 +226,22 @@ final class MacIntegrationTests {
         let item = try #require(menu.items.first { $0.title == "Reveal in Finder" })
         #expect(item.keyEquivalent == "r" && item.keyEquivalentModifierMask == [.command, .option])
         #expect(item.target is AppDelegate)
+    }
+
+    /// #107: View > Drag and Drop Copies (⇧⌘M) runs the action, and is checked while drops copy.
+    @Test func dragAndDropCopiesIsInTheViewMenuWithItsState() throws {
+        let menu = try #require(NSApp.mainMenu?.items.first { $0.submenu?.title == "View" }?.submenu)
+        let item = try #require(menu.items.first { $0.title == "Drag and Drop Copies" })
+        #expect(item.keyEquivalent == "m" && item.keyEquivalentModifierMask == [.command, .shift])
+        #expect(item.representedObject as? String == "toggle-drag-copies")
+        let app = try #require(item.target as? AppDelegate)
+        let before = app.validateMenuItem(item) ? item.state : nil
+        #expect(before != nil)
+        let action = try #require(item.action)
+        NSApp.sendAction(action, to: app, from: item)
+        #expect(app.validateMenuItem(item) && item.state != before)
+        NSApp.sendAction(action, to: app, from: item) // as it was
+        #expect(app.validateMenuItem(item) && item.state == before)
     }
 
     // MARK: Helpers

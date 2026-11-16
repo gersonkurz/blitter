@@ -20,6 +20,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | Escape | in the path field: drop what was typed |
 | ⌘R | read the folder again |
 | ⇧⌘. | show or hide hidden files |
+| ⇧⌘M | drag and drop copies or moves, until Blitter quits |
 
 ## In the list
 

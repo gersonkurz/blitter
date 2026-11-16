@@ -148,6 +148,10 @@ extension ActionRegistry {
         // #88: the View menu's own, as actions so the toolbar (and menus, and automation) can name them.
         Action("toggle-hidden-files", "Show Hidden Files", scope: .always, effect: .view, symbol: "eye.slash",
                isOn: { $0.showsHiddenFiles }, command: { _, _ in .toggleHiddenFiles }),
+        // #107: on while a plain drag copies; the button and the menu's checkmark show the mode.
+        Action("toggle-drag-copies", "Drag and Drop Copies", scope: .always, effect: .view,
+               symbol: "cursorarrow.and.square.on.square.dashed", isOn: { $0.dragDrop == .copy },
+               command: { _, _ in .toggleDragDrop }),
         Action("refresh", "Refresh", scope: .always, effect: .view, symbol: "arrow.clockwise") { _, side in
             .refresh(side)
         },

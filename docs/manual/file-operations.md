@@ -13,12 +13,17 @@ one of the two copies changes.
 
 Drag items between the sides, and to and from Finder and other apps.
 
-- A drop **moves** the items. Hold **⌥** to **copy** them.
+- A drop **moves** the items, or **copies** them if Settings → Files says so (`drag_drop` in the
+  [settings file](reference/settings.md)). Hold **⌥** to always copy, **⌘** to always move.
+- **⇧⌘M** (View → Drag and Drop Copies) switches between moving and copying until Blitter quits,
+  for every window. The menu item has a checkmark, and the toolbar's Drag and Drop Copies button
+  stays pressed, while a drop copies. While you drag, the pointer shows a **+** when the drop
+  will copy.
 - Dropped on a folder in the list, they go into that folder; anywhere else in the list, into the
   side's folder.
 - Dropping items onto the folder they are already in does nothing.
 
-Moving is the default even between volumes. That differs from Finder, which copies between
+Moving (or copying, as set) applies even between volumes. That differs from Finder, which copies between
 volumes. A drop onto Finder follows Finder's own rules.
 
 ## The clipboard

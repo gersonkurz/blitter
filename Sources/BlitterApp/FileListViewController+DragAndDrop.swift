@@ -2,9 +2,10 @@ import AppKit
 import BlitterModel
 
 /// Drag and drop of files, between the two sides and with Finder and other apps. Rows are dragged
-/// as file URLs. A drop moves, or copies with ⌥ held (the user's choice: the Windows habit, with
-/// the Mac's copy key); on a folder row it goes into that folder, anywhere else into the side's
-/// folder. Dropping items on the folder they are already in does nothing.
+/// as file URLs. A plain drop moves or copies as the settings say, and View > Drag and Drop Copies
+/// switches (#107); ⌥ held always copies, ⌘ held always moves. On a folder row it goes into that
+/// folder, anywhere else into the side's folder. Dropping items on the folder they are already in
+/// does nothing.
 extension FileListViewController {
     func configureDragAndDrop() {
         tableView.registerForDraggedTypes([.fileURL])
@@ -30,7 +31,7 @@ extension FileListViewController {
             tableView.setDropRow(-1, dropOperation: .on) // the whole list: the side's folder
         }
         return DropRules.operation(for: info.draggingSourceOperationMask, sources: draggedPaths(info),
-                                   into: folder)
+                                   into: folder, plain: workspace.dragDrop)
     }
 
     func tableView(_: NSTableView, acceptDrop info: any NSDraggingInfo, row: Int,
@@ -38,7 +39,9 @@ extension FileListViewController {
     {
         let folder = dropFolder(row: row, dropOperation: dropOperation)
         let sources = draggedPaths(info)
-        switch DropRules.operation(for: info.draggingSourceOperationMask, sources: sources, into: folder) {
+        switch DropRules.operation(for: info.draggingSourceOperationMask, sources: sources, into: folder,
+                                   plain: workspace.dragDrop)
+        {
         case .move:
             workspace.perform(.moveItems(sources, toFolder: folder))
         case .copy:
@@ -66,10 +69,12 @@ extension FileListViewController {
     }
 }
 
-/// What a drop does, from the drag's allowed operations (which the modifier keys narrow down) and
-/// where the items come from.
+/// What a drop does, from the drag's allowed operations (which the modifier keys narrow down),
+/// where the items come from, and what a plain drag does (#107).
 enum DropRules {
-    static func operation(for allowed: NSDragOperation, sources: [String], into folder: String) -> NSDragOperation {
+    static func operation(for allowed: NSDragOperation, sources: [String], into folder: String,
+                          plain: DragOperation) -> NSDragOperation
+    {
         guard !sources.isEmpty else {
             return []
         }
@@ -80,15 +85,15 @@ enum DropRules {
                 return []
             }
         }
-        // ⌥ held: AppKit narrows the operations to copy.
-        if allowed == .copy {
-            return .copy
+        // ⌥ held narrows the operations to copy, ⌘ held to move ("generic" on older systems); a
+        // source may also allow only one of them.
+        let canCopy = allowed.contains(.copy)
+        let canMove = allowed.contains(.move) || allowed.contains(.generic)
+        return switch (canCopy, canMove) {
+        case (true, true): plain == .copy ? .copy : .move // a plain drag
+        case (true, false): .copy
+        case (false, true): .move
+        case (false, false): []
         }
-        // A plain drag, or ⌘ held (move, or "generic" on older systems): move.
-        if allowed.contains(.move) || allowed.contains(.generic) {
-            return .move
-        }
-        // A source that only lets its items be copied.
-        return allowed.contains(.copy) ? .copy : []
     }
 }

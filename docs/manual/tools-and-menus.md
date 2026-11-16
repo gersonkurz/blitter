@@ -14,9 +14,9 @@ items, the context menu for the folder, the File menu, the Edit menu or the tool
 The buttons at the top of the window run actions on the active side, the same as their menu
 items. A button is dimmed while its action does not fit the active side: Rename needs exactly one
 selected item, the Git buttons a git working copy. **Show Hidden Files** stays pressed while
-hidden files are shown. Hold the pointer over a button for its name.
+hidden files are shown, **Drag and Drop Copies** while a drop copies. Hold the pointer over a button for its name.
 
-As Blitter comes, the toolbar has Show Hidden Files and Refresh; New Folder, Copy and Move to
+As Blitter comes, the toolbar has Show Hidden Files, Drag and Drop Copies and Refresh; New Folder, Copy and Move to
 Other Side, Rename and Move to Trash; then Open in Terminal, Open in Code, Git Log, Git Commit and
 Git Sync. Any action can be a button, your own tools included.
 

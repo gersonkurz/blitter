@@ -13,6 +13,9 @@ public struct Notice: Identifiable, Equatable, Sendable {
 extension Workspace {
     /// Whatever the settings feed: the actions (tools, #18) and the git colors (#22).
     func settingsChanged(from old: Settings) {
+        if settings.dragDrop != old.dragDrop {
+            app.dragDropSwitched = nil // a new default: drags do what it says (#107)
+        }
         if settings.tools != old.tools {
             actionRegistry = ActionRegistry(tools: settings.tools)
         }

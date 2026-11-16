@@ -216,6 +216,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 key: "\t", modifiers: [])
         addItem(to: viewMenu, title: "Show Hidden Files", action: #selector(toggleHiddenFiles(_:)),
                 key: ".", modifiers: [.command, .shift])
+        // #107: checked while a plain drag copies; the action, so the toolbar can show it too.
+        addActionItem(to: viewMenu, "toggle-drag-copies", key: "m", modifiers: [.command, .shift])
         addItem(to: viewMenu, title: "Refresh", action: #selector(refresh(_:)), key: "r", modifiers: [.command])
         viewMenu.addItem(.separator())
         // The lists' font (#63); Ctrl+mouse wheel over a list or tree does the same.

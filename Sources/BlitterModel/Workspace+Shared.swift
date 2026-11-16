@@ -48,6 +48,12 @@ public extension Workspace {
         set { app.undoJournal = newValue }
     }
 
+    /// What dragging items onto a list or folder does without ⌥ or ⌘ held (#107): the setting,
+    /// or what View > Drag and Drop Copies switched it to. Every window's.
+    var dragDrop: DragOperation {
+        app.dragDropSwitched ?? settings.dragDrop
+    }
+
     /// Every action the user can run, by id (#15), built from the settings' tools.
     internal(set) var actionRegistry: ActionRegistry {
         get { app.actionRegistry }

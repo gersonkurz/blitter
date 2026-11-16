@@ -45,6 +45,9 @@ public enum Command: Sendable {
     case selectByPattern(Side, String, PatternSelectionMode, includesFolders: Bool = true)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
+    /// Drag and drop copies instead of moving, or moves instead of copying, in every window
+    /// until Blitter quits or the setting changes (#107).
+    case toggleDragDrop
     /// The lists' and trees' font one point larger or smaller, or back to the default size
     /// (#63). Saved as `[font] size` in the settings file.
     case zoomFont(FontZoom)

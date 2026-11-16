@@ -35,6 +35,7 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `undo` | Undo | the last file operation, while one can be undone |
 | `new-window` | New Window | nothing in particular: it always fits |
 | `toggle-hidden-files` | Show Hidden Files | nothing in particular: it always fits |
+| `toggle-drag-copies` | Drag and Drop Copies | nothing in particular: it always fits |
 | `refresh` | Refresh | nothing in particular: it always fits |
 | `compare-folders` | Compare Folders | both sides' folders |
 

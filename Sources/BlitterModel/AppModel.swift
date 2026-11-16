@@ -47,6 +47,9 @@ public final class AppModel {
     /// Color schemes being fetched, by the name the settings give them (#34), and how.
     var schemeWork: [String: Task<Void, Never>] = [:]
     var fetch: @Sendable (URL) async throws -> Data = Downloads.fetch
+    /// What drag and drop does for now, switched from the settings' `dragDrop` (#107); nil: the
+    /// settings' own. Every window's, until Blitter quits or the setting changes.
+    var dragDropSwitched: DragOperation?
     /// Every action the user can run, by id (#15), built from the settings' tools.
     var actionRegistry = ActionRegistry(tools: Tool.defaults)
 

@@ -99,6 +99,7 @@ extension Workspace {
         [
             "activeSide": .string(Self.name(of: activeSide)),
             "showsHiddenFiles": .bool(showsHiddenFiles),
+            "dragDrop": .string(dragDrop.rawValue),
             "sides": ["left": sideJSON(.left), "right": sideJSON(.right)],
         ]
     }

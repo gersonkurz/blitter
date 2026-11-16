@@ -22,6 +22,10 @@ columns = ["name", "size", "modified"]
 # Whether git working copies, and folders in them with changes, are colored by their state.
 # Off, nothing reads git: the Git column stays empty.
 git_colors = true
+# What dragging items onto a file list or folder does: "move" or "copy". While dragging,
+# ⌥ always copies and ⌘ always moves. View > Drag and Drop Copies (⇧⌘M) switches it until
+# Blitter quits.
+drag_drop = "move"
 
 # The tree's Favorites, in order; "~" is your home folder. Go > Favorites (ctrl-1 to ctrl-9)
 # goes to them. Without a list here, the Favorites set up in the tree stay as they are; the
@@ -73,8 +77,9 @@ on = "files"
 # Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
 # move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
 # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, add-to-favorites,
-# compare-files, compare-folders, undo, eject, toggle-hidden-files, refresh, git-clone, git-log,
-# git-commit, git-sync and git-clean (only inside a git working copy), and the tools above.
+# compare-files, compare-folders, undo, eject, toggle-hidden-files, toggle-drag-copies, refresh,
+# git-clone, git-log, git-commit, git-sync and git-clean (only inside a git working copy), and the
+# tools above.
 [context_menu]
 # For the clicked or selected items.
 items = [
@@ -126,7 +131,7 @@ edit = [
 # turns something on or off (toggle-hidden-files) shows whether it is on. [] hides the toolbar.
 [toolbar]
 items = [
-    "toggle-hidden-files", "refresh", "-",
+    "toggle-hidden-files", "toggle-drag-copies", "refresh", "-",
     "new-folder", "copy-to-other-side", "move-to-other-side", "rename", "move-to-trash", "-",
     "open-in-terminal", "open-in-code", "git-log", "git-commit", "git-sync",
 ]

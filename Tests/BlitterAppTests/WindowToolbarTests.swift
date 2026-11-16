@@ -61,7 +61,7 @@ final class WindowToolbarTests {
         let items = try #require(window.toolbar).items
         #expect(items.count == Settings().toolbar.count)
         #expect(items.filter { $0.itemIdentifier == .space }.count == 2)
-        #expect(toolbar.buttons.count == 12)
+        #expect(toolbar.buttons.count == 13)
         #expect(try button("refresh").toolTip == "Refresh")
         #expect(try button("refresh").image != nil)
     }
@@ -81,6 +81,14 @@ final class WindowToolbarTests {
         workspace.perform(.toggleHiddenFiles) // from the View menu: the button follows
         toolbar.render()
         #expect(hidden.state == .off)
+
+        let drags = try button("toggle-drag-copies") // #107: pressed while a drop copies
+        #expect(drags.state == .off)
+        drags.performClick(nil)
+        #expect(workspace.dragDrop == .copy && drags.state == .on)
+        workspace.perform(.toggleDragDrop)
+        toolbar.render()
+        #expect(drags.state == .off)
     }
 
     /// A button the window has no room for is in the overflow menu: its menu item runs the same

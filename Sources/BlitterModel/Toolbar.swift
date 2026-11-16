@@ -10,7 +10,7 @@ public enum ToolbarEntry: Equatable, Sendable {
     /// The toolbar as it comes with Blitter: what is on or off, then the file operations, then
     /// the tools.
     static let defaults: [ToolbarEntry] = [
-        "toggle-hidden-files", "refresh", "-",
+        "toggle-hidden-files", "toggle-drag-copies", "refresh", "-",
         "new-folder", "copy-to-other-side", "move-to-other-side", "rename", "move-to-trash", "-",
         "open-in-terminal", "open-in-code", "git-log", "git-commit", "git-sync",
     ].map { $0 == "-" ? .gap : .action($0, icon: nil) }

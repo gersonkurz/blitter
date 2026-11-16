@@ -32,6 +32,9 @@ if they cannot be, the window stays open and says why.
   `yyyy-MM-dd HH:mm`. **Now:** shows what it looks like.
 - **Columns of a new file list**: the columns a side shows until you change its columns in the
   list's header, and what **Default Columns** goes back to.
+- **Dragging items onto a list**: whether a drop moves or copies them; **⌥** always copies,
+  **⌘** always moves. **⇧⌘M** switches it until Blitter quits (see
+  [Drag and drop](file-operations.md#drag-and-drop)).
 - **Ask before Delete Immediately**: whether **⌥⌘⌫** asks first.
 - **Color git working copies by their state**: see [Git](git.md).
 

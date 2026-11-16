@@ -29,6 +29,14 @@ struct FilesSettings: View {
                 }
             }
             Section {
+                Picker("Dragging items onto a list", selection: $draft.dragDrop) {
+                    Text("Moves them").tag(DragOperation.move)
+                    Text("Copies them").tag(DragOperation.copy)
+                }
+                Text("⌥ always copies, ⌘ always moves. View > Drag and Drop Copies (⇧⌘M) switches until Blitter quits.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
                 Toggle("Ask before Delete Immediately", isOn: $draft.confirmDelete)
                 Toggle("Color git working copies by their state", isOn: $draft.gitColors)
             }

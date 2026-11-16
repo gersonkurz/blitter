@@ -33,6 +33,14 @@ extension Workspace {
         return true
     }
 
+    /// Drag and drop copies instead of moving, or the other way round, for every window until
+    /// Blitter quits or the setting changes (#107).
+    func toggleDragDrop() -> Bool {
+        let switched = dragDrop.opposite
+        app.dragDropSwitched = switched == settings.dragDrop ? nil : switched
+        return true
+    }
+
     func toggleHiddenFiles() -> Bool {
         showsHiddenFiles.toggle()
         for side in Side.allCases {

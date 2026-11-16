@@ -32,6 +32,19 @@ struct SettingsParsingTests {
         }
     }
 
+    /// #107: what a plain drag does; anything but "move" or "copy" keeps moving.
+    @Test func dragAndDropMovesOrCopies() {
+        #expect(Settings().dragDrop == .move)
+        let (copy, problems) = Settings.parse("[files]\ndrag_drop = \"copy\"\n")
+        #expect(copy.dragDrop == .copy && problems.isEmpty)
+        #expect(Settings.parse(Settings.fileText(copy)) == (copy, []))
+        for value in ["\"Copy\"", "\"link\"", "true", "1"] {
+            let (settings, problems) = Settings.parse("[files]\ndrag_drop = \(value)\n")
+            #expect(settings.dragDrop == .move, "\(value)")
+            #expect(problems.count == 1 && problems[0].contains("files.drag_drop"), "\(value)")
+        }
+    }
+
     @Test func unknownEntriesAndWrongTypesAreReportedAndTheRestApplies() {
         let text = """
         [files]

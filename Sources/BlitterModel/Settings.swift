@@ -1,6 +1,15 @@
 import Foundation
 import TOMLKit
 
+/// What a drag and drop does with the items (#107).
+public enum DragOperation: String, CaseIterable, Sendable {
+    case move, copy
+
+    public var opposite: DragOperation {
+        self == .move ? .copy : .move
+    }
+}
+
 /// The user's configuration from the settings file (TOML). Every entry has a default; a missing
 /// file means all defaults. New tickets add their sections here.
 public struct Settings: Equatable, Sendable {
@@ -14,6 +23,9 @@ public struct Settings: Equatable, Sendable {
     public var confirmDelete = true
     /// Whether folders show their git state as a color (#22).
     public var gitColors = true
+    /// What dragging items onto a file list does without ⌥ or ⌘ held (#107); the View menu
+    /// switches it for the session.
+    public var dragDrop = DragOperation.move
     /// External apps to open items with (#18), in menu order.
     public var tools = Tool.defaults
     /// The file list's context menus (#19).
@@ -202,31 +214,6 @@ public struct Settings: Equatable, Sendable {
         return problems
     }
 
-    /// A table's entries in key order. TOMLKit's own iterator is not used: its keys go through C
-    /// strings, so a key with an escaped NUL ("bad\u0000key") comes back cut short, and the
-    /// iterator crashes when the lookup finds nothing. A cut-short key either finds nothing or —
-    /// if it now reads like another key in the table — shows up twice, which the real, unique
-    /// keys of a table never do. Either way the entry gets no value, so it is reported, not used.
-    private static func entries(of table: TOMLTable) -> [(key: String, value: TOMLValueConvertible?)] {
-        let keys = table.keys
-        var counts: [String: Int] = [:]
-        for key in keys {
-            counts[key, default: 0] += 1
-        }
-        var entries: [(key: String, value: TOMLValueConvertible?)] = []
-        for key in counts.keys.sorted() {
-            entries.append((key, table[key]))
-            for _ in 1 ..< (counts[key] ?? 1) {
-                entries.append((key, nil)) // the extra one(s): cut-short keys with this prefix
-            }
-        }
-        return entries
-    }
-
-    private static func unreadableKey(_ start: String) -> String {
-        "A setting starting with “\(start)” has a control character (such as \\u0000) in its name."
-    }
-
     /// Each known entry with a function that applies its value, or explains why it can't. The
     /// value keeps its TOML type: a date is not a string, a float is not an integer.
     private typealias Entry = @Sendable (inout Settings, TOMLValueConvertible) -> String?
@@ -274,6 +261,13 @@ public struct Settings: Equatable, Sendable {
                 settings.gitColors = enabled
                 return nil
             },
+            "drag_drop": { settings, value in
+                guard let operation = value.string.flatMap(DragOperation.init(rawValue:)) else {
+                    return "expected \"move\" or \"copy\"."
+                }
+                settings.dragDrop = operation
+                return nil
+            },
             "confirm_delete": { settings, value in
                 guard let confirm = value.bool else {
                     return "expected true or false."
@@ -283,4 +277,32 @@ public struct Settings: Equatable, Sendable {
             },
         ],
     ]
+}
+
+/// Reading a table safely, for every section.
+private extension Settings {
+    /// A table's entries in key order. TOMLKit's own iterator is not used: its keys go through C
+    /// strings, so a key with an escaped NUL ("bad\u0000key") comes back cut short, and the
+    /// iterator crashes when the lookup finds nothing. A cut-short key either finds nothing or —
+    /// if it now reads like another key in the table — shows up twice, which the real, unique
+    /// keys of a table never do. Either way the entry gets no value, so it is reported, not used.
+    static func entries(of table: TOMLTable) -> [(key: String, value: TOMLValueConvertible?)] {
+        let keys = table.keys
+        var counts: [String: Int] = [:]
+        for key in keys {
+            counts[key, default: 0] += 1
+        }
+        var entries: [(key: String, value: TOMLValueConvertible?)] = []
+        for key in counts.keys.sorted() {
+            entries.append((key, table[key]))
+            for _ in 1 ..< (counts[key] ?? 1) {
+                entries.append((key, nil)) // the extra one(s): cut-short keys with this prefix
+            }
+        }
+        return entries
+    }
+
+    static func unreadableKey(_ start: String) -> String {
+        "A setting starting with “\(start)” has a control character (such as \\u0000) in its name."
+    }
 }
