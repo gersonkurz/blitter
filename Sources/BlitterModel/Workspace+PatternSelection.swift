@@ -55,6 +55,8 @@ extension Workspace {
         dropFolderSizes(side)
         patternWork[side]?.cancel()
         patternWork[side] = nil
+        differenceWork?.cancel() // compared that side's old listing (#108)
+        differenceWork = nil
     }
 
     /// Off the main actor, stopping when cancelled.

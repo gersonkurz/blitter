@@ -75,6 +75,8 @@ public final class Workspace {
     var folderSizeStops: [Side: CancellationFlag] = [:]
     /// Matching a pattern for the selection, per side.
     var patternWork: [Side: Task<Void, Never>] = [:]
+    /// Select Differences comparing the two listings (#108); a newer one replaces it.
+    var differenceWork: Task<Void, Never>?
     /// How a folder is measured (tests hold it back).
     var measureFolder: @Sendable (String, CancellationFlag) -> Int64? = { FolderSizes.measure($0, cancelled: $1) }
     var freeSpaceWanted: Set<Side> = []
@@ -212,6 +214,7 @@ public final class Workspace {
         case let .find(side, pattern, contents): find(side, pattern, containing: contents)
         case let .stopFind(side): stopFind(side)
         case let .measureFolderSizes(side): measureFolders(side)
+        case .selectDifferences: selectDifferences()
         case let .selectByPattern(side, pattern, mode, folders):
             selectByPattern(side, pattern, mode, includesFolders: folders)
         case let .requestBatchRename(side): requestBatchRename(side)

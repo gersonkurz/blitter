@@ -165,6 +165,9 @@ extension ActionRegistry {
         Action("refresh", "Refresh", scope: .always, effect: .view, symbol: "arrow.clockwise") { _, side in
             .refresh(side)
         },
+        // #108: each side's differences selected; F5 copies them.
+        Action("select-differences", "Select Differences", scope: .bothFolders, worksInFind: false, effect: .view,
+               symbol: "arrow.left.arrow.right.square", command: { _, _ in .selectDifferences }),
         Action(
             "compare-folders",
             "Compare Folders",

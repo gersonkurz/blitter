@@ -45,6 +45,8 @@ public enum Command: Sendable {
     case selectByPattern(Side, String, PatternSelectionMode, includesFolders: Bool = true)
     /// Show or hide hidden files on both sides.
     case toggleHiddenFiles
+    /// Select on each side what the other side lacks or has older (#108).
+    case selectDifferences
     /// Drag and drop copies instead of moving, or moves instead of copying, in every window
     /// until Blitter quits or the setting changes (#107).
     case toggleDragDrop

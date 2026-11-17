@@ -39,6 +39,7 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `toggle-hidden-files` | Show Hidden Files | nothing in particular: it always fits |
 | `toggle-drag-copies` | Drag and Drop Copies | nothing in particular: it always fits |
 | `refresh` | Refresh | nothing in particular: it always fits |
+| `select-differences` | Select Differences | both sides' folders |
 | `compare-folders` | Compare Folders | both sides' folders |
 
 [Back to the contents](../index.md)

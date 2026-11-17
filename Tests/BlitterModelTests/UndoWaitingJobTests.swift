@@ -53,11 +53,12 @@ final class UndoWaitingJobTests {
         return full
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0 ..< 400 where !condition() {
+    /// Up to 10 s: a loaded full test run can be slow; a failure names what it waited for.
+    private func waitUntil(_ what: String, _ condition: () -> Bool) async throws {
+        for _ in 0 ..< 2000 where !condition() {
             try await Task.sleep(for: .milliseconds(5))
         }
-        try #require(condition())
+        try #require(condition(), "waited for: \(what)")
     }
 
     @Test func undoTakesOutTheNewestWaitingJob() async throws {
@@ -65,7 +66,7 @@ final class UndoWaitingJobTests {
         #expect(workspace.waitingUndo?.job == waiting)
         #expect(workspace.undoTitle == "Undo Copy (Not Started)" && workspace.canRun("undo", on: .left))
         workspace.perform(.runAction("undo", .left))
-        try await waitUntil { self.workspace.jobs.isEmpty } // cancelled, and gone
+        try await waitUntil("the waiting copy gone") { self.workspace.jobs.isEmpty } // cancelled, and gone
         #expect(workspace.undoTitle == "Undo" && !workspace.canRun("undo", on: .left))
         #expect(!FileManager.default.fileExists(atPath: root + "/right/a.txt"))
     }
@@ -77,13 +78,13 @@ final class UndoWaitingJobTests {
         let waiting = workspace.startJob(.copy([file("held/a.txt")], into: root + "/right"))
         let renamed = file("other/b.txt")
         workspace.startJob(.rename(renamed, newName: "c.txt"))
-        try await waitUntil { self.workspace.lastUndo != nil }
+        try await waitUntil("the rename recorded") { self.workspace.lastUndo != nil }
         #expect(workspace.undoTitle == "Undo Rename" && workspace.waitingUndo == nil)
         workspace.perform(.runAction("undo", .left))
         #expect(workspace.undoTitle == "Undo Copy (Not Started)" && workspace.waitingUndo?.job == waiting)
         release.signal() // the copy goes on, then the undo
-        try await waitUntil { FileManager.default.fileExists(atPath: renamed) } // renamed back
-        try await waitUntil { FileManager.default.fileExists(atPath: self.root + "/right/a.txt") }
+        try await waitUntil("the rename undone") { FileManager.default.fileExists(atPath: renamed) } // renamed back
+        try await waitUntil("the copy done") { FileManager.default.fileExists(atPath: self.root + "/right/a.txt") }
     }
 
     /// #112 review: while an undo runs, the journal is not undone again — even though Undo can
@@ -91,7 +92,7 @@ final class UndoWaitingJobTests {
     @Test func anUndoRunningKeepsTheJournalWaitingButAWaitingJobCanBeTakenOut() async throws {
         workspace.startJob(.rename(file("other/a.txt"), newName: "b.txt"))
         workspace.startJob(.rename(file("other/c.txt"), newName: "d.txt"))
-        try await waitUntil { self.workspace.undoJournal.count == 2 }
+        try await waitUntil("two renames recorded") { self.workspace.undoJournal.count == 2 }
         holdAll.isOn = true // from now on every job waits
         workspace.perform(.runAction("undo", .left)) // the last rename: an undo, held
         let entry = try #require(workspace.lastUndo)
@@ -103,12 +104,14 @@ final class UndoWaitingJobTests {
         #expect(workspace.undoJournal.count == 1 && workspace.jobs.count == 2)
 
         workspace.perform(.runAction("undo", .left)) // the waiting copy: taken out
-        try await waitUntil { !self.workspace.jobs.contains { $0.id == waiting } }
+        try await waitUntil("the waiting copy taken out") { !self.workspace.jobs.contains { $0.id == waiting } }
         #expect(workspace.undoJournal.count == 1)
         holdAll.isOn = false
         release.signal() // the undo's resolver and the cancelled copy's both wait: one each
         release.signal()
-        try await waitUntil { FileManager.default.fileExists(atPath: self.root + "/other/c.txt") } // undone
+        try await waitUntil("the rename undone") {
+            FileManager.default.fileExists(atPath: self.root + "/other/c.txt")
+        } // undone
     }
 
     /// Deleting for good cannot be undone, waiting or not: Undo leaves it alone.

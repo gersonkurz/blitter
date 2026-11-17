@@ -273,6 +273,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                                          action: #selector(MainWindowController.showSelectByPattern(_:)),
                                          keyEquivalent: "a")
         byPattern.keyEquivalentModifierMask = [.command, .option]
+        // #108: the action, so the menu, the toolbar and automation share it.
+        addActionItem(to: editMenu, "select-differences", key: "a", modifiers: [.command, .option, .shift])
         editMenu.addItem(.separator())
         // The main window's controller answers it (#48): it is in the window's responder chain.
         editMenu.addItem(withTitle: "Find…", action: #selector(MainWindowController.showFind(_:)), keyEquivalent: "f")

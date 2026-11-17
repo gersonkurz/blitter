@@ -34,6 +34,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | Space | Quick Look |
 | ⌘A | select all |
 | ⌥⌘A | select by pattern |
+| ⇧⌥⌘A | select differences between the two sides |
 | ⌃↩ | the context menu (also in the tree) |
 | ⌘F | [Find](find.md) below the active side's folder |
 

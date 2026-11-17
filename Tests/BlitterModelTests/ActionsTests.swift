@@ -27,7 +27,9 @@ struct ActionsTests {
         #expect(ids(sides.workspace.actions(for: .left)) == ["new-folder", "copy-folder-path", "git-clone",
                                                              "add-to-favorites", "new-window", "toggle-hidden-files",
                                                              "toggle-drag-copies", "refresh",
-                                                             "compare-folders", "open-in-terminal", "open-in-code"])
+                                                             "select-differences", "compare-folders",
+                                                             "open-in-terminal",
+                                                             "open-in-code"])
 
         sides.workspace.perform(.select(.left, ["a.txt"]))
         let single = ids(sides.workspace.actions(for: .left))

@@ -45,6 +45,7 @@ extension Workspace {
         }
         guard action.effect != .view else {
             perform(.runAction(action.id, side))
+            await differenceWork?.value // Select Differences (#108): done means selected
             return ["done": true, "jobs": []]
         }
         guard automationConfirmation == nil else {

@@ -232,7 +232,7 @@ public extension Workspace {
         let inWorkingCopy = workingCopyRoot(containing: workingCopyTarget(on: side)) != nil
         let onVolume = ejectableVolume(containing: here.location) != nil
         return actionRegistry.all.filter {
-            (here.find == nil || $0.worksInFind)
+            notBlockedByFind($0, here: here, other: other)
                 && $0.scope.fits(here, other: other, inWorkingCopy: inWorkingCopy, canUndo: canUndo,
                                  onVolume: onVolume)
                 && $0.fitsFileTypes(here)
@@ -246,8 +246,16 @@ public extension Workspace {
     }
 
     /// Whether `perform(.runAction(id, side))` would run the action now.
+    /// An action not for search results (#48) is not offered while the side shows some — nor,
+    /// for one comparing both sides' folders, while the other side does (#108 review).
+    private func notBlockedByFind(_ action: Action, here: SideState, other: SideState) -> Bool {
+        action.worksInFind || (here.find == nil && (action.scope != .bothFolders || other.find == nil))
+    }
+
     func canRun(_ id: String, on side: Side) -> Bool {
-        guard let action = actionRegistry.action(id), state(of: side).find == nil || action.worksInFind else {
+        guard let action = actionRegistry.action(id),
+              notBlockedByFind(action, here: state(of: side), other: state(of: side.opposite))
+        else {
             return false
         }
         let scope = action.scope

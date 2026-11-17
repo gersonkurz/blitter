@@ -26,6 +26,16 @@ always come first. Names sort the way Finder sorts them: `File 2` before `File 1
 - **Select by Pattern…** (**⌥⌘A**, in the Edit menu) asks for name patterns such as
   `*.jpg; *.png`. **Select** adds the matching items to the selection, **Deselect** removes
   them. Folders take part only with **Include folders**.
+- **Select Differences** (**⇧⌥⌘A**, in the Edit menu) selects on each side what the other side
+  lacks or has older, so **F5** on either side copies just those:
+  - an item only on one side is selected there (names match in any case);
+  - a file on both sides is selected where it is newer — by more than two seconds, as some
+    volumes round dates — or on both sides when the dates match but the sizes differ;
+  - a folder on both sides is never selected: copying it would replace it whole, not add what is
+    missing inside.
+
+  It compares the two lists as you see them (hidden files and the fast filter included), not the
+  disk, so it is instant.
 
 The status line below the list says how many items are selected and how big they are, e.g.
 "2 of 15 selected: 1 folder, 1 file, 45 KB".
