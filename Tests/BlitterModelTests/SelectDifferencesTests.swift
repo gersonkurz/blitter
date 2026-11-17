@@ -147,5 +147,18 @@ struct SelectDifferencesTests {
             return asked > 2
         })
         #expect(found == nil && asked == 3)
+        // Only on the right: its passes ask too (#108 review).
+        asked = 0
+        #expect(Workspace.differences([], many, cancelled: {
+            asked += 1
+            return asked > 2
+        }) == nil && asked == 3)
+        // Not cancelled: every pass asks, and finishes.
+        asked = 0
+        let whole = Workspace.differences(many, many, cancelled: {
+            asked += 1
+            return false
+        })
+        #expect(whole?.left == [] && whole?.right == [] && asked == 15) // 5 checks in each of 3 passes
     }
 }

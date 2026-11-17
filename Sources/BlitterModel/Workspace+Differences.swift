@@ -65,7 +65,10 @@ extension Workspace {
         func key(_ name: String) -> String {
             name.precomposedStringWithCanonicalMapping.lowercased()
         }
-        let rightByName = Dictionary(right.map { (key($0.name), $0) }, uniquingKeysWith: { first, _ in first })
+        // Every pass asks every 1024 entries (#108 review): the right side's two as well.
+        guard let (rightKeys, rightByName) = index(right, key: key, cancelled: cancelled) else {
+            return nil
+        }
         var (onLeft, onRight) = (Set<String>(), Set<String>())
         var matched = Set<String>()
         for (index, entry) in left.enumerated() {
@@ -78,22 +81,59 @@ extension Workspace {
                 continue
             }
             matched.insert(name)
-            guard entry.kind != .directory, other.kind != .directory else {
-                continue // a folder on both sides: not compared
+            let (selectLeft, selectRight) = differs(entry, other, tolerance: tolerance)
+            if selectLeft {
+                onLeft.insert(entry.name)
             }
-            let newer = entry.modificationDate.timeIntervalSince(other.modificationDate)
-            if newer > tolerance {
-                onLeft.insert(entry.name)
-            } else if newer < -tolerance {
-                onRight.insert(other.name)
-            } else if entry.size != other.size {
-                onLeft.insert(entry.name)
+            if selectRight {
                 onRight.insert(other.name)
             }
         }
-        for entry in right where !matched.contains(key(entry.name)) {
-            onRight.insert(entry.name) // only there
+        for (index, entry) in right.enumerated() {
+            if index % 1024 == 0, cancelled() {
+                return nil
+            }
+            if !matched.contains(rightKeys[index]) {
+                onRight.insert(entry.name) // only there
+            }
         }
         return (onLeft, onRight)
+    }
+
+    /// Whether an item on both sides is selected on the left, on the right: a folder never; a
+    /// file where it is newer, or on both sides when the dates match but the sizes differ.
+    private nonisolated static func differs(_ left: DirectoryEntry, _ right: DirectoryEntry,
+                                            tolerance: TimeInterval) -> (left: Bool, right: Bool)
+    {
+        guard left.kind != .directory, right.kind != .directory else {
+            return (false, false) // a folder on both sides: not compared
+        }
+        let newer = left.modificationDate.timeIntervalSince(right.modificationDate)
+        if abs(newer) > tolerance {
+            return (newer > 0, newer < 0)
+        }
+        let resized = left.size != right.size
+        return (resized, resized)
+    }
+
+    /// The right side's names as compared (in order) and its entries by name, the first of a
+    /// name kept; nil once `cancelled` says so.
+    private nonisolated static func index(_ entries: [DirectoryEntry], key: (String) -> String,
+                                          cancelled: () -> Bool) -> ([String], [String: DirectoryEntry])?
+    {
+        var keys: [String] = []
+        var byName: [String: DirectoryEntry] = [:]
+        keys.reserveCapacity(entries.count)
+        for (index, entry) in entries.enumerated() {
+            if index % 1024 == 0, cancelled() {
+                return nil
+            }
+            let name = key(entry.name)
+            keys.append(name)
+            if byName[name] == nil {
+                byName[name] = entry
+            }
+        }
+        return (keys, byName)
     }
 }
