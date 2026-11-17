@@ -51,6 +51,7 @@ final class WindowToolbar: NSObject, NSToolbarDelegate, NSMenuItemValidation {
             window?.toolbar = nil
             return
         }
+        var appsToLookUp: Set<String> = []
         for (index, item) in items.enumerated() {
             switch item {
             case .gap:
@@ -61,9 +62,16 @@ final class WindowToolbar: NSObject, NSToolbarDelegate, NSMenuItemValidation {
                 }
                 let identifier = NSToolbarItem.Identifier("\(index).\(id)")
                 identifiers.append(identifier)
-                buttons[identifier] = (id, makeButton(action, symbol: icon ?? action.symbol))
+                // A tool's app's own icon (#110), unless the entry chose a symbol.
+                let app = icon == nil ? action.app : nil
+                if let app, !AppIcons.shared.isKnown(app) {
+                    appsToLookUp.insert(app)
+                }
+                let appIcon = app.flatMap(AppIcons.shared.cached).map { AppIcons.sized($0) }
+                buttons[identifier] = (id, makeButton(action, symbol: icon ?? action.symbol, image: appIcon))
             }
         }
+        lookUpIcons(appsToLookUp)
         // A new toolbar each time: its items are fixed once it asked its delegate for them. The
         // layout is the settings file's, so nothing is saved and nothing can be customized.
         let toolbar = NSToolbar(identifier: "Blitter")
@@ -74,8 +82,27 @@ final class WindowToolbar: NSObject, NSToolbarDelegate, NSMenuItemValidation {
         window.toolbar = toolbar
     }
 
-    private func makeButton(_ action: Action, symbol: String) -> NSButton {
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: action.title)
+    /// Apps whose icons are not known yet: once they are, the toolbar is built again with them.
+    /// Each app is looked up once, so this happens once (per app) however often it is built.
+    private func lookUpIcons(_ apps: Set<String>) {
+        guard !apps.isEmpty else {
+            return
+        }
+        Task { [weak self] in
+            for app in apps {
+                _ = await AppIcons.shared.icon(for: app)
+            }
+            guard let self, apps.contains(where: { AppIcons.shared.cached($0) != nil }) else {
+                return // none found: the buttons keep app.badge
+            }
+            builtItems = nil
+            render()
+        }
+    }
+
+    /// `image`: an app's icon to show instead of the symbol (#110).
+    private func makeButton(_ action: Action, symbol: String, image appIcon: NSImage? = nil) -> NSButton {
+        let image = appIcon ?? NSImage(systemSymbolName: symbol, accessibilityDescription: action.title)
             ?? NSImage(systemSymbolName: Self.unknownSymbol, accessibilityDescription: action.title)
             ?? NSImage()
         let button = NSButton(image: image, target: self, action: #selector(runButton(_:)))

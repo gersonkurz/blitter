@@ -2,6 +2,7 @@ import AppKit
 @testable import Blitter
 import BlitterCore
 @testable import BlitterModel
+import SwiftUI
 import Testing
 
 /// #88: the main window's toolbar, built from the settings, following the active side.
@@ -127,5 +128,59 @@ final class WindowToolbarTests {
         toolbar.render()
         #expect(window.toolbar == nil)
         #expect(toolbar.buttons.isEmpty)
+    }
+
+    /// #110: a tool that opens an app shows that app's icon once it is found (a symbol is a
+    /// template image, an app's icon is not); an app that is not there keeps app.badge, and an
+    /// icon chosen in the toolbar entry wins. The icon reaches the overflow menu's item too.
+    @Test func aToolThatOpensAnAppShowsTheAppsIcon() async throws {
+        workspace.settings.tools += [
+            Tool(id: "edit", title: "Edit", app: "TextEdit", scope: .files),
+            Tool(id: "missing", title: "Missing", app: "No Such App 110", scope: .files),
+            Tool(id: "starred", title: "Starred", app: "TextEdit", scope: .files),
+        ]
+        workspace.settings.toolbar = [.action("edit", icon: nil), .action("missing", icon: nil),
+                                      .action("starred", icon: "star")]
+        toolbar.render()
+        try await waitUntil { (try? self.button("edit").image?.isTemplate) == false }
+        let edit = try button("edit")
+        #expect(edit.image?.size == NSSize(width: 18, height: 18))
+        #expect(try button("missing").image?.isTemplate == true)
+        #expect(try button("starred").image?.isTemplate == true)
+        let item = try #require(window.toolbar?.items.first { toolbar.buttons[$0.itemIdentifier]?.id == "edit" })
+        #expect(item.menuFormRepresentation?.image === edit.image)
+        #expect(AppIcons.shared.isKnown("No Such App 110") && AppIcons.shared.cached("No Such App 110") == nil)
+        // Another window builds its buttons with the icon at once: it is looked up only once.
+        let other = WindowToolbar(workspace: workspace, window: window)
+        other.render()
+        #expect(other.buttons.values.first { $0.id == "edit" }?.button.image?.isTemplate == false)
+    }
+
+    /// #110 review: for a tool whose own icon is its app's, app.badge typed in the Icon field is
+    /// kept as a choice; for any other action its own symbol typed in means no icon of its own.
+    @Test func theIconFieldKeepsAppBadgeForAToolWithAnAppIcon() {
+        var entry = ToolbarEntry.action("edit", icon: nil)
+        let binding = Binding(get: { entry }, set: { entry = $0 })
+        let tool = IconField(item: binding, own: "app.badge", app: "TextEdit")
+        #expect(IconField.icon(for: "app.badge", own: tool.ownSymbol) == "app.badge")
+        #expect(IconField.icon(for: "  ", own: tool.ownSymbol) == nil)
+        let action = IconField(item: binding, own: "trash", app: nil)
+        #expect(IconField.icon(for: "trash", own: action.ownSymbol) == nil)
+        #expect(IconField.icon(for: " trash.fill ", own: action.ownSymbol) == "trash.fill")
+    }
+
+    /// #110 review: a preview's lookup that finishes after the view moved on (its task was
+    /// cancelled) hands back nothing to show; one that was not cancelled hands back the result,
+    /// found or not.
+    @Test func aCancelledIconLookUpShowsNothing() async throws {
+        let cancelled = Task { @MainActor in
+            await ActionIcon.lookUp("TextEdit")
+        }
+        cancelled.cancel()
+        #expect(await cancelled.value == nil)
+        let found = try #require(await ActionIcon.lookUp("TextEdit"))
+        #expect(found != nil)
+        let missing = try #require(await ActionIcon.lookUp("No Such App 110 Review"))
+        #expect(missing == nil)
     }
 }

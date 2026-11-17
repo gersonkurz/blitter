@@ -141,12 +141,15 @@ public struct Action: Sendable {
     let fileTypes: [String]
     /// Its icon in the toolbar (#88): an SF Symbols name. A toolbar entry can choose another.
     public let symbol: String
+    /// The app a tool opens (#110), whose own icon the toolbar shows in place of `symbol` when
+    /// the app is found. Nil: built-in actions, command lines, and Blitter's own tools.
+    public let app: String?
     /// For an action that turns something on or off (#88): whether it is on now. The toolbar
     /// shows its button pressed, a menu item a checkmark.
     let isOn: (@MainActor @Sendable (Workspace) -> Bool)?
 
     init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
-         effect: ActionEffect = .changes, fileTypes: [String] = [], symbol: String,
+         effect: ActionEffect = .changes, fileTypes: [String] = [], symbol: String, app: String? = nil,
          isOn: (@MainActor @Sendable (Workspace) -> Bool)? = nil,
          command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
@@ -158,6 +161,7 @@ public struct Action: Sendable {
         self.effect = effect
         self.fileTypes = fileTypes.map { "." + $0 }
         self.symbol = symbol
+        self.app = app
         self.isOn = isOn
         self.command = command
     }

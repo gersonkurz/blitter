@@ -9,13 +9,15 @@ public struct ActionChoice: Equatable, Sendable, Identifiable {
     public let title: String
     /// Its own icon in the toolbar (#88).
     public let symbol: String
+    /// The app whose icon it shows instead, if found (#110).
+    public var app: String?
 }
 
 public extension Settings {
     /// Every action the menus can list, built-in ones first, then these settings' tools.
     var actionChoices: [ActionChoice] {
         (ActionRegistry.builtIn.all + tools.map(\.action)).map {
-            ActionChoice(id: $0.id, title: $0.title, symbol: $0.symbol)
+            ActionChoice(id: $0.id, title: $0.title, symbol: $0.symbol, app: $0.app)
         }
     }
 

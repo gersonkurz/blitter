@@ -21,7 +21,8 @@ struct ToolbarEditor: View {
         switch item {
         case let .action(id, icon):
             HStack {
-                SymbolImage(name: icon ?? choice(id)?.symbol ?? "").frame(width: 20)
+                ActionIcon(symbol: icon ?? choice(id)?.symbol ?? "", app: icon == nil ? choice(id)?.app : nil)
+                    .frame(width: 20)
                 Text(choice(id)?.title ?? id)
                 Spacer()
                 Text(id).foregroundStyle(.secondary)
@@ -46,7 +47,7 @@ struct ToolbarEditor: View {
     @ViewBuilder private func detail(_ item: Binding<ToolbarEntry>) -> some View {
         if case let .action(id, _) = item.wrappedValue {
             // A field of its own per button shown, as the shortcut field's (FieldID).
-            IconField(item: item, own: choice(id)?.symbol ?? "")
+            IconField(item: item, own: choice(id)?.symbol ?? "", app: choice(id)?.app)
                 .id(FieldID(selection: selection, count: items.count))
         }
     }
@@ -60,6 +61,8 @@ struct IconField: View {
     @Binding var item: ToolbarEntry
     /// The action's own symbol.
     let own: String
+    /// A tool's app, whose icon is the button's own while no symbol is typed (#110).
+    let app: String?
     @State private var text = ""
 
     var body: some View {
@@ -67,26 +70,64 @@ struct IconField: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     TextField("Icon", text: $text, prompt: Text(own))
-                    SymbolImage(name: icon ?? own).frame(width: 24)
+                    ActionIcon(symbol: icon ?? own, app: icon == nil ? app : nil).frame(width: 24)
                 }
                 Text("An SF Symbols name, e.g. star or folder.badge.plus (the SF Symbols app lists them). "
                     + "Empty: the action's own.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .onAppear { text = icon ?? "" }
-            .onChange(of: text) { item = .action(id, icon: Self.icon(for: text, own: own)) }
+            .onChange(of: text) { item = .action(id, icon: Self.icon(for: text, own: ownSymbol)) }
             .onChange(of: icon) {
-                if Self.icon(for: text, own: own) != icon { // changed elsewhere (Revert)
+                if Self.icon(for: text, own: ownSymbol) != icon { // changed elsewhere (Revert)
                     text = icon ?? ""
                 }
             }
         }
     }
 
-    /// What the text means as the item's icon.
-    static func icon(for text: String, own: String) -> String? {
+    /// The symbol that is the button's own icon: none for a tool whose own icon is its app's
+    /// (#110), where `own` (app.badge) typed in is a choice of its own (#110 review).
+    var ownSymbol: String? {
+        app == nil ? own : nil
+    }
+
+    /// What the text means as the item's icon: empty, or the action's own symbol, is none.
+    static func icon(for text: String, own: String?) -> String? {
         let name = text.trimmingCharacters(in: .whitespaces)
         return name.isEmpty || name == own ? nil : name
+    }
+}
+
+/// A button's icon as the toolbar shows it: the app's own icon (#110) once it is found, else the
+/// symbol.
+struct ActionIcon: View {
+    let symbol: String
+    let app: String?
+    @State private var appIcon: NSImage?
+
+    var body: some View {
+        Group {
+            if let appIcon {
+                Image(nsImage: appIcon).resizable().scaledToFit().frame(width: 18, height: 18)
+            } else {
+                SymbolImage(name: symbol)
+            }
+        }
+        .task(id: app) {
+            appIcon = app.flatMap(AppIcons.shared.cached) // at once when known: no flicker
+            if let app, appIcon == nil, let found = await Self.lookUp(app) {
+                appIcon = found
+            }
+        }
+    }
+
+    /// The app's icon (nil: not found), or nothing when the view's task was cancelled meanwhile:
+    /// the view shows another app or a symbol now, and the shared lookup ran on regardless
+    /// (#110 review).
+    static func lookUp(_ app: String) async -> NSImage?? {
+        let icon = await AppIcons.shared.icon(for: app)
+        return Task.isCancelled ? nil : .some(icon)
     }
 }
 

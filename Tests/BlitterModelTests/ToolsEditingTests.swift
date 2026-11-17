@@ -62,8 +62,24 @@ struct ToolsEditingTests {
         settings.addTool(title: "Hex")
         let choices = settings.actionChoices
         #expect(choices.first == ActionChoice(id: "open", title: "Open", symbol: "arrow.up.forward.app"))
-        #expect(choices.last == ActionChoice(id: "hex", title: "Hex", symbol: "app.badge"))
+        #expect(choices.last == ActionChoice(id: "hex", title: "Hex", symbol: "app.badge")) // no app yet
         #expect(choices.count == ActionRegistry.builtIn.all.count + settings.tools.count)
+    }
+
+    /// #110: a tool that opens an app names it, so its icon can be that app's; Blitter's own
+    /// tools keep their symbols, and a command line its terminal.
+    @Test func aToolNamesTheAppWhoseIconItShows() {
+        var settings = Settings()
+        settings.addTool(title: "Hex")
+        settings.tools[settings.tools.count - 1].app = "Hex Fiend"
+        settings.addTool(title: "Fetch")
+        settings.tools[settings.tools.count - 1].app = "Hex Fiend"
+        settings.tools[settings.tools.count - 1].command = ["git", "fetch"]
+        let choices = Dictionary(uniqueKeysWithValues: settings.actionChoices.map { ($0.id, $0) })
+        #expect(choices["hex"]?.app == "Hex Fiend" && choices["hex"]?.symbol == "app.badge")
+        #expect(choices["fetch"]?.app == nil && choices["fetch"]?.symbol == "terminal")
+        #expect(choices["open-in-terminal"]?.app == nil && choices["open-in-code"]?.app == nil)
+        #expect(choices["open"]?.app == nil)
     }
 
     @Test func aSubmenuIsReadAndChangedByItsPath() {
