@@ -66,7 +66,9 @@ extension Workspace {
             throw .changed
         }
         let before = Set(jobs.map(\.id))
+        automationClient = client // its jobs say where they came from (#112)
         perform(command)
+        automationClient = nil
         var results: [JSONValue] = []
         for job in jobs where !before.contains(job.id) {
             let ended = await finished(job.id)

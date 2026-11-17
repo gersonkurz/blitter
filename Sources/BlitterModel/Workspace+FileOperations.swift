@@ -167,6 +167,29 @@ extension Workspace {
         return false
     }
 
+    func startJobNow(_ job: Int) -> Bool {
+        jobQueue.startNow(job)
+        return false // the job's new state arrives through the queue
+    }
+
+    /// Whether Start Now can run the waiting job beside the others (#112).
+    public func canStartJobNow(_ job: Int) -> Bool {
+        jobQueue.canStartNow(job)
+    }
+
+    /// Who starts a job, as the Jobs window says (#112): automation and its client, or — when
+    /// there is more than one — which window; nil for the only window.
+    var jobOrigin: String? {
+        if let automationClient {
+            return "From automation (\(automationClient))"
+        }
+        let windows = app.workspaces
+        guard windows.count > 1, let index = windows.firstIndex(where: { $0 === self }) else {
+            return nil
+        }
+        return "From window \(index + 1)"
+    }
+
     func dismissJob(_ job: Int) -> Bool {
         jobQueue.dismiss(job)
         return false
@@ -233,7 +256,7 @@ extension Workspace {
 
     @discardableResult
     func startJob(_ operation: FileOperation, then followUp: ((Workspace) -> Void)? = nil) -> Int {
-        let id = jobQueue.start(operation)
+        let id = jobQueue.start(operation, origin: jobOrigin)
         if let followUp {
             jobFollowUps[id] = followUp
         }

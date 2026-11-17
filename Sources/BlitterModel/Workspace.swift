@@ -42,6 +42,8 @@ public final class Workspace {
     var jobObservers: [Int: [(Job) -> Void]] = [:]
     /// What to do after a job this window started succeeded, e.g. select a renamed item.
     var jobFollowUps: [Int: (Workspace) -> Void] = [:]
+    /// The automation client whose action is being carried out, for its jobs' origin (#112).
+    var automationClient: String?
     var nextRenameToken = 0
     /// Watches the folders both sides show, and the expanded tree folders, for changes on disk.
     var watcher: (any FolderWatching)?
@@ -248,6 +250,7 @@ public final class Workspace {
         case let .newFolder(side): newFolder(side)
         case let .answerConflict(job, answer): answerConflict(job, answer)
         case let .cancelJob(job): cancelJob(job)
+        case let .startJobNow(job): startJobNow(job)
         case let .dismissJob(job): dismissJob(job)
         case let .runAction(id, side): runAction(id, on: side)
         case let .runFolderAction(id, side, folder): runFolderAction(id, on: side, folder: folder)

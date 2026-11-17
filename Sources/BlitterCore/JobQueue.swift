@@ -1,36 +1,5 @@
 import Foundation
 
-/// A file operation in the job queue, as the UI and the model see it.
-public struct Job: Identifiable, Equatable, Sendable {
-    public enum State: Equatable, Sendable {
-        /// Waiting for its turn (#112): a heavy job behind another, or a job behind an earlier
-        /// one that uses its paths.
-        case queued
-        case running
-        /// Stopped until the conflict is answered with `JobQueue.answer`.
-        case waiting(Conflict)
-        /// Done; `errors` lists what could not be done.
-        case finished
-        case cancelled
-    }
-
-    public let id: Int
-    public let operation: FileOperation
-    public internal(set) var state: State = .queued
-    public internal(set) var progress = JobProgress()
-    public internal(set) var errors: [JobError] = []
-    /// How to undo what the job did (#61), in the order to run: set when it is done. Empty if
-    /// nothing it did can be undone (a delete for good, a command line, nothing done).
-    public internal(set) var undo: [UndoStep] = []
-    /// Items the job moved to another volume are other items there (copies): their old
-    /// identities and their new ones, so older undo steps still find them (#61).
-    public internal(set) var identityChanges: [ItemIdentity: ItemIdentity] = [:]
-
-    public var isDone: Bool {
-        state == .finished || state == .cancelled
-    }
-}
-
 /// Runs file operations in the background, each on its own thread once it is its turn (#112):
 /// heavy jobs (copying, deleting for good, undo, a move to another volume) one after the other,
 /// quick ones (rename, new folder, the Trash, a move on one volume, a command line) at once —
@@ -64,6 +33,8 @@ public final class JobQueue {
     private let resolve: @Sendable (PathUse) -> PathUse
     /// How long a job's paths may take to resolve before it counts as stalled (#112), seconds.
     private let stallDelay: Double
+    /// The clock (tests set it).
+    let now: @Sendable () -> Date
 
     public init() {
         trash = FileOperations.moveToTrash
@@ -76,6 +47,7 @@ public final class JobQueue {
         estimateDelay = 5
         resolve = { $0.resolved() }
         stallDelay = 2
+        now = { Date() }
     }
 
     /// For tests: a Trash of their own, a remover that can fail, the paths used between volumes on
@@ -91,8 +63,10 @@ public final class JobQueue {
         copyDetails: @escaping FileOperations.DetailsCopier = FileOperations.copyFolderDetails,
         estimateDelay: Double = 5,
         resolve: @escaping @Sendable (PathUse) -> PathUse = { $0.resolved() },
-        stallDelay: Double = 2
+        stallDelay: Double = 2,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
+        self.now = now
         self.estimateDelay = estimateDelay
         self.resolve = resolve
         self.stallDelay = stallDelay
@@ -106,12 +80,12 @@ public final class JobQueue {
     }
 
     /// Adds the job; it starts as soon as its paths are known (a moment later) if it may — see
-    /// the type's description — else it waits.
+    /// the type's description — else it waits. `origin`: who started it, for the Jobs window.
     @discardableResult
-    public func start(_ operation: FileOperation) -> Int {
+    public func start(_ operation: FileOperation, origin: String? = nil) -> Int {
         let id = nextID
         nextID += 1
-        jobs.append(Job(id: id, operation: operation))
+        jobs.append(Job(id: id, operation: operation, origin: origin, added: now()))
         let turn = Turn(operation)
         turns[id] = turn
         guard !turn.isReady else { // a command line: nothing to resolve
@@ -172,19 +146,39 @@ public final class JobQueue {
             if earlier.contains(where: { $0.blocks(turn) }) {
                 continue // an earlier job uses its paths
             }
-            if turn.kind == .heavy, earlier.contains(where: { $0.kind != .quick })
+            if turn.kind == .heavy, !turn.startsNow, earlier.contains(where: { $0.kind != .quick })
                 || turns.values.contains(where: { $0.started && $0.kind == .heavy })
             {
-                continue // heavy jobs one after the other
+                continue // heavy jobs one after the other, unless the user said Start Now
             }
             launch(id, turn.operation)
         }
+    }
+
+    /// Whether Start Now can run the waiting job beside the others (#112): it waits only because
+    /// heavy jobs take turns — never when an earlier job uses its paths, or they are not known.
+    public func canStartNow(_ id: Int) -> Bool {
+        guard let turn = turns[id], !turn.started, turn.isReady else {
+            return false
+        }
+        return !turns.contains { $0.key < id && $0.value.blocks(turn) }
+    }
+
+    /// Start Now: the waiting job runs beside the others, if it can.
+    public func startNow(_ id: Int) {
+        guard canStartNow(id) else {
+            return
+        }
+        turns[id]?.startsNow = true
+        schedule()
+        onChange?()
     }
 
     private func launch(_ id: Int, _ operation: FileOperation) {
         turns[id]?.started = true
         if let index = jobs.firstIndex(where: { $0.id == id }) {
             jobs[index].state = .running
+            jobs[index].started = now()
         }
         let runner = JobRunner(id: id, queue: self)
         runners[id] = runner
@@ -232,6 +226,20 @@ public final class JobQueue {
     }
 
     // MARK: From the runners
+
+    /// A running job's progress (at most ten times a second): what it has done, when it last
+    /// moved, and a sample for its speed — one change, so every window is told once.
+    func progressed(_ id: Int, _ progress: JobProgress) {
+        let time = now()
+        update(id) { job in
+            guard !job.isDone, job.progress != progress else {
+                return
+            }
+            job.progress = progress
+            job.lastProgress = time
+            job.record(ProgressSample(time: time, bytes: progress.doneBytes))
+        }
+    }
 
     fileprivate func update(_ id: Int, _ change: (inout Job) -> Void) {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else {
@@ -289,11 +297,7 @@ private final class JobRunner: OperationContext, @unchecked Sendable {
             return self.progress
         }
         MainActor.assumeIsolated {
-            queue?.update(id) { job in
-                if !job.isDone {
-                    job.progress = progress
-                }
-            }
+            queue?.progressed(id, progress)
         }
     }
 

@@ -22,6 +22,8 @@ struct Turn {
     var started = false
     /// Not resolved in time: compared by its paths as given only.
     var stalled = false
+    /// Start Now (#112): runs beside other heavy jobs (never past an earlier job's paths).
+    var startsNow = false
 
     init(_ operation: FileOperation) {
         self.operation = operation
