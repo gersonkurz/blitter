@@ -113,9 +113,12 @@ meanwhile.
   at a time, in the order you started them; a job behind another says **Waiting for its turn.**
   Quick changes — renaming, a new folder, the Trash, moving on the same volume — and tools run at
   once.
-- **Nothing overtakes:** a job never starts while an earlier one still uses its items. Renaming a
-  file a waiting copy will read waits for that copy; a new folder inside the copy's destination
-  does not.
+- **Nothing overtakes:** a job never starts while an earlier one still uses its items — also
+  through a link, or written in another case, and including what the earlier job will make.
+  Renaming a file a waiting copy will read waits for that copy; a new folder inside the copy's
+  destination does not. One exception: if an earlier job's folders do not answer for about two
+  seconds (a network volume that hangs), later jobs only check the paths as you gave them, so
+  one that reaches the same item another way could go first.
 - **Cancel** on a waiting job takes it out at once; it has done nothing.
 - A copy starts at once. One that takes longer than a few seconds has its total size measured
   beside it, and then shows how much of it is done.
