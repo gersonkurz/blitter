@@ -19,6 +19,7 @@ extension ManualScreenshots {
                                       volumes: { [] }, watcher: FakeWatcher.factory, restoring: start)
             let controller = MainWindowController(workspace: workspace)
             let window = try #require(controller.window)
+            window.title = "Blitter" // no version: a release does not change every picture (#117)
             window.appearance = NSAppearance(named: appearance)
             window.setContentSize(NSSize(width: 1440, height: 640))
             controller.showWindow(nil)

@@ -28,6 +28,17 @@ final class MainWindowController: NSWindowController {
     /// Opens another main window at a folder (#96); the app sets it.
     var openWindow: ((String) -> Void)?
 
+    /// "Blitter 0.4.0" (#117): the app's version, from its bundle (MARKETING_VERSION in
+    /// project.yml); just "Blitter" without one.
+    static func title(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+        -> String
+    {
+        guard let version, !version.isEmpty else {
+            return "Blitter"
+        }
+        return "Blitter " + version
+    }
+
     /// `frame`: where the window was (`NSWindow.frameDescriptor`); nil: where the first window
     /// was before #96, else centered.
     init(workspace: Workspace, frame: String? = nil) {
@@ -39,7 +50,7 @@ final class MainWindowController: NSWindowController {
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered,
                               defer: false)
-        window.title = "Blitter"
+        window.title = Self.title()
         window.isReleasedWhenClosed = false // its controller owns it; a closed one goes with it (#96)
         super.init(window: window)
 

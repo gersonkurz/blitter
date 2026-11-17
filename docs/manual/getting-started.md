@@ -17,7 +17,9 @@ Blitter.
 
 ![The main window](images/main-window-light.png)
 
-The window shows two [sides](sides.md) next to each other. Each side has:
+The window shows two [sides](sides.md) next to each other; its title says which version of
+Blitter you run (for example **Blitter 0.4.0**; the pictures in this manual leave it out). Each
+side has:
 
 - a **folder tree** on the left: your Favorites, the mounted volumes, iCloud Drive and other
   cloud drives;

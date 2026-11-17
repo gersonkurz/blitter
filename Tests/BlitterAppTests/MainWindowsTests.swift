@@ -24,6 +24,18 @@ final class MainWindowsTests {
         }
     }
 
+    /// #117: the title names the version, from the app's bundle (the test host is Blitter.app,
+    /// built with MARKETING_VERSION).
+    @Test func theTitleShowsTheVersion() throws {
+        #expect(MainWindowController.title(version: "1.2.3") == "Blitter 1.2.3")
+        #expect(MainWindowController.title(version: nil) == "Blitter")
+        #expect(MainWindowController.title(version: "") == "Blitter")
+        let version = try #require(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+        #expect(version.split(separator: ".").count == 3)
+        let one = windows.open(first)
+        #expect(try #require(one.window).title == "Blitter " + version)
+    }
+
     @Test func aNewWindowSharesTheAppAndOpensOffTheFrontOne() throws {
         var configured = 0
         windows.configure = { _ in configured += 1 }
