@@ -200,34 +200,76 @@ struct FileOperationsSafetyTests {
         #expect(FileOperations.size(of: folder.path, cancelled: cancelled) == 0)
     }
 
-    /// A cancel arriving while a job measures its sources: the scan stops at once, nothing is copied.
-    @Test func cancellingDuringTheInitialSizeScanStopsIt() async throws {
+    /// #112: a copy starts copying at once; one done within the estimate's delay is never
+    /// measured, not before and not after. A folder copied without cloning (another volume, as
+    /// the tests take it) is not measured by the copy itself, so any folder read is a measuring.
+    @Test func aQuickCopyIsNeverMeasured() async throws {
         let visits = Counter()
-        let fixture = try OperationFixture(sizingProbe: { flag in
-            visits.increment()
-            flag.set() // the cancel arrives as the first folder is about to be read
-        })
+        let fixture = try OperationFixture(otherVolume: true, sizingProbe: { _ in visits.increment() },
+                                           estimateDelay: 0.3)
+        fixture.file("source/tree/a/f", "12345")
+        let job = try await fixture.run(.copy([fixture.source + "/tree"], into: fixture.destination))
+        #expect(job.state == .finished && fixture.contents("destination/tree/a/f") == "12345")
+        try await Task.sleep(for: .milliseconds(600)) // well past the delay
+        #expect(visits.value == 0)
+    }
+
+    /// #112: a copy that takes a while (here: waiting for a conflict's answer) gets its total
+    /// measured beside it, and reports it.
+    @Test func aCopyThatTakesAWhileHasItsTotalMeasured() async throws {
+        let fixture = try OperationFixture(estimateDelay: 0)
+        fixture.file("source/tree/a/f", "12345")
+        fixture.file("source/tree/b/g", "123")
+        fixture.file("destination/tree/x", "taken") // a conflict: the job waits for an answer
+        let id = fixture.queue.start(.copy([fixture.source + "/tree"], into: fixture.destination))
+        for _ in 0 ..< 300 where fixture.queue.jobs.first?.progress.totalBytes == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(fixture.queue.jobs.first?.progress.totalBytes == 8)
+        fixture.queue.cancel(id)
+    }
+
+    /// #112: the estimate stops when it is told to (its job ended), at the next folder, and
+    /// reports nothing.
+    @Test func theEstimateStopsWhenItsJobEnds() async throws {
+        let fixture = try OperationFixture()
         let tree = try makeTree(in: fixture, folders: 20)
-        let job = try await fixture.run(.copy([tree], into: fixture.destination))
-        #expect(job.state == .cancelled)
-        #expect(visits.value == 1)
-        #expect(fixture.names("destination").isEmpty)
+        let visits = Counter()
+        let context = RecordingContext()
+        let stop = CancellationFlag()
+        FileOperations.estimate([tree], after: 0, context: context, stop: stop, visit: { _ in
+            visits.increment()
+            Thread.sleep(forTimeInterval: 0.05) // a slow volume: the 21 folders take a second
+        })
+        try await Task.sleep(for: .milliseconds(150))
+        stop.set() // the job ended
+        try await Task.sleep(for: .milliseconds(100))
+        let stopped = visits.value
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(visits.value == stopped && stopped < 21)
+        #expect(context.totalBytes == nil)
+
+        let whole = RecordingContext() // not stopped: the whole tree, reported once
+        FileOperations.estimate([tree], after: 0, context: whole, stop: CancellationFlag(), visit: nil)
+        for _ in 0 ..< 300 where whole.totalBytes == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(whole.totalBytes == 100)
     }
 
     /// After a clone the job measures the clone to report its bytes; a cancel then must stop that
-    /// scan too, instead of walking the whole tree a second time.
+    /// scan, instead of walking the whole tree.
     @Test func cancellingDuringTheSizeScanAfterACloneStopsIt() async throws {
-        let foldersPerScan = 21 // the tree's top folder and its 20 subfolders
         let visits = Counter()
         let fixture = try OperationFixture(sizingProbe: { flag in
-            if visits.increment() == foldersPerScan + 1 {
+            if visits.increment() == 1 {
                 flag.set() // the first folder of the scan after the clone
             }
         })
         let tree = try makeTree(in: fixture, folders: 20)
         let job = try await fixture.run(.copy([tree], into: fixture.destination))
         #expect(job.state == .cancelled)
-        #expect(visits.value == foldersPerScan + 1)
+        #expect(visits.value == 1)
         #expect(fixture.names("destination") == ["tree"]) // the clone itself was complete
     }
 
@@ -300,5 +342,23 @@ final class Counter: Sendable {
             count += 1
             return count
         }
+    }
+}
+
+/// A job's side as the estimate sees it: what it reports.
+private final class RecordingContext: OperationContext, @unchecked Sendable {
+    let cancellation = CancellationFlag()
+    private let progress = Mutex(JobProgress())
+
+    var totalBytes: Int64? {
+        progress.withLock { $0.totalBytes }
+    }
+
+    func update(_ change: (inout JobProgress) -> Void) {
+        progress.withLock { change(&$0) }
+    }
+
+    func ask(_: Conflict) -> ConflictAnswer? {
+        nil
     }
 }

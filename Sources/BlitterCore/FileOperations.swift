@@ -50,6 +50,8 @@ struct FileOperations {
     let sizingProbe: (@Sendable (CancellationFlag) -> Void)?
     /// Tests set this to take the paths used between volumes (no clone, no rename) on one volume.
     let simulateOtherVolume: Bool
+    /// How long a copy runs before its total size is measured beside it (#112), in seconds.
+    let estimateDelay: Double
 
     private var errors: [JobError] = []
     /// How to undo what was done so far, in the order it was done (#61).
@@ -62,8 +64,9 @@ struct FileOperations {
          remove: @escaping Remover = FileOperations.removeForGood, simulateOtherVolume: Bool = false,
          sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
          rename: @escaping Renamer = FileOperations.renameExclusive,
-         copyDetails: @escaping DetailsCopier = FileOperations.copyFolderDetails)
+         copyDetails: @escaping DetailsCopier = FileOperations.copyFolderDetails, estimateDelay: Double = 5)
     {
+        self.estimateDelay = estimateDelay
         self.copyDetails = copyDetails
         self.context = context
         trashItem = trash
@@ -141,9 +144,12 @@ struct FileOperations {
 
     private mutating func transfer(_ sources: [String], into folder: String, move: Bool) {
         context.update { $0.totalItems = sources.count }
+        // A copy starts copying at once; one that takes a while has its total measured beside
+        // it (#112), until it ends.
+        let estimating = CancellationFlag()
+        defer { estimating.set() }
         if !move {
-            let total = sources.reduce(Int64(0)) { $0 + measure($1) }
-            context.update { $0.totalBytes = total }
+            Self.estimate(sources, after: estimateDelay, context: context, stop: estimating, visit: sizingProbe)
         }
         for source in sources {
             guard !isCancelled else {

@@ -109,6 +109,17 @@ Copying, moving, deleting and renaming run in the background. Each job gets a ro
 at the bottom of the window, with its progress and **Cancel**. You can go on working
 meanwhile.
 
+- **One after the other:** copying, deleting for good, moving to another volume and undo run one
+  at a time, in the order you started them; a job behind another says **Waiting for its turn.**
+  Quick changes — renaming, a new folder, the Trash, moving on the same volume — and tools run at
+  once.
+- **Nothing overtakes:** a job never starts while an earlier one still uses its items. Renaming a
+  file a waiting copy will read waits for that copy; a new folder inside the copy's destination
+  does not.
+- **Cancel** on a waiting job takes it out at once; it has done nothing.
+- A copy starts at once. One that takes longer than a few seconds has its total size measured
+  beside it, and then shows how much of it is done.
+
 - **When a name is taken**, the job asks in its row: **Replace** (the existing item goes to the
   Trash), **Skip**, or **Keep Both** (the new one gets a free name such as "report 2.txt").
   **Apply to all** answers the same for the rest of the job.

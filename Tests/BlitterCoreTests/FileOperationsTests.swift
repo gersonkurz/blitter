@@ -14,7 +14,8 @@ final class OperationFixture {
 
     init(otherVolume: Bool = false, remove: @escaping FileOperations.Remover = FileOperations.removeForGood,
          gate: DispatchSemaphore? = nil, sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
-         rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive) throws
+         rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive, estimateDelay: Double = 5,
+         resolve: @escaping @Sendable (PathUse) -> PathUse = { $0.resolved() }, stallDelay: Double = 2) throws
     {
         root = try TemporaryFolder()
         source = root.path + "/source"
@@ -28,7 +29,8 @@ final class OperationFixture {
             let target = trash + "/" + UUID().uuidString + "-" + (path as NSString).lastPathComponent
             try FileManager.default.moveItem(atPath: path, toPath: target)
             return target
-        }, remove: remove, simulateOtherVolume: otherVolume, gate: gate, sizingProbe: sizingProbe, rename: rename)
+        }, remove: remove, simulateOtherVolume: otherVolume, gate: gate, sizingProbe: sizingProbe, rename: rename,
+        estimateDelay: estimateDelay, resolve: resolve, stallDelay: stallDelay)
     }
 
     @discardableResult
@@ -94,7 +96,8 @@ struct FileOperationsTests {
         #expect(fixture.contents("destination/folder/inner/b.txt") == "beta")
         #expect(fixture.contents("source/a.txt") == "alpha") // the originals stay
         #expect(job.progress.doneItems == 2 && job.progress.totalItems == 2)
-        #expect(job.progress.totalBytes == 9 && job.progress.doneBytes == 9)
+        #expect(job.progress.doneBytes == 9)
+        #expect(job.progress.totalBytes == nil) // done before it was worth measuring (#112)
         #expect(!fixture.names("destination").contains { $0.hasPrefix(".blitter-partial") })
     }
 

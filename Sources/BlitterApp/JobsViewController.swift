@@ -191,7 +191,7 @@ final class JobRowView: NSView {
             view.removeFromSuperview()
         }
         switch job.state {
-        case .running:
+        case .queued, .running:
             addButton("Cancel") { .cancelJob($0.id) }
         case .waiting:
             applyToAll.state = .off
@@ -310,6 +310,8 @@ enum JobText {
             job.errors.isEmpty ? "Done." : problems(job.errors)
         case .running:
             progressText(job.progress)
+        case .queued:
+            "Waiting for its turn." // #112: behind another job
         }
     }
 

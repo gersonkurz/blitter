@@ -3,6 +3,9 @@ import Foundation
 /// A file operation in the job queue, as the UI and the model see it.
 public struct Job: Identifiable, Equatable, Sendable {
     public enum State: Equatable, Sendable {
+        /// Waiting for its turn (#112): a heavy job behind another, or a job behind an earlier
+        /// one that uses its paths.
+        case queued
         case running
         /// Stopped until the conflict is answered with `JobQueue.answer`.
         case waiting(Conflict)
@@ -13,7 +16,7 @@ public struct Job: Identifiable, Equatable, Sendable {
 
     public let id: Int
     public let operation: FileOperation
-    public internal(set) var state: State = .running
+    public internal(set) var state: State = .queued
     public internal(set) var progress = JobProgress()
     public internal(set) var errors: [JobError] = []
     /// How to undo what the job did (#61), in the order to run: set when it is done. Empty if
@@ -28,9 +31,13 @@ public struct Job: Identifiable, Equatable, Sendable {
     }
 }
 
-/// Runs file operations in the background, each on its own thread, so a slow volume holds up
-/// only its own job. The queue lives on the main actor; jobs report progress at most ten times a
-/// second.
+/// Runs file operations in the background, each on its own thread once it is its turn (#112):
+/// heavy jobs (copying, deleting for good, undo, a move to another volume) one after the other,
+/// quick ones (rename, new folder, the Trash, a move on one volume, a command line) at once —
+/// except that no job starts while an earlier unfinished one uses its paths (as the file system
+/// names them: through links, in any case), so renaming an item a waiting copy will read, or one
+/// it will make, waits for that copy. A waiting job has no thread yet. The queue lives
+/// on the main actor; jobs report progress at most ten times a second.
 @MainActor
 public final class JobQueue {
     public private(set) var jobs: [Job] = []
@@ -49,6 +56,14 @@ public final class JobQueue {
     private let copyDetails: FileOperations.DetailsCopier
     private var runners: [Int: JobRunner] = [:]
     private var nextID = 1
+    /// Every job not done yet, by id: what it uses and how it takes its turn (#112).
+    private var turns: [Int: Turn] = [:]
+    /// How long a copy runs before its total size is measured beside it (#112).
+    private let estimateDelay: Double
+    /// Resolves a job's paths off the main thread (tests stall it).
+    private let resolve: @Sendable (PathUse) -> PathUse
+    /// How long a job's paths may take to resolve before it counts as stalled (#112), seconds.
+    private let stallDelay: Double
 
     public init() {
         trash = FileOperations.moveToTrash
@@ -58,6 +73,9 @@ public final class JobQueue {
         sizingProbe = nil
         rename = FileOperations.renameExclusive
         copyDetails = FileOperations.copyFolderDetails
+        estimateDelay = 5
+        resolve = { $0.resolved() }
+        stallDelay = 2
     }
 
     /// For tests: a Trash of their own, a remover that can fail, the paths used between volumes on
@@ -70,8 +88,14 @@ public final class JobQueue {
         gate: DispatchSemaphore? = nil,
         sizingProbe: (@Sendable (CancellationFlag) -> Void)? = nil,
         rename: @escaping FileOperations.Renamer = FileOperations.renameExclusive,
-        copyDetails: @escaping FileOperations.DetailsCopier = FileOperations.copyFolderDetails
+        copyDetails: @escaping FileOperations.DetailsCopier = FileOperations.copyFolderDetails,
+        estimateDelay: Double = 5,
+        resolve: @escaping @Sendable (PathUse) -> PathUse = { $0.resolved() },
+        stallDelay: Double = 2
     ) {
+        self.estimateDelay = estimateDelay
+        self.resolve = resolve
+        self.stallDelay = stallDelay
         self.rename = rename
         self.copyDetails = copyDetails
         self.trash = trash
@@ -81,11 +105,87 @@ public final class JobQueue {
         self.sizingProbe = sizingProbe
     }
 
+    /// Adds the job; it starts as soon as its paths are known (a moment later) if it may — see
+    /// the type's description — else it waits.
     @discardableResult
     public func start(_ operation: FileOperation) -> Int {
         let id = nextID
         nextID += 1
         jobs.append(Job(id: id, operation: operation))
+        let turn = Turn(operation)
+        turns[id] = turn
+        guard !turn.isReady else { // a command line: nothing to resolve
+            schedule()
+            onChange?()
+            return id
+        }
+        // The paths it uses, as the file system names them, and for a move whether it stays on
+        // one volume (heavy unless it does): both take the disk, so they are found off the main
+        // thread. Meanwhile others compare with its paths as given.
+        DispatchQueue.main.asyncAfter(deadline: .now() + stallDelay) {
+            MainActor.assumeIsolated { [weak self] in
+                guard let self, turns[id]?.resolved == nil, turns[id] != nil else {
+                    return
+                }
+                turns[id]?.stalled = true // later jobs go by its paths as given now
+                schedule()
+                onChange?()
+            }
+        }
+        let resolve = resolve
+        DispatchQueue.global(qos: .userInitiated).async {
+            let uses = resolve(PathUse(operation))
+            var heavy: Bool?
+            if case let .move(sources, folder) = operation {
+                heavy = !FileOperations.isOnVolume(of: folder, sources)
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.resolved(id, uses: uses, heavy: heavy)
+                }
+            }
+        }
+        onChange?()
+        return id
+    }
+
+    private func resolved(_ id: Int, uses: PathUse, heavy: Bool?) {
+        guard turns[id] != nil else {
+            return // cancelled meanwhile
+        }
+        turns[id]?.resolved = uses
+        if let heavy {
+            turns[id]?.kind = heavy ? .heavy : .quick
+        }
+        schedule()
+        onChange?()
+    }
+
+    /// Starts every waiting job whose turn it is, in the order they were added.
+    private func schedule() {
+        let ids = turns.keys.sorted()
+        for (index, id) in ids.enumerated() {
+            guard let turn = turns[id], !turn.started, turn.isReady else {
+                continue
+            }
+            let earlier = ids[..<index].compactMap { turns[$0] }
+            if earlier.contains(where: { $0.blocks(turn) }) {
+                continue // an earlier job uses its paths
+            }
+            if turn.kind == .heavy, earlier.contains(where: { $0.kind != .quick })
+                || turns.values.contains(where: { $0.started && $0.kind == .heavy })
+            {
+                continue // heavy jobs one after the other
+            }
+            launch(id, turn.operation)
+        }
+    }
+
+    private func launch(_ id: Int, _ operation: FileOperation) {
+        turns[id]?.started = true
+        if let index = jobs.firstIndex(where: { $0.id == id }) {
+            jobs[index].state = .running
+        }
         let runner = JobRunner(id: id, queue: self)
         runners[id] = runner
         let trash = trash
@@ -95,23 +195,27 @@ public final class JobQueue {
         let sizingProbe = sizingProbe
         let rename = rename
         let copyDetails = copyDetails
+        let estimateDelay = estimateDelay
         DispatchQueue.global(qos: .userInitiated).async {
             gate?.wait()
             var operations = FileOperations(context: runner, trash: trash, remove: remove,
                                             simulateOtherVolume: simulateOtherVolume, sizingProbe: sizingProbe,
-                                            rename: rename, copyDetails: copyDetails)
+                                            rename: rename, copyDetails: copyDetails, estimateDelay: estimateDelay)
             // On the job's thread: finding what lies inside what looks at the disk (#48).
             let errors = operations.run(operation.withoutNestedItems())
             runner.finish(errors, undo: operations.undoSteps.reversed(), identityChanges: operations.identityChanges)
         }
-        onChange?()
-        return id
     }
 
     /// Stops the job between items, or in the middle of copying a file. What was finished stays;
-    /// a partial copy is removed.
+    /// a partial copy is removed. A job still waiting for its turn ends at once, having done
+    /// nothing.
     public func cancel(_ id: Int) {
-        runners[id]?.cancel()
+        guard let turn = turns[id], !turn.started else {
+            runners[id]?.cancel()
+            return
+        }
+        update(id) { $0.state = .cancelled }
     }
 
     public func answer(_ id: Int, _ answer: ConflictAnswer) {
@@ -137,7 +241,9 @@ public final class JobQueue {
         change(&jobs[index])
         if jobs[index].isDone, !wasDone {
             runners[id] = nil
+            turns[id] = nil
             onFinish?(jobs[index])
+            schedule() // its turn is over
         }
         onChange?()
     }

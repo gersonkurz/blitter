@@ -100,11 +100,18 @@ extension FileOperations {
             return 0
         }
         let entries = (try? BulkLister.list(path, cancelled: cancelled)) ?? []
-        return entries.reduce(Int64(0)) { total, entry in
-            let child = (path as NSString).appendingPathComponent(entry.name)
-            let size = entry.kind == .directory ? size(of: child, cancelled: cancelled, visit: visit)
-                : entry.kind == .file ? entry.size : 0
-            return total + size
+        var total: Int64 = 0
+        for entry in entries {
+            if entry.kind == .directory {
+                guard !cancelled.isSet else {
+                    return 0 // stopped: the folders not read yet are not even looked at (#112)
+                }
+                total += size(of: (path as NSString).appendingPathComponent(entry.name), cancelled: cancelled,
+                              visit: visit)
+            } else if entry.kind == .file {
+                total += entry.size
+            }
         }
+        return total
     }
 }
