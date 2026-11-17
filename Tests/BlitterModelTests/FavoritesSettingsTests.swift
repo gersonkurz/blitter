@@ -151,15 +151,21 @@ struct FavoritesSettingsTests {
         try "[favorites]\nfolders = [\"~\"]\n".write(toFile: path, atomically: true, encoding: .utf8)
         let workspace = await makeWorkspace(settingsFile: path)
         let gate = DispatchSemaphore(value: 0)
+        defer { gate.signal() } // however the test ends, a held writer is let go (#120 review)
         let first = OnceFlag()
+        let held = OnceFlag() // taken once A's write is at the gate
         workspace.settingsFileBeforeReplace = {
             if first.take() {
+                _ = held.take()
                 gate.wait()
             }
         }
         let original = workspace.settings
         workspace.perform(.addFavorite("/Users/me/Projects")) // A, held
-        try await Task.sleep(for: .milliseconds(100))
+        for _ in 0 ..< 1000 where !held.isTaken { // A's write reached the gate (not: 100 ms passed, #120)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(held.isTaken, "A's write did not reach the gate")
         var edited = original
         edited.favorites = ["/Applications"]
         workspace.perform(.saveSettings(original: original, edited: edited)) // B
@@ -203,5 +209,9 @@ final class OnceFlag: @unchecked Sendable {
             defer { taken = true }
             return !taken
         }
+    }
+
+    var isTaken: Bool {
+        lock.withLock { taken }
     }
 }

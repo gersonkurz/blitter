@@ -70,6 +70,7 @@ struct FolderWatcherTests {
         let batches = Batches()
         let watcher = FolderWatcher(latency: 0.1) { batches.append($0) }
         watcher.watch([folder.path])
+        try await watcher.waitUntilStreaming(folder.path) // as the other tests: the stream starts asynchronously (#120)
         try await batches.resetWhenQuiet() // creating "sub" itself changed the folder
 
         FileManager.default.createFile(atPath: folder.path + "/sub/deep.txt", contents: Data())

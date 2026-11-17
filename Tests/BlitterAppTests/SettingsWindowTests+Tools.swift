@@ -34,8 +34,12 @@ extension SettingsWindowTests {
                 // Drawn for real, so the panes' views appear (onAppear) as they do on screen.
                 try await draw()
                 if pane == .tools { // the first tool's form: its command line in an editor, if it fits
-                    #expect(try #require(SettingsWindowController.current?.window?.contentView)
-                        .hasTextView == !command.contains("\"\""))
+                    let editor = !command.contains("\"\"")
+                    let content = try #require(SettingsWindowController.current?.window?.contentView)
+                    for _ in 0 ..< 50 where editor && !content.hasTextView {
+                        try await draw() // a loaded run may take longer to show it (#120)
+                    }
+                    #expect(content.hasTextView == editor, "the command line's editor, \(command)")
                 }
                 #expect(model.draft == read && !model.isDirty, "\(pane), \(command), \(extensions)")
             }

@@ -79,7 +79,7 @@ final class MainWindowsTests {
             try #require(two.window).close()
         }
         #expect(windows.controllers.count == 1 && windows.front === one) // the other one acts again
-        for _ in 0 ..< 100 where closedWorkspace != nil {
+        for _ in 0 ..< 1000 where closedWorkspace != nil { // up to 10 s: a loaded run is slow (#120)
             try await Task.sleep(for: .milliseconds(10)) // AppKit lets a closed window go a moment later
         }
         #expect(closedWorkspace == nil && first.app.workspaces.count == 1) // let go

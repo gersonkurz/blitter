@@ -136,9 +136,33 @@ run: (build "Debug")
     open "{{derived_data}}/Build/Products/Debug/Blitter.app"
 
 # Run all unit tests. xcodebuild always executes them; there is no test result cache.
+# Where `just test` puts a run's result bundle and log (a failed run's are kept in failed-runs/).
+test_output := "build"
+
 test: generate
+    #!/usr/bin/env bash
+    # A failed run keeps its result bundle and full log in build/failed-runs (#120): a test that
+    # fails once can be looked into afterwards. A passing run keeps nothing.
+    set -uo pipefail
+    out={{quote(test_output)}}
+    runs="$out/failed-runs"
+    stamp=$(date +%Y%m%d-%H%M%S)
+    bundle="$out/test-run-$stamp.xcresult"
+    log="$out/test-run-$stamp.log"
+    mkdir -p "$out" # before the log is opened: after `just clean` or in a fresh checkout too
+    rm -rf "$bundle"
     xcodebuild test -project {{project}} -scheme {{scheme}} -configuration Debug \
-        -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify
+        -destination "{{destination}}" -derivedDataPath {{derived_data}} -resultBundlePath "$bundle" 2>&1 \
+        | tee "$log" | xcbeautify
+    status=${PIPESTATUS[0]}
+    if [ "$status" -eq 0 ]; then
+        rm -rf "$bundle" "$log"
+    else
+        mkdir -p "$runs"
+        mv "$bundle" "$log" "$runs/" 2>/dev/null
+        echo "The failed run is kept: $runs/$(basename "$bundle") and $runs/$(basename "$log")" >&2
+    fi
+    exit "$status"
 
 # Check formatting, lint rules and module boundaries without changing anything
 lint: check-boundaries
