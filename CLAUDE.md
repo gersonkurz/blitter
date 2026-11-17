@@ -37,7 +37,8 @@ decisions that hold; read it before starting any work.
 **Releases:** `MARKETING_VERSION` (and `CURRENT_PROJECT_VERSION`) in `project.yml` are the one source of the version.
 A release bumps them, runs `just package` (signs with `$MACOS_CODESIGN_IDENTITY`) and `just notarize` (keychain profile
 `blitter-notary`; notarizes and staples the app, then the DMG), commits the version, tags it (`v0.4.0`) and publishes
-the DMG and `checksums.txt` as a GitHub release with notes.
+the DMG and `checksums.txt` as a GitHub release with notes. README.md's Version history turns its Unreleased line
+into the new version's, in a few words (the details stay in the release notes).
 
 ## Architecture
 

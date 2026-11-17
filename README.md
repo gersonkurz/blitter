@@ -59,6 +59,24 @@ changes files without your **Allow** in Blitter.
 navigation, file operations, Find, Git, settings, tools and menus, the keyboard, automation. Its pictures are
 made from Blitter itself, so they show the current version.
 
+## Version history
+
+The details of each release are in its [release notes](https://github.com/gersonkurz/blitter/releases).
+
+- **Unreleased (on main):** drag and drop copies or moves as you choose (⇧⌘M switches); Open With and Always
+  Open With in the context menu; toolbar buttons with the icons of their apps, and an icon picker; file jobs take
+  turns instead of all running at once; the version in the window title.
+- **0.4.0** (2026-11-15): the first notarized release. Several windows, the `blitter` command in the terminal, a
+  configurable toolbar, recent folders in the path field's menu, color schemes tried out live.
+- **0.2.0** (2026-11-09): finding things (fast filter, Select by Pattern, the Find panel), Undo, Batch Rename,
+  folder sizes, Git (log, commit, sync, clone, clean), the settings file and Settings window, colors and fonts,
+  automation (the `blitter` tool, an MCP server, Python), and the manual.
+- **0.1.0** (2026-11-01): the first version, tagged but not published as a download: two sides with folder trees
+  and file lists, fast listings, live updates, copy, move, Trash and rename as background jobs, Quick Look and
+  drag and drop.
+
+There was no 0.3.0.
+
 ## Building
 
 Blitter is Swift and AppKit, with no dependencies beyond Apple's frameworks and TOMLKit. You need Xcode and
