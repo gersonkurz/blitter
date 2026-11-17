@@ -96,6 +96,10 @@ to Trash**. Press it again for the one before, and so on.
 | Rename, Batch Rename | gives the old names back |
 | New Folder | moves the folder to the Trash |
 
+- A job that is still **waiting for its turn** is taken back too, if it is the newest one: the
+  menu says so (**Undo Copy (Not Started)**), and Undo takes it out of the queue — it has done
+  nothing, so there is nothing to put back. A job that finished after it was started is undone
+  first.
 - Undo never deletes anything for good: what it takes away goes to the Trash.
 - It never overwrites either. If something else is at an item's old place now, or the item is
   gone, Undo says so in the jobs strip and leaves that item; the rest is undone.

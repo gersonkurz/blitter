@@ -140,7 +140,8 @@ extension ActionRegistry {
             .eject(workspace.ejectableVolume(containing: workspace.state(of: side).location)?.path ?? "")
         },
         Action("undo", "Undo", scope: .lastChange, symbol: "arrow.uturn.backward") { workspace, _ in
-            .undo(entry: workspace.lastUndo?.id ?? 0)
+            // #112: the newest job not started yet is taken out of the queue instead.
+            workspace.waitingUndo.map { .cancelJob($0.job) } ?? .undo(entry: workspace.lastUndo?.id ?? 0)
         },
         // #96: another window, both its sides at this side's folder.
         Action("new-window", "New Window", scope: .always, effect: .view, symbol: "macwindow.badge.plus",

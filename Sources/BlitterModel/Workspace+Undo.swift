@@ -6,6 +6,8 @@ public struct UndoEntry: Equatable, Sendable {
     /// What was done, as Undo names it: "Undo Move to Trash".
     public let title: String
     let steps: [UndoStep]
+    /// The job it undoes: which came last, it or a job still waiting (#112).
+    var jobID = 0
 
     /// What Undo changes, for the automation socket's preview: the items it takes to the Trash
     /// or renames, and the places it puts items back to.
@@ -45,10 +47,29 @@ public extension Workspace {
         undoJournal.last
     }
 
-    /// Whether Undo can run now: there is something to undo, and no undo is running. Undos run
-    /// one at a time, so each finds what the one before put back.
+    /// The newest job that changes files, if it has not started yet and came after the last
+    /// one done (#112): Undo then takes it out of the queue — nothing to put back, it did nothing.
+    var waitingUndo: (job: Int, title: String)? {
+        guard let job = jobs.last(where: { $0.state == .queued && UndoEntry.title(of: $0.operation) != nil }),
+              job.id > (lastUndo?.jobID ?? 0), let title = UndoEntry.title(of: job.operation)
+        else {
+            return nil
+        }
+        return (job.id, title)
+    }
+
+    /// What Edit → Undo says: "Undo Copy", or "Undo Copy (Not Started)" for a waiting job.
+    var undoTitle: String {
+        if let waiting = waitingUndo {
+            return "Undo \(waiting.title) (Not Started)"
+        }
+        return lastUndo.map { "Undo " + $0.title } ?? "Undo"
+    }
+
+    /// Whether Undo can run now: a waiting job to take out, or something to undo and no undo
+    /// running. Undos run one at a time, so each finds what the one before put back.
     var canUndo: Bool {
-        lastUndo != nil && runningUndo == nil
+        waitingUndo != nil || (lastUndo != nil && runningUndo == nil)
     }
 
     /// Entries kept; older ones are forgotten.
@@ -65,7 +86,8 @@ public extension Workspace {
                 UndoEntry(
                     id: entry.id,
                     title: entry.title,
-                    steps: entry.steps.map { $0.replacing(job.identityChanges) }
+                    steps: entry.steps.map { $0.replacing(job.identityChanges) },
+                    jobID: entry.jobID
                 )
             }
         }
@@ -73,7 +95,7 @@ public extension Workspace {
             return
         }
         nextUndoID += 1
-        undoJournal.append(UndoEntry(id: nextUndoID, title: title, steps: job.undo))
+        undoJournal.append(UndoEntry(id: nextUndoID, title: title, steps: job.undo, jobID: job.id))
         if undoJournal.count > Self.undoLimit {
             undoJournal.removeFirst(undoJournal.count - Self.undoLimit)
         }
@@ -81,7 +103,9 @@ public extension Workspace {
 
     /// Undoes the last entry if it is still `id` (what was shown or allowed is what is undone).
     internal func undo(_ id: Int) -> Bool {
-        guard canUndo, let entry = undoJournal.last, entry.id == id else {
+        // One undo at a time, whatever else Undo could do now (a waiting job, #112 review): each
+        // finds what the one before put back, and the identities it updated.
+        guard runningUndo == nil, let entry = undoJournal.last, entry.id == id else {
             return false
         }
         undoJournal.removeLast()

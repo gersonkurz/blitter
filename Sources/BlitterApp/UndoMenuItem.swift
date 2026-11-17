@@ -6,8 +6,7 @@ import BlitterModel
 @MainActor
 enum UndoMenuItem {
     static func validate(_ item: NSMenuItem, workspace: Workspace, side: Side) -> Bool {
-        let entry = workspace.lastUndo
-        item.title = entry.map { "Undo " + $0.title } ?? "Undo"
+        item.title = workspace.undoTitle // #112: a waiting job too
         return workspace.canRun("undo", on: side) // false while an undo runs, too
     }
 }

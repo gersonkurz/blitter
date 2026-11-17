@@ -157,6 +157,8 @@ extension Workspace {
         case let .undo(id):
             let entry = undoJournal.last { $0.id == id }
             (items, detail) = (entry?.items ?? [], entry.map { "Undo " + $0.title })
+        case let .cancelJob(id): // Undo of a job not started yet (#112): taken out of the queue
+            (items, detail) = ([], waitingUndo.flatMap { $0.job == id ? undoTitle + ": it is cancelled" : nil })
         case let .present(request):
             (items, detail) = ([request.path], request.kind)
         case let .eject(volume):
