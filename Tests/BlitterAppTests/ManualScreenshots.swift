@@ -1,6 +1,6 @@
 import AppKit
 @testable import Blitter
-import BlitterCore
+@testable import BlitterCore
 @testable import BlitterModel
 import Testing
 
@@ -65,6 +65,42 @@ final class ManualScreenshots {
         let model = try #require(controller.batchRename)
         model.rule.template = "Iceland {n:2}"
         try await Self.capture(sheet, as: "batch-rename-light.png")
+    }
+
+    /// #112: the Jobs window with a copy running, a move waiting (Start Now) and a job that had
+    /// problems — made-up jobs at a fixed moment, so the picture is the same every time.
+    @Test func jobsWindow() async throws {
+        let now = Demo.date(28, 14)
+        var copy = Job(id: 1, operation: .copy(["/Users/demo/Pictures/Iceland 2026"], into: "/Volumes/Backup"),
+                       added: now.addingTimeInterval(-84))
+        copy.state = .running
+        copy.started = now.addingTimeInterval(-84)
+        copy.progress.totalItems = 1
+        copy.progress.totalBytes = 6_400_000_000
+        copy.progress.currentItem = "IMG_4121.jpg"
+        copy.record(ProgressSample(time: now.addingTimeInterval(-5), bytes: 1_900_000_000))
+        copy.progress.doneBytes = 2_150_000_000
+        copy.record(ProgressSample(time: now, bytes: 2_150_000_000))
+        copy.lastProgress = now
+        var move = Job(id: 2, operation: .move(["/Users/demo/Downloads/a", "/Users/demo/Downloads/b"],
+                                               into: "/Volumes/Backup/Downloads"),
+                       origin: "From automation (Claude Code)", added: now.addingTimeInterval(-30))
+        move.state = .queued
+        var trash = Job(id: 3, operation: .trash(["/Users/demo/Projects/old"]), added: now.addingTimeInterval(-60))
+        trash.state = .finished
+        trash.errors = [JobError(path: "/Users/demo/Projects/old/locked.txt",
+                                 message: "“locked.txt” is locked.")]
+        for (appearance, name) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            let controller = JobsWindowController()
+            defer { controller.close() }
+            let window = try #require(controller.window)
+            window.setContentSize(NSSize(width: 560, height: 300))
+            controller.renderPalette(ThemeSettings())
+            window.appearance = NSAppearance(named: appearance) // after the (system) colors
+            controller.renderRows([copy, move, trash], canStartNow: { $0 == 2 }, at: now)
+            controller.showByUser()
+            try await Self.capture(window, as: "jobs-window-\(name).png")
+        }
     }
 
     @Test func settingsWindow() async throws {

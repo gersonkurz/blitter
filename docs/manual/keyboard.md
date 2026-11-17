@@ -21,6 +21,7 @@ and Edit menus' action shortcuts can be changed in Settings… → Tools & Menus
 | ⌘R | read the folder again |
 | ⇧⌘. | show or hide hidden files |
 | ⇧⌘M | drag and drop copies or moves, until Blitter quits |
+| ⌥⌘J | show the Jobs window |
 
 ## In the list
 

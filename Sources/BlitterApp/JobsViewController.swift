@@ -2,15 +2,17 @@ import AppKit
 import BlitterCore
 import BlitterModel
 
-/// The strip at the bottom of the window: one row per file operation, with progress and Cancel,
-/// the conflict question in place (no modal dialog), and the problems of a job that had some.
-/// Hidden while there are no jobs.
+/// The strip at the bottom of the window: the notices, and one line about the jobs (#112) —
+/// how many, how far, a question waiting, problems — with Show Jobs; the jobs themselves are in
+/// the Jobs window. Hidden while there are neither.
 @MainActor
 final class JobsViewController: NSViewController {
     private let workspace: Workspace
     private let stack = NSStackView()
-    private var rows: [Int: JobRowView] = [:]
+    private let indicator = JobsIndicatorView()
     private var noticeRows: [Int: NoticeRowView] = [:]
+    /// Show Jobs: the Jobs window.
+    var showJobs: () -> Void = {}
     /// The colors in use (#21); new rows take them, a new theme recolors all.
     private var palette: Palette?
 
@@ -36,21 +38,16 @@ final class JobsViewController: NSViewController {
     func render() {
         let paletteChanged = renderPalette()
         let jobs = workspace.jobs
-        let ids = Set(jobs.map(\.id))
-        for (id, row) in rows where !ids.contains(id) {
-            stack.removeArrangedSubview(row)
-            row.removeFromSuperview()
-            rows[id] = nil
+        if indicator.superview == nil {
+            indicator.show = { [weak self] in self?.showJobs() }
+            stack.addArrangedSubview(indicator)
+            indicator.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
         }
-        for job in jobs {
-            let row = rows[job.id] ?? makeRow(for: job.id)
-            row.configure(job)
-        }
+        indicator.text.stringValue = JobText.summary(jobs)
+        indicator.isHidden = jobs.isEmpty
         renderNotices()
         if paletteChanged {
-            for row in rows.values {
-                row.apply(palette)
-            }
+            indicator.text.textColor = palette?.isThemed == true ? palette?.color(.dimText) : .secondaryLabelColor
             for row in noticeRows.values {
                 row.text.textColor = noticeColor
             }
@@ -92,15 +89,39 @@ final class JobsViewController: NSViewController {
             noticeRows[notice.id] = row
         }
     }
+}
 
-    private func makeRow(for id: Int) -> JobRowView {
-        let row = JobRowView(id: id)
-        row.apply(palette)
-        row.onCommand = { [weak self] command in self?.workspace.perform(command) }
-        stack.addArrangedSubview(row)
-        row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
-        rows[id] = row
-        return row
+/// The strip's line about the jobs, and Show Jobs (#112).
+@MainActor
+final class JobsIndicatorView: NSView {
+    let text = NSTextField(labelWithString: "")
+    var show: () -> Void = {}
+
+    init() {
+        super.init(frame: .zero)
+        text.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        text.textColor = .secondaryLabelColor
+        text.lineBreakMode = .byTruncatingTail
+        let button = CommandButton(title: "Show Jobs") { [weak self] in self?.show() }
+        button.controlSize = .small
+        button.bezelStyle = .push
+        let line = NSStackView(views: [text, button])
+        line.orientation = .horizontal
+        line.alignment = .centerY
+        line.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(line)
+        NSLayoutConstraint.activate([
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor),
+            line.topAnchor.constraint(equalTo: topAnchor),
+            line.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        text.setContentHuggingPriority(.defaultLow, for: .horizontal)
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) is not supported")
     }
 }
 
@@ -114,7 +135,8 @@ final class JobRowView: NSView {
     private let progress = NSProgressIndicator()
     private let buttons = NSStackView()
     private let applyToAll = NSButton(checkboxWithTitle: "Apply to all", target: nil, action: nil)
-    private var renderedState: Job.State?
+    /// What the buttons were made for: the state, and whether Start Now could run the job.
+    private var renderedButtons: (state: Job.State, canStartNow: Bool)?
     private var palette: Palette?
     /// The detail lists the problems of a job that is done.
     private var showsProblems = false
@@ -146,19 +168,28 @@ final class JobRowView: NSView {
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = 2
-        let line = NSStackView(views: [text, buttons])
-        line.orientation = .horizontal
-        line.alignment = .centerY
-        line.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(line)
+        // The text takes the width up to the buttons, which line up at the right edge (#112).
+        for view in [text, buttons] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
         NSLayoutConstraint.activate([
-            line.leadingAnchor.constraint(equalTo: leadingAnchor),
-            line.trailingAnchor.constraint(equalTo: trailingAnchor),
-            line.topAnchor.constraint(equalTo: topAnchor),
-            line.bottomAnchor.constraint(equalTo: bottomAnchor),
+            text.leadingAnchor.constraint(equalTo: leadingAnchor),
+            text.topAnchor.constraint(equalTo: topAnchor),
+            text.bottomAnchor.constraint(equalTo: bottomAnchor),
+            text.trailingAnchor.constraint(equalTo: buttons.leadingAnchor, constant: -8),
+            buttons.trailingAnchor.constraint(equalTo: trailingAnchor),
+            buttons.centerYAnchor.constraint(equalTo: centerYAnchor),
+            buttons.topAnchor.constraint(greaterThanOrEqualTo: topAnchor),
             progress.widthAnchor.constraint(equalTo: text.widthAnchor),
         ])
-        text.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        // A stack view's own hugging: the buttons' stays as narrow as its buttons, the text's
+        // takes what is left.
+        // As wide as the row lets it: the buttons keep their own width at the right edge.
+        let wide = text.widthAnchor.constraint(equalTo: widthAnchor)
+        wide.priority = .defaultLow
+        wide.isActive = true
+        buttons.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
     @available(*, unavailable)
@@ -166,9 +197,11 @@ final class JobRowView: NSView {
         fatalError("init(coder:) is not supported")
     }
 
-    func configure(_ job: Job) {
+    /// `now`: for the times a running job shows (#112); `canStartNow`: a waiting job offers
+    /// Start Now.
+    func configure(_ job: Job, now: Date = Date(), canStartNow: Bool = false) {
         title.stringValue = JobText.title(job.operation)
-        detail.stringValue = JobText.detail(job)
+        detail.stringValue = JobText.detail(job, now: now)
         let problems = job.isDone && !job.errors.isEmpty
         if problems != showsProblems {
             showsProblems = problems
@@ -182,16 +215,21 @@ final class JobRowView: NSView {
         }
         // Rebuilding the buttons only when the state changes keeps a click from landing on a
         // button that was just replaced.
-        guard job.state != renderedState else {
+        if let rendered = renderedButtons, rendered.state == job.state, rendered.canStartNow == canStartNow {
             return
         }
-        renderedState = job.state
+        renderedButtons = (job.state, canStartNow)
         for view in buttons.arrangedSubviews {
             buttons.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
         switch job.state {
-        case .queued, .running:
+        case .queued:
+            if canStartNow {
+                addButton("Start Now") { .startJobNow($0.id) } // #112: beside the running ones
+            }
+            addButton("Cancel") { .cancelJob($0.id) }
+        case .running:
             addButton("Cancel") { .cancelJob($0.id) }
         case .waiting:
             applyToAll.state = .off
@@ -270,92 +308,5 @@ final class CommandButton: NSButton {
 
     @objc private func run(_: Any?) {
         handler()
-    }
-}
-
-/// The words a job row shows.
-enum JobText {
-    static func title(_ operation: FileOperation) -> String {
-        switch operation {
-        case let .copy(paths, folder):
-            "Copying \(items(paths)) to “\(name(folder))”"
-        case let .move(paths, folder):
-            "Moving \(items(paths)) to “\(name(folder))”"
-        case let .trash(paths):
-            "Moving \(items(paths)) to the Trash"
-        case let .delete(paths):
-            "Deleting \(items(paths))"
-        case let .command(arguments, _):
-            "Running “\(([name(arguments.first ?? "")] + arguments.dropFirst()).joined(separator: " "))”"
-        case let .rename(path, newName):
-            "Renaming “\(name(path))” to “\(newName)”"
-        case let .renameAll(renames):
-            "Renaming \(items(renames.map(\.path)))"
-        case let .newFolder(_, folderName):
-            "Creating “\(folderName)”"
-        case let .removeExactly(plan, forGood):
-            forGood ? "Deleting \(plan.files.count) items" : "Moving \(plan.files.count) items to the Trash"
-        case let .undo(steps):
-            steps.count == 1 ? "Undoing 1 change" : "Undoing \(steps.count) changes"
-        }
-    }
-
-    static func detail(_ job: Job) -> String {
-        switch job.state {
-        case let .waiting(conflict):
-            "“\(name(conflict.existing))” already exists in “\(name(parent(conflict.existing)))”."
-        case .cancelled:
-            job.errors.isEmpty ? "Cancelled." : "Cancelled. " + problems(job.errors)
-        case .finished:
-            job.errors.isEmpty ? "Done." : problems(job.errors)
-        case .running:
-            progressText(job.progress)
-        case .queued:
-            "Waiting for its turn." // #112: behind another job
-        }
-    }
-
-    static func fraction(_ progress: JobProgress) -> Double? {
-        if let total = progress.totalBytes, total > 0 {
-            return min(1, Double(progress.doneBytes) / Double(total))
-        }
-        guard progress.totalItems > 0 else {
-            return nil
-        }
-        return Double(progress.doneItems) / Double(progress.totalItems)
-    }
-
-    private static func progressText(_ progress: JobProgress) -> String {
-        var parts: [String] = []
-        if progress.totalItems > 1 {
-            parts.append("\(progress.doneItems) of \(progress.totalItems) items")
-        }
-        if let total = progress.totalBytes, total > 0 {
-            let formatter = ByteCountFormatter()
-            formatter.countStyle = .file
-            let done = formatter.string(fromByteCount: progress.doneBytes)
-            parts.append("\(done) of \(formatter.string(fromByteCount: total))")
-        }
-        if let current = progress.currentItem {
-            parts.append(current)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private static func problems(_ errors: [JobError]) -> String {
-        let first = "\(name(errors[0].path)): \(errors[0].message)"
-        return errors.count == 1 ? first : "\(first) (and \(errors.count - 1) more)"
-    }
-
-    private static func items(_ paths: [String]) -> String {
-        paths.count == 1 ? "“\(name(paths[0]))”" : "\(paths.count) items"
-    }
-
-    private static func parent(_ path: String) -> String {
-        (path as NSString).deletingLastPathComponent
-    }
-
-    private static func name(_ path: String) -> String {
-        (path as NSString).lastPathComponent
     }
 }

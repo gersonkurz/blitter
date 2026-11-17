@@ -145,13 +145,18 @@ final class ThemeInteractionTests {
         workspace.onChange?()
         let status = try #require(label(in: list.view) { $0.hasPrefix("/locked: ") }) // not the path field
         let title = "Moving “a.txt” to the Trash"
-        let problem = try #require(label(in: jobs.view) { $0.contains("a.txt") && $0 != title })
+        let jobsWindow = JobsWindowController() // #112: the jobs are there now
+        defer { jobsWindow.close() }
+        jobsWindow.render(workspace)
+        let jobsView = try #require(jobsWindow.window?.contentView)
+        let problem = try #require(label(in: jobsView) { $0.contains("a.txt") && $0 != title })
         #expect(status.textColor == .secondaryLabelColor && problem.textColor == .secondaryLabelColor) // system
 
         setScheme("solarized-dark")
+        jobsWindow.render(workspace)
         #expect(hex(status.textColor ?? .clear) == "dc322f")
         #expect(hex(problem.textColor ?? .clear) == "dc322f")
-        let titleLabel = try #require(label(in: jobs.view) { $0 == title })
+        let titleLabel = try #require(label(in: jobsView) { $0 == title })
         #expect(hex(titleLabel.textColor ?? .clear) == "93a1a1") // the title stays text
     }
 

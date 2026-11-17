@@ -80,6 +80,12 @@ public final class AppModel {
     }
 
     /// The windows' workspaces, oldest first.
+    /// A window's workspace, while any is open: where the Jobs window (#112), every window's,
+    /// sends its commands when the window it heard from last has closed.
+    public var anyWorkspace: Workspace? {
+        workspaces.last
+    }
+
     var workspaces: [Workspace] {
         windows.compactMap(\.workspace)
     }
@@ -97,15 +103,15 @@ public final class AppModel {
     }
 
     /// A job ended: its undo is recorded once, each window reads again what it changed (and the
-    /// window that started it does what it asked for afterwards), and a job that worked leaves
-    /// the strips.
+    /// window that started it does what it asked for afterwards), and a job that ended without
+    /// problems — done, or cancelled — leaves the list; one with problems stays until dismissed.
     private func jobFinished(_ job: Job) {
         let all = workspaces
         all.first?.recordUndo(of: job)
         for workspace in all {
             workspace.jobFinished(job)
         }
-        if job.state == .finished, job.errors.isEmpty {
+        if job.errors.isEmpty { // done or cancelled without problems: nothing left to see (#112)
             jobQueue.dismiss(job.id)
         }
         notifyAll()

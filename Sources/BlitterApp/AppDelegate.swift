@@ -247,6 +247,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         toolsMenu.delegate = self
         mainMenu.addItem(submenu: toolsMenu)
 
+        mainMenu.addItem(submenu: makeWindowMenu()) // #112
+
         fileMenuItems = fileMenu
         editMenuItems = editMenu
         updateMenuBar()
@@ -304,8 +306,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
     }
 
-    private func addItem(to menu: NSMenu, title: String, action: Selector, key: String,
-                         modifiers: NSEvent.ModifierFlags)
+    func addItem(to menu: NSMenu, title: String, action: Selector, key: String,
+                 modifiers: NSEvent.ModifierFlags)
     {
         let item = menu.addItem(withTitle: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers

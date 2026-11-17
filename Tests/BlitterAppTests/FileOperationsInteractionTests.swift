@@ -9,10 +9,10 @@ import Testing
 @MainActor
 @Suite(.serialized)
 final class FileOperationsInteractionTests {
-    private let root = NSTemporaryDirectory() + "BlitterAppTests-" + UUID().uuidString
-    private let workspace: Workspace
+    let root = NSTemporaryDirectory() + "BlitterAppTests-" + UUID().uuidString
+    let workspace: Workspace
     private let fileList: FileListViewController
-    private let jobsStrip: JobsViewController
+    let jobsStrip: JobsViewController
     private let window: NSWindow
 
     init() async throws {
@@ -130,32 +130,6 @@ final class FileOperationsInteractionTests {
         let editor = try #require(window.firstResponder as? NSTextView)
         #expect(editor.string == "New Folder")
         #expect(names().contains("New Folder"))
-    }
-
-    // MARK: Jobs strip
-
-    @Test func aConflictIsAnsweredWithTheButtonsInTheStrip() async throws {
-        FileManager.default.createFile(atPath: root + "/right/report.txt", contents: Data("old".utf8))
-        workspace.perform(.select(.left, ["report.txt"]))
-        workspace.perform(.copyToOtherSide)
-        try await waitUntil { self.button("Keep Both") != nil }
-        #expect(!jobsStrip.view.isHidden)
-        #expect(texts().contains("“report.txt” already exists in “right”."))
-
-        try #require(button("Keep Both")).performClick(nil)
-        try await waitUntil { self.workspace.jobs.isEmpty }
-        let copied = try FileManager.default.contentsOfDirectory(atPath: root + "/right").sorted()
-        #expect(copied == ["report 2.txt", "report.txt"])
-        #expect(jobsStrip.view.isHidden)
-    }
-
-    @Test func aJobWithProblemsStaysUntilDismissed() async throws {
-        workspace.perform(.rename(.left, path: root + "/left/report.txt", newName: "a/b"))
-        try await waitUntil { self.button("Dismiss") != nil }
-        #expect(texts().contains { $0.contains("is not a valid name") })
-        try #require(button("Dismiss")).performClick(nil)
-        #expect(workspace.jobs.isEmpty)
-        #expect(jobsStrip.view.isHidden)
     }
 
     @Test func theAppMenuOpensTheSettings() throws {
@@ -284,15 +258,15 @@ final class FileOperationsInteractionTests {
         workspace.state(of: .left).visibleEntries.map(\.entry.name)
     }
 
-    private func allSubviews(of view: NSView) -> [NSView] {
+    func allSubviews(of view: NSView) -> [NSView] {
         view.subviews + view.subviews.flatMap(allSubviews)
     }
 
-    private func button(_ title: String) -> NSButton? {
+    func button(_ title: String) -> NSButton? {
         allSubviews(of: jobsStrip.view).compactMap { $0 as? NSButton }.first { $0.title == title }
     }
 
-    private func texts() -> [String] {
+    func texts() -> [String] {
         allSubviews(of: jobsStrip.view).compactMap { ($0 as? NSTextField)?.stringValue }
     }
 
@@ -303,7 +277,7 @@ final class FileOperationsInteractionTests {
                          charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0 ..< 300 where !condition() {
             try await Task.sleep(for: .milliseconds(10))
         }

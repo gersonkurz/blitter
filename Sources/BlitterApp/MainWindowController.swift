@@ -10,6 +10,8 @@ final class MainWindowController: NSWindowController {
     let workspace: Workspace
     private let sideControllers: [SideViewController]
     private let jobsController: JobsViewController
+    /// The Jobs window (#112), every window's; tests give each window one of its own.
+    var jobsWindow = JobsWindowController.shared
     let findController: FindPanelController
     /// The delete request the window has already asked about.
     private var askedDeleteToken: Int?
@@ -53,6 +55,7 @@ final class MainWindowController: NSWindowController {
         window.title = Self.title()
         window.isReleasedWhenClosed = false // its controller owns it; a closed one goes with it (#96)
         super.init(window: window)
+        jobsController.showJobs = { [weak self] in self?.jobsWindow.showByUser() } // #112
 
         let splitViewController = NSSplitViewController()
         splitViewController.splitView.isVertical = true
@@ -149,6 +152,7 @@ final class MainWindowController: NSWindowController {
             controller.render()
         }
         jobsController.render()
+        jobsWindow.render(workspace) // #112: the one for every window
         findController.render()
         toolbar?.render()
         askToDeleteIfNeeded()

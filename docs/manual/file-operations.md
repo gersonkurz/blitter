@@ -105,9 +105,32 @@ to Trash**. Press it again for the one before, and so on.
 
 ## Jobs
 
-Copying, moving, deleting and renaming run in the background. Each job gets a row in the strip
-at the bottom of the window, with its progress and **Cancel**. You can go on working
-meanwhile.
+Copying, moving, deleting and renaming run in the background. You can go on working meanwhile.
+The strip at the bottom of the window says in one line what is going on — what runs and how far,
+how many wait, a question waiting, problems — with **Show Jobs**.
+
+![The Jobs window](images/jobs-window-light.png)
+
+The **Jobs** window shows them all, for every window: what runs, then what waits for its turn,
+then what finished with problems.
+
+- **It appears by itself** once a job has taken longer than five seconds, and at once when a
+  job has a question. Quick jobs never bring it up. It does not take the keyboard from the list
+  you work in. Closing it cancels nothing; **Window → Jobs** (**⌥⌘J**) shows it again. It closes
+  by itself once everything is done without problems.
+- **A running job** shows how far it is, how fast it goes, how long it has run and about how long
+  it still needs, with **Cancel**. If it has made no progress for half a minute, it says so first
+  (a big folder deleted for good can be quiet that long without being stuck). A job started by
+  automation (an assistant over the `blitter` tool) says so, and so does one started in another
+  window when several are open.
+- **A waiting job** has **Cancel**, and **Start Now** to run it beside the others — when it only
+  waits because jobs take turns, never when an earlier job uses its items.
+- **Quitting** with jobs not done asks first: **Quit and Cancel Them** stops them (what they
+  finished stays, a file being copied is removed), or **Don't Quit**. If some have not stopped
+  after ten seconds — one finishing a step it cannot break off (a batch rename), or waiting for a
+  volume that does not answer — Blitter asks again: **Don't Quit** (the default) keeps it open
+  while they go on stopping; **Quit Anyway** quits now and can leave files half done. Nothing
+  resumes at the next launch.
 
 - **One after the other:** copying, deleting for good, moving to another volume and undo run one
   at a time, in the order you started them; a job behind another says **Waiting for its turn.**
@@ -123,7 +146,7 @@ meanwhile.
 - A copy starts at once. One that takes longer than a few seconds has its total size measured
   beside it, and then shows how much of it is done.
 
-- **When a name is taken**, the job asks in its row: **Replace** (the existing item goes to the
+- **When a name is taken**, the job asks in its row in the Jobs window: **Replace** (the existing item goes to the
   Trash), **Skip**, or **Keep Both** (the new one gets a free name such as "report 2.txt").
   **Apply to all** answers the same for the rest of the job.
 - A job that finishes without problems disappears. One that had problems stays, with what went

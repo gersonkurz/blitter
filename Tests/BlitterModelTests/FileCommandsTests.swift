@@ -233,9 +233,12 @@ struct FileCommandsTests {
         sides.workspace.perform(.select(.left, ["a.txt"]))
         sides.workspace.perform(.copyToOtherSide)
         let id = try #require(sides.workspace.jobs.first?.id)
+        var ended: Job?
+        sides.workspace.whenJobDone(id) { ended = $0 }
         sides.workspace.perform(.cancelJob(id))
         try await sides.settle()
-        #expect(sides.workspace.jobs.first?.state == .cancelled)
+        #expect(ended?.state == .cancelled)
+        #expect(sides.workspace.jobs.isEmpty) // cancelled without problems: it leaves the list (#112)
         #expect(try String(contentsOfFile: sides.right + "/a.txt", encoding: .utf8) == "old")
     }
 
