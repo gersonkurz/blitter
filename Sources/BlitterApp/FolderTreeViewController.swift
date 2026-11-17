@@ -12,6 +12,9 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
     let outlineView = ActivatingOutlineView()
     private var renderedVersion = -1
     private var renderedRoots: [TreeRoot] = []
+    /// The node the tree last scrolled to: it scrolls to the selection only when that changes,
+    /// not when a rebuild (a folder expanded further down) selects it again.
+    private var scrolledTo: TreeNodeID?
     private(set) var isRendering = false
     /// Items by key, so the outline view sees the same object for a node across reloads.
     private var items: [String: TreeItem] = [:]
@@ -127,10 +130,14 @@ final class FolderTreeViewController: NSViewController, NSOutlineViewDataSource,
         guard let node, let item = items[Self.key(node)], case let row = outlineView.row(forItem: item), row >= 0
         else {
             outlineView.deselectAll(nil)
+            scrolledTo = nil
             return
         }
         if outlineView.selectedRow != row {
             outlineView.selectRowIndexes([row], byExtendingSelection: false)
+        }
+        if scrolledTo != node { // a new selection is shown; the same one again leaves the view be
+            scrolledTo = node
             outlineView.scrollRowToVisible(row)
         }
     }
