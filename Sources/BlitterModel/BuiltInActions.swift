@@ -146,6 +146,15 @@ extension ActionRegistry {
         Action("new-window", "New Window", scope: .always, effect: .view, symbol: "macwindow.badge.plus",
                command: { workspace, side in .newWindow(folder: workspace.state(of: side).location) }),
         // #88: the View menu's own, as actions so the toolbar (and menus, and automation) can name them.
+        // #109: a submenu of the apps for the selected files; run on its own, it asks for an app.
+        Action("open-with", "Open With", scope: .files, effect: .notAutomated, symbol: "arrow.up.right.square",
+               menuForm: .apps(setsDefault: false),
+               command: { workspace, side in .chooseApp(.open(workspace.selectedFilePaths(on: side))) }),
+        Action("always-open-with", "Always Open With", scope: .sameKindFiles, effect: .notAutomated,
+               symbol: "checkmark.square", menuForm: .apps(setsDefault: true),
+               command: { workspace, side in
+                   workspace.selectedKind(on: side).map { .chooseApp(.setDefault($0)) } ?? .chooseApp(.open([]))
+               }),
         Action("toggle-hidden-files", "Show Hidden Files", scope: .always, effect: .view, symbol: "eye.slash",
                isOn: { $0.showsHiddenFiles }, command: { _, _ in .toggleHiddenFiles }),
         // #107: on while a plain drag copies; the button and the menu's checkmark show the mode.

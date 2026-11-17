@@ -87,6 +87,13 @@ public enum Command: Sendable {
     case revealInFinder(Side)
     /// Open items with an app (an external tool, #18); a failure becomes a notice naming `title`.
     case openWithApp(String, paths: [String], title: String)
+    /// Make the app at this path the default for a kind of file (#109, as Finder's Change
+    /// All). The result becomes a notice.
+    case setDefaultApp(String, for: FileKind)
+    /// Ask for an app (#109, Other…), then open these files with it, or make it this kind's
+    /// default. The target is named, not the side: a selection changed while the user chooses
+    /// does not change what it acts on.
+    case chooseApp(OpenWithTarget)
     /// Eject the volume mounted at the path, one of the tree's volumes but not the startup disk
     /// (#84); a failure becomes a notice.
     case eject(String)

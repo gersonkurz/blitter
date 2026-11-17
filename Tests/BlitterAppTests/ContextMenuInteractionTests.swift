@@ -40,7 +40,9 @@ final class ContextMenuInteractionTests {
         workspace.perform(.select(.right, ["b.txt"]))
         let shown = try open(mouse: .rightMouseDown, at: row("a.txt"))
         #expect(shown == [
-            "Open", "Quick Look", "-", "Copy Path", "Copy Name", "-", "Rename", "Batch Rename…", "Move to Trash",
+            "Open", "Open With", "Always Open .txt Files With", "Quick Look", "-", "Copy Path", "Copy Name", "-",
+            "Rename",
+            "Batch Rename…", "Move to Trash",
             "Delete Immediately", "-", "Reveal in Finder", "Open in Terminal", "Open in Code", "Open in Text Editor",
         ])
         #expect(workspace.activeSide == .right)

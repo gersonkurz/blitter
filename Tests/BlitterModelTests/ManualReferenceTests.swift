@@ -183,6 +183,7 @@ struct ManualReferenceTests {
         case .oneFolder: "the one selected folder, or the side's folder when nothing is selected"
         case .volume: "the volume the side's folder is on, if it is not the startup disk"
         case .always: "nothing in particular: it always fits"
+        case .sameKindFiles: "the selected files, all of one kind (the same extension)"
         }
     }
 }

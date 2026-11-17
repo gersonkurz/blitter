@@ -34,6 +34,9 @@ public enum ActionScope: Hashable, Sendable {
     /// Nothing in particular (#88): the view as a whole, such as showing hidden files. It always
     /// fits.
     case always
+    /// One or more selected files of one kind (#109): the same name extension and content type,
+    /// a type macOS knows, so its default app can be set.
+    case sameKindFiles
 
     /// Whether the action can work on the side's folder: such actions are offered in the tree's
     /// menu (#20), where they act on the node's folder.
@@ -65,6 +68,7 @@ public enum ActionScope: Hashable, Sendable {
         case .single: state.selection.count == 1
         case .files:
             !state.selection.isEmpty && state.selectedEntriesAllSatisfy { [.file, .symlink].contains($0.entry.kind) }
+        case .sameKindFiles: state.selectedKind != nil
         }
     }
 }
@@ -110,6 +114,16 @@ public enum ActionOutput: Equatable, Sendable {
 /// What running an action does, for the automation socket (#58): view actions run when asked,
 /// those that open something or change files only once the user allows it in Blitter, and some
 /// are not offered there at all.
+/// How an action shows in a menu (#109).
+public enum ActionMenuForm: Sendable {
+    /// An item that runs the action.
+    case item
+    /// A submenu of the apps that open the selected files: choosing one opens them with it, or
+    /// (`setsDefault`) makes it their kind's default app. Run as an item (toolbar, a shortcut),
+    /// the action asks for an app.
+    case apps(setsDefault: Bool)
+}
+
 public enum ActionEffect: String, Sendable {
     /// Changes only what Blitter shows or opens one of its own windows.
     case view
@@ -147,10 +161,12 @@ public struct Action: Sendable {
     /// For an action that turns something on or off (#88): whether it is on now. The toolbar
     /// shows its button pressed, a menu item a checkmark.
     let isOn: (@MainActor @Sendable (Workspace) -> Bool)?
+    /// What a menu shows for it (#109): a submenu of the apps for the selection, or an item.
+    public let menuForm: ActionMenuForm
 
     init(_ id: String, _ title: String, scope: ActionScope, output: ActionOutput = .none, worksInFind: Bool = true,
          effect: ActionEffect = .changes, fileTypes: [String] = [], symbol: String, app: String? = nil,
-         isOn: (@MainActor @Sendable (Workspace) -> Bool)? = nil,
+         isOn: (@MainActor @Sendable (Workspace) -> Bool)? = nil, menuForm: ActionMenuForm = .item,
          command: @escaping @MainActor @Sendable (Workspace, Side) -> Command)
     {
         self.id = id
@@ -163,6 +179,7 @@ public struct Action: Sendable {
         self.symbol = symbol
         self.app = app
         self.isOn = isOn
+        self.menuForm = menuForm
         self.command = command
     }
 

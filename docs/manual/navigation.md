@@ -5,6 +5,17 @@
 - **Return** or a double-click on a folder shows it in the same side. A symbolic link to a
   folder is followed.
 - Files, and packages such as apps, open with their default app.
+- **Open With** in a file's context menu lists the apps that can open the selected files, the
+  default first, and **Other…** to choose any app. With several kinds of files selected, it lists
+  the apps that open all of them.
+- **Always Open .txt Files With** (named after the selected files' extension) makes the chosen app
+  the default for that kind of file, as Finder's Get Info → Open with → Change All… does. It shows
+  only when every selected file is of one kind that macOS knows; the current default is checked.
+  Blitter says in the window when the default has changed.
+- Both are actions, `open-with` and `always-open-with`. In a menu (the context menus, or the
+  File and Edit menus if you add them there, see [Tools and menus](tools-and-menus.md)) they list
+  the apps; as a toolbar button they ask for an app. A settings file that lists its own context
+  menu has them only once you add them.
 - **⌘↑** (Go → Enclosing Folder) or the **↑** button goes up one level and selects the folder
   you came from.
 

@@ -180,6 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 return false
             }
             menuItem.state = workspace.isOn(id) == true ? .on : .off // #88: e.g. Show Hidden Files
+            menuItem.title = workspace.menuTitle(id, on: workspace.activeSide) // #109: Always Open .md Files With
             return !isEditingText && workspace.canRun(id, on: workspace.activeSide)
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = workspace.showsHiddenFiles ? .on : .off
@@ -296,6 +297,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
         addItem(to: menu, title: action.title, action: #selector(runAction(_:)), key: key, modifiers: modifiers)
         menu.items.last?.representedObject = id
+        if case let .apps(setsDefault) = action.menuForm { // #109: the apps for the active side's files
+            menu.items.last?.submenu = OpenWithMenu(setsDefault: setsDefault) { [weak self] in
+                self.map { ($0.workspace, $0.workspace.activeSide) }
+            }
+        }
     }
 
     private func addItem(to menu: NSMenu, title: String, action: Selector, key: String,

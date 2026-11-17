@@ -15,7 +15,8 @@ public struct ContextMenus: Equatable, Sendable {
 
     static let defaults = ContextMenus(
         items: [
-            .action("open"), .action("quick-look"), .action("folder-sizes"), .separator,
+            .action("open"), .action("open-with"), .action("always-open-with"), .action("quick-look"),
+            .action("folder-sizes"), .separator,
             .action("copy-path"), .action("copy-name"), .separator,
             .action("rename"), .action("batch-rename"), .action("move-to-trash"), .action("delete-immediately"),
             .separator,
@@ -85,6 +86,9 @@ public struct ContextMenus: Equatable, Sendable {
 /// between entries.
 public enum ShownMenuEntry: Equatable, Sendable {
     case action(id: String, title: String)
+    /// The apps that open the selected files (#109), filled by the app when it opens: choosing
+    /// one runs `openSelectionWith`, or (`setsDefault`) `setDefaultApp`.
+    case apps(id: String, title: String, setsDefault: Bool)
     case separator
     case submenu(String, [ShownMenuEntry])
 }
@@ -92,7 +96,8 @@ public enum ShownMenuEntry: Equatable, Sendable {
 public extension Workspace {
     /// The context menu for the side as it is now: for its selection, or for its folder.
     func contextMenu(for side: Side, folder: Bool) -> [ShownMenuEntry] {
-        shown(folder ? settings.contextMenus.folder : settings.contextMenus.items) { canRun($0.id, on: side) }
+        shown(folder ? settings.contextMenus.folder : settings.contextMenus.items,
+              title: { menuTitle($0.id, on: side) }, where: { canRun($0.id, on: side) })
     }
 
     /// The tree's menu for `folder` (#20): the folder menu's folder actions. They fit any folder,
@@ -101,25 +106,31 @@ public extension Workspace {
     func treeContextMenu(for folder: String) -> [ShownMenuEntry] {
         let inWorkingCopy = workingCopyRoot(containing: folder) != nil
         let onVolume = ejectableVolume(containing: folder) != nil
-        return shown(settings.contextMenus.folder) {
+        return shown(settings.contextMenus.folder, title: { $0.title }, where: {
             $0.worksOnFolder && ($0.scope != .workingCopy || inWorkingCopy) && ($0.scope != .volume || onVolume)
-        }
+        })
     }
 
-    private func shown(_ entries: [MenuEntry], where fits: (Action) -> Bool) -> [ShownMenuEntry] {
+    private func shown(_ entries: [MenuEntry], title titleOf: (Action) -> String,
+                       where fits: (Action) -> Bool) -> [ShownMenuEntry]
+    {
         var result: [ShownMenuEntry] = []
         for entry in entries {
             switch entry {
             case let .action(id):
                 if let action = actionRegistry.action(id), fits(action) {
-                    result.append(.action(id: id, title: action.title))
+                    switch action.menuForm {
+                    case .item: result.append(.action(id: id, title: titleOf(action)))
+                    case let .apps(setsDefault):
+                        result.append(.apps(id: id, title: titleOf(action), setsDefault: setsDefault))
+                    }
                 }
             case .separator:
                 if let last = result.last, last != .separator {
                     result.append(.separator)
                 }
             case let .submenu(title, inner):
-                let items = shown(inner, where: fits)
+                let items = shown(inner, title: titleOf, where: fits)
                 if !items.isEmpty {
                     result.append(.submenu(title, items))
                 }

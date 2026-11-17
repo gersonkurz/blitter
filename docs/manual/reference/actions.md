@@ -34,6 +34,8 @@ settings file are actions too, named by their `[tools.<name>]`.
 | `eject` | Eject | the volume the side's folder is on, if it is not the startup disk |
 | `undo` | Undo | the last file operation, while one can be undone |
 | `new-window` | New Window | nothing in particular: it always fits |
+| `open-with` | Open With | the selected files (no folders) |
+| `always-open-with` | Always Open With | the selected files, all of one kind (the same extension) |
 | `toggle-hidden-files` | Show Hidden Files | nothing in particular: it always fits |
 | `toggle-drag-copies` | Drag and Drop Copies | nothing in particular: it always fits |
 | `refresh` | Refresh | nothing in particular: it always fits |

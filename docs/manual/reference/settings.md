@@ -74,8 +74,9 @@ on = "files"
 
 # The file list's context menus: action names in order, "-" for a separator, and
 # { title = "…", items = […] } for a submenu. Only actions that fit what was clicked are shown.
-# Actions: open, quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side,
-# move-to-other-side, reveal-in-finder, move-to-trash, delete-immediately,
+# Actions: open, open-with and always-open-with (submenus of the apps for the selected files),
+# quick-look, copy, copy-path, copy-name, rename, batch-rename, copy-to-other-side, move-to-other-side,
+# reveal-in-finder, move-to-trash, delete-immediately,
 # delete-immediately-without-asking, new-folder, folder-sizes, copy-folder-path, add-to-favorites,
 # compare-files, compare-folders, undo, eject, toggle-hidden-files, toggle-drag-copies, refresh,
 # git-clone, git-log, git-commit, git-sync and git-clean (only inside a git working copy), and the
@@ -83,7 +84,7 @@ on = "files"
 [context_menu]
 # For the clicked or selected items.
 items = [
-    "open", "quick-look", "folder-sizes", "-",
+    "open", "open-with", "always-open-with", "quick-look", "folder-sizes", "-",
     "copy-path", "copy-name", "-",
     "rename", "batch-rename", "move-to-trash", "delete-immediately", "-",
     "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "-",

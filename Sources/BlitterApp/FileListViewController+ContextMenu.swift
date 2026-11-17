@@ -32,7 +32,7 @@ extension FileListViewController: NSMenuDelegate {
         let selection = workspace.state(of: side).selection
         guard let row = clickedRow else {
             menu.fill(with: workspace.contextMenu(for: side, folder: selection.isEmpty), target: self,
-                      action: #selector(runContextAction(_:)))
+                      action: #selector(runContextAction(_:)), apps: openWithMenu)
             return
         }
         let onFolder = row < 0 || row >= entries.count
@@ -42,7 +42,14 @@ extension FileListViewController: NSMenuDelegate {
             workspace.perform(.select(side, [entries[row].entry.name]))
         }
         menu.fill(with: workspace.contextMenu(for: side, folder: onFolder), target: self,
-                  action: #selector(runContextAction(_:)))
+                  action: #selector(runContextAction(_:)), apps: openWithMenu)
+    }
+
+    /// Open With's submenus (#109), for this side.
+    private func openWithMenu(setsDefault: Bool) -> NSMenu {
+        OpenWithMenu(setsDefault: setsDefault) { [weak self] in
+            self.map { ($0.workspace, $0.side) }
+        }
     }
 
     @objc private func runContextAction(_ sender: NSMenuItem) {
@@ -55,8 +62,11 @@ extension FileListViewController: NSMenuDelegate {
 
 extension NSMenu {
     /// Replaces the items with the entries; each action item runs `action` on `target` with the
-    /// action id as its `representedObject`.
-    func fill(with entries: [ShownMenuEntry], target: AnyObject, action: Selector) {
+    /// action id as its `representedObject`. `apps` makes the submenus of apps (#109); without
+    /// it they are left out.
+    func fill(with entries: [ShownMenuEntry], target: AnyObject, action: Selector,
+              apps: ((_ setsDefault: Bool) -> NSMenu)? = nil)
+    {
         removeAllItems()
         for entry in entries {
             switch entry {
@@ -69,8 +79,15 @@ extension NSMenu {
             case let .submenu(title, inner):
                 let submenu = NSMenu(title: title)
                 submenu.autoenablesItems = false
-                submenu.fill(with: inner, target: target, action: action)
+                submenu.fill(with: inner, target: target, action: action, apps: apps)
                 addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = submenu
+            case let .apps(id, title, setsDefault):
+                guard let apps else {
+                    continue
+                }
+                let item = addItem(withTitle: title, action: nil, keyEquivalent: "")
+                item.representedObject = id
+                item.submenu = apps(setsDefault)
             }
         }
     }

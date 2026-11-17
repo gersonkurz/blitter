@@ -18,6 +18,12 @@ public struct SystemServices {
     /// back on the main actor with a message if the app cannot be found or refuses the items.
     public var openWithApp: (_ app: String, _ paths: [String], _ failed: @escaping @MainActor (String) -> Void)
         -> Void = { _, _, _ in }
+    /// Ask for an app (#109) and call back with its path, or nil if none was chosen.
+    public var chooseApp: (_ chosen: @escaping @MainActor (String?) -> Void) -> Void = { _ in }
+    /// Make the app at the path the default for a content type (#109); calls back with nil when
+    /// done, or with the reason it was not.
+    public var setDefaultApp: (_ app: String, _ contentType: String, _ done: @escaping @MainActor (String?) -> Void)
+        -> Void = { _, _, _ in }
     /// Show a dialog or window (#42); the app knows which kinds it has.
     public var present: (DialogRequest) -> Void = { _ in }
     /// Open another main window (#96), both its sides at the folder.

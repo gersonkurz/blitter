@@ -1,4 +1,6 @@
 import BlitterCore
+import Foundation
+import UniformTypeIdentifiers
 
 /// One of the two side-by-side listers.
 public enum Side: CaseIterable, Sendable {
@@ -131,6 +133,26 @@ public struct SideState: Sendable {
     }
 
     /// The selected entries, in list order.
+    /// The kind of the selected files when they are all of one (#109): files (not folders,
+    /// packages or links) with the same name extension and a content type macOS knows — not the
+    /// generic "data" an unknown extension gets, whose default app would be every file's. Nil
+    /// otherwise. Looks at the first one, then compares the rest with it.
+    var selectedKind: FileKind? {
+        guard let first = selection.first.flatMap(listed), first.entry.kind == .file, !first.contentType.isDynamic,
+              first.contentType != .data
+        else {
+            return nil
+        }
+        let pathExtension = (first.entry.name as NSString).pathExtension.lowercased()
+        guard !pathExtension.isEmpty, selectedEntriesAllSatisfy({
+            $0.entry.kind == .file && $0.contentType == first.contentType
+                && ($0.entry.name as NSString).pathExtension.lowercased() == pathExtension
+        }) else {
+            return nil
+        }
+        return FileKind(pathExtension: pathExtension, contentType: first.contentType)
+    }
+
     var selectedEntries: [ListedEntry] {
         guard selectionIsSparse else {
             return visibleEntries.filter { selection.contains($0.entry.name) }

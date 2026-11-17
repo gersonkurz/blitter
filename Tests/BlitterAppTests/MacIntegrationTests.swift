@@ -4,6 +4,7 @@ import AppKit
 @testable import BlitterModel
 import Quartz
 import Testing
+import UniformTypeIdentifiers
 
 struct DropRulesTests {
     private let all: NSDragOperation = [.copy, .move, .generic, .link]

@@ -229,6 +229,8 @@ public final class Workspace {
         case let .answerDelete(token, delete): answerDelete(token, delete: delete)
         case let .revealInFinder(side): withSelection(side, system.reveal)
         case let .openWithApp(app, paths, title): openWithApp(app, paths, title: title)
+        case let .setDefaultApp(app, kind): setDefaultApp(app, for: kind)
+        case let .chooseApp(target): chooseApp(for: target)
         case let .runCommand(arguments, folder): runCommand(arguments, in: folder)
         case let .compare(left, right): compare(left, right)
         case let .present(request): present(request)

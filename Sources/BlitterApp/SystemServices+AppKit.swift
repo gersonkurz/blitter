@@ -36,6 +36,8 @@ extension SystemServices {
             NSPasteboard.general.writeObjects(items.map(\.url))
         }
         services.openWithApp = { app, paths, failed in ExternalApps.open(paths, with: app, failed: failed) }
+        services.chooseApp = { [weak window] chosen in OpenWithMenu.chooseApp(for: window?.window, chosen) }
+        services.setDefaultApp = OpenWithMenu.setDefaultApp
         services.present = { [weak window] request in
             if let workspace = window?.workspace {
                 DialogHost.present(request, for: workspace) // for the window that asked (#96)

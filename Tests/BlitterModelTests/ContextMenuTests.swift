@@ -13,7 +13,9 @@ struct ContextMenuSettingsTests {
                 nil
             }
         } == [
-            "open", "quick-look", "folder-sizes", "copy-path", "copy-name", "rename", "batch-rename", "move-to-trash",
+            "open", "open-with", "always-open-with", "quick-look", "folder-sizes", "copy-path", "copy-name", "rename",
+            "batch-rename",
+            "move-to-trash",
             "delete-immediately",
             "compare-files", "git-log", "git-commit", "git-sync", "git-clean", "reveal-in-finder", "add-to-favorites",
             "open-in-terminal",
