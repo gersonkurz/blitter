@@ -24,9 +24,11 @@ Git Sync. Any action can be a button, your own tools included.
 
 In **Settings…** → **Tools & Menus**, **Edit: Toolbar** lists the buttons with their icons.
 **Add** inserts an action or a gap after the selected button. A gap starts a new group of
-buttons. **Icon** gives the selected button another icon: the name of an
-[SF Symbol](https://developer.apple.com/sf-symbols/), such as `star` or `folder.badge.plus`.
-The free SF Symbols app lists them all. Leave it empty to keep the action's own icon. A tool's
+buttons. **Icon** gives the selected button another icon: **Choose…** shows a grid of icons
+that suit a file manager's buttons, with a search field (`folder`, `doc plus`) and **Default** for
+the action's own icon. Any other [SF Symbol](https://developer.apple.com/sf-symbols/) can be typed
+by name, such as `star` or `folder.badge.plus`; the free SF Symbols app lists them all. Leave the
+field empty to keep the action's own icon. A tool's
 own icon is that of Blitter's three tools; for a tool of yours, the icon of the app it opens (a
 generic one, `app.badge`, while that app is not found), or `terminal` for a command line. With no buttons at all, the window has no toolbar.
 

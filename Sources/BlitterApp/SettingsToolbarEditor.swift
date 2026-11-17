@@ -64,6 +64,7 @@ struct IconField: View {
     /// A tool's app, whose icon is the button's own while no symbol is typed (#110).
     let app: String?
     @State private var text = ""
+    @State private var picking = false
 
     var body: some View {
         if case let .action(id, icon) = item {
@@ -71,9 +72,16 @@ struct IconField: View {
                 HStack {
                     TextField("Icon", text: $text, prompt: Text(own))
                     ActionIcon(symbol: icon ?? own, app: icon == nil ? app : nil).frame(width: 24)
+                    Button("Choose…") { picking = true } // #111
+                        .popover(isPresented: $picking, arrowEdge: .bottom) {
+                            SymbolPicker(own: own, app: app) { name in
+                                text = name
+                                picking = false
+                            }
+                        }
                 }
-                Text("An SF Symbols name, e.g. star or folder.badge.plus (the SF Symbols app lists them). "
-                    + "Empty: the action's own.")
+                Text("Choose… one, or type any SF Symbols name, e.g. folder.badge.plus (the SF Symbols app "
+                    + "lists them). Empty: the action's own.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .onAppear { text = icon ?? "" }
