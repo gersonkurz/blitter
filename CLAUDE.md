@@ -1,7 +1,7 @@
 # Blitter
 
 A native, keyboard-driven two-sided file manager for macOS: a Path Finder replacement, in the tradition of
-Directory Opus. Released (0.4.0); scope and order live in the GitHub issues. This file is the ground rules and the
+Directory Opus. Released (0.5.0); scope and order live in the GitHub issues. This file is the ground rules and the
 decisions that hold; read it before starting any work.
 
 ## Ground rules

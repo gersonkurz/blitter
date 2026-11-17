@@ -63,7 +63,7 @@ made from Blitter itself, so they show the current version.
 
 The details of each release are in its [release notes](https://github.com/gersonkurz/blitter/releases).
 
-- **Unreleased (on main):** drag and drop copies or moves as you choose (⇧⌘M switches); Open With and Always
+- **0.5.0** (2026-11-17): drag and drop copies or moves as you choose (⇧⌘M switches); Open With and Always
   Open With in the context menu; toolbar buttons with the icons of their apps, and an icon picker; file jobs take
   turns instead of all running at once, and a Jobs window shows what runs and waits; Select Differences between
   the two sides; the version in the window title.
