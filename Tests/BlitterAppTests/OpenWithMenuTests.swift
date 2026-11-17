@@ -203,18 +203,31 @@ final class OpenWithMenuTests {
     /// (".blitterprobe", a type macOS makes up for it), so the Mac's own defaults stay as they
     /// are. Two apps one after the other, so the result is the change and not a coincidence.
     /// What stays behind is Launch Services' note that ".blitterprobe" files open with Preview.
-    @Test func settingTheDefaultForAKindChangesWhatItsFilesOpenWith() async throws {
-        let probe = root + "/left/x.blitterprobe"
-        #expect(FileManager.default.createFile(atPath: probe, contents: Data()))
+    /// A long-running process (this test host) can see the change a moment late — a separate
+    /// process sees it at once — so the answer is awaited for a few seconds. In a full test run
+    /// Launch Services takes from a few seconds to over a minute to confirm, so this runs on its
+    /// own: `just launch-services` (BLITTER_LAUNCH_SERVICES=1).
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BLITTER_LAUNCH_SERVICES"] != nil))
+    func settingTheDefaultForAKindChangesWhatItsFilesOpenWith() async throws {
+        let probe = URL(fileURLWithPath: root + "/left/x.blitterprobe")
+        #expect(FileManager.default.createFile(atPath: probe.path, contents: Data()))
         let type = try #require(UTType(filenameExtension: "blitterprobe"))
         for app in ["/System/Applications/TextEdit.app", "/System/Applications/Preview.app"] {
             let problem = await withCheckedContinuation { continuation in
                 OpenWithMenu.setDefaultApp(app, type.identifier) { continuation.resume(returning: $0) }
             }
             #expect(problem == nil)
-            #expect(NSWorkspace.shared.urlForApplication(toOpen: URL(fileURLWithPath: probe))?.standardizedFileURL.path
-                == app)
-            #expect(NSWorkspace.shared.urlForApplication(toOpen: type)?.standardizedFileURL.path == app)
+            var answers: (file: String?, type: String?) = (nil, nil)
+            for _ in 0 ..< 50 {
+                answers = (NSWorkspace.shared.urlForApplication(toOpen: probe)?.standardizedFileURL.path,
+                           NSWorkspace.shared.urlForApplication(toOpen: type)?.standardizedFileURL.path)
+                if answers == (app, app) {
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            #expect(answers.file == app, "for a file, Launch Services still answers \(answers.file ?? "nil")")
+            #expect(answers.type == app, "for the type, Launch Services still answers \(answers.type ?? "nil")")
         }
     }
 

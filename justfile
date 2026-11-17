@@ -37,6 +37,13 @@ build config="Debug": generate
     xcodebuild build -project {{project}} -scheme {{scheme}} -configuration {{quote(config)}} \
         -destination "{{destination}}" -derivedDataPath {{derived_data}} | xcbeautify --quiet
 
+# Slow and uneven inside a full test run, so it runs on its own; .blitterprobe is a kind no real file has.
+# Check that Open With's Always Open really changes a kind's default app (on .blitterprobe)
+launch-services: generate
+    TEST_RUNNER_BLITTER_LAUNCH_SERVICES=1 xcodebuild test -project {{project}} -scheme {{scheme}} \
+        -configuration Debug -destination "{{destination}}" -derivedDataPath {{derived_data}} \
+        -only-testing:BlitterAppTests/OpenWithMenuTests | xcbeautify --quiet
+
 # Make the manual's screenshots from the app (docs/manual/images); see CLAUDE.md, Manual.
 # In English (US), whatever this Mac's language: sizes read "3.3 MB" as the manual does.
 screenshots: generate
