@@ -17,6 +17,15 @@ struct JobsWindowPolicyTests {
         return job
     }
 
+    /// #112 step 3: a search or a measuring counts like a running job.
+    @Test func aLongSearchShowsItAndItClosesWhenTheSearchEnds() {
+        var policy = JobsWindowPolicy()
+        let search = BackgroundTask(id: 1, title: "Finding", origin: nil, started: start)
+        #expect(policy.step([], tasks: [search], at: start.addingTimeInterval(4)) == JobsWindowPolicy.Step.none)
+        #expect(policy.step([], tasks: [search], at: start.addingTimeInterval(5)) == .show)
+        #expect(policy.step([], tasks: [], at: start.addingTimeInterval(6)) == .close)
+    }
+
     @Test func fastJobsNeverShowIt() {
         var policy = JobsWindowPolicy()
         #expect(policy.step([job(1, .running)], at: start.addingTimeInterval(4.9)) == JobsWindowPolicy.Step.none)
@@ -117,6 +126,9 @@ struct JobTextTests {
         asking.state = .waiting(Conflict(source: "/a/x", existing: "/b/x"))
         #expect(JobText.summary([asking, waiting]) == "Copying “x” to “b”: a question is waiting.")
         #expect(JobText.summary([]) == "")
+        let search = BackgroundTask(id: 1, title: "Finding “*.jpg” in “Pictures”", origin: nil, started: Date())
+        #expect(JobText.summary([waiting], tasks: [search]) == "Finding “*.jpg” in “Pictures” · 1 waiting")
+        #expect(JobText.summary([], tasks: [search, search]) == "2 searches and measurings")
     }
 }
 
@@ -347,5 +359,42 @@ final class JobsWindowTests {
         #expect(workspace.jobs.first { $0.id == waiting } == nil) // cancelled, and gone
         _ = other
         gate.signal()
+    }
+
+    // MARK: Searches and measurings (#112 step 3)
+
+    /// A search running longer than five seconds is in the Jobs window under Running, with how far
+    /// it is; Cancel there stops it.
+    @Test func aLongSearchIsShownAndCancelledThere() throws {
+        let base = Date()
+        jobsWindow.now = { base }
+        for name in ["a", "b"] {
+            try FileManager.default.createDirectory(atPath: root + "/left/" + name, withIntermediateDirectories: true)
+        }
+        workspace.perform(.find(.left, pattern: "*"))
+        let task = try #require(workspace.backgroundTasks.first)
+        jobsWindow.now = { task.started.addingTimeInterval(6) }
+        jobsWindow.render(workspace)
+        #expect(jobsWindow.isShown && jobsWindow.shownHeaders == ["Running"])
+        let row = try #require(jobsWindow.shownTaskRows.first)
+        let texts = allSubviews(of: row).compactMap { ($0 as? NSTextField)?.stringValue }
+        #expect(texts.contains("Finding “*” in “left”") && texts.contains { $0.contains("0:06 elapsed") })
+        try #require(buttons(row).first { $0.title == "Cancel" }).performClick(nil)
+        #expect(workspace.backgroundTasks.isEmpty && jobsWindow.shownTaskRows.isEmpty)
+    }
+
+    /// #112 review: another window's search is in this window's strip; closing that window
+    /// clears the strip at once.
+    @Test func closingAWindowClearsItsSearchFromTheOtherWindowsStrip() throws {
+        let strip = JobsViewController(workspace: workspace)
+        _ = strip.view
+        workspace.onChange = { strip.render() }
+        let second = Workspace(sharingWith: workspace, location: root + "/left")
+        second.perform(.find(.left, pattern: "*"))
+        strip.render()
+        let line = try #require(allSubviews(of: strip.view).compactMap { $0 as? NSTextField }.first)
+        #expect(line.stringValue == "Finding “*” in “left”" && !strip.view.isHidden)
+        second.windowClosed()
+        #expect(strip.view.isHidden)
     }
 }

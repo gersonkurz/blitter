@@ -43,8 +43,9 @@ final class JobsViewController: NSViewController {
             stack.addArrangedSubview(indicator)
             indicator.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -20).isActive = true
         }
-        indicator.text.stringValue = JobText.summary(jobs)
-        indicator.isHidden = jobs.isEmpty
+        let tasks = workspace.backgroundTasks
+        indicator.text.stringValue = JobText.summary(jobs, tasks: tasks)
+        indicator.isHidden = jobs.isEmpty && tasks.isEmpty
         renderNotices()
         if paletteChanged {
             indicator.text.textColor = palette?.isThemed == true ? palette?.color(.dimText) : .secondaryLabelColor
@@ -52,7 +53,7 @@ final class JobsViewController: NSViewController {
                 row.text.textColor = noticeColor
             }
         }
-        view.isHidden = jobs.isEmpty && workspace.notices.isEmpty
+        view.isHidden = jobs.isEmpty && tasks.isEmpty && workspace.notices.isEmpty
     }
 
     /// Returns true if the theme changed; the strip's own colors are set here, its rows' by
@@ -195,6 +196,19 @@ final class JobRowView: NSView {
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) is not supported")
+    }
+
+    /// A search or a folder measuring (#112 step 3): what it does, how far, for how long, and
+    /// Cancel, which stops it as its own Stop does.
+    func configure(_ task: BackgroundTask, now: Date) {
+        title.stringValue = task.title
+        let elapsed = JobText.duration(now.timeIntervalSince(task.started)) + " elapsed"
+        detail.stringValue = [task.progress, elapsed, task.origin ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        progress.isHidden = true
+        guard buttons.arrangedSubviews.isEmpty else {
+            return
+        }
+        addButton("Cancel") { .cancelTask($0.id) }
     }
 
     /// `now`: for the times a running job shows (#112); `canStartNow`: a waiting job offers

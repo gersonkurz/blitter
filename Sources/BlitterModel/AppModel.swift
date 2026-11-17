@@ -70,6 +70,8 @@ public final class AppModel {
     var nextUndoID = 0
     /// The undo job running, if any (#61).
     var runningUndo: Int?
+    /// Searches and folder measurings, listed with the jobs (#112).
+    var tasks = BackgroundTasks()
 
     init(settingsFile: String?, jobs: JobQueue, favorites: [String]) {
         self.settingsFile = settingsFile

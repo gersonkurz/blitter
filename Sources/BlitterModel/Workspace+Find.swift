@@ -65,6 +65,7 @@ extension Workspace {
         findWork[side] = nil
         findStops[side] = nil
         sides[side]?.find = nil
+        endTask(findTasks.removeValue(forKey: side))
     }
 
     /// Runs the side's search. `fresh`: a new search, whose results show as they come; otherwise
@@ -89,6 +90,10 @@ extension Workspace {
         let includeHidden = showsHiddenFiles
         let stop = CancellationFlag()
         findStops[side] = stop
+        endTask(findTasks[side]) // #112: listed with the jobs; Cancel there stops it as Stop does
+        findTasks[side] = beginTask("Finding “\(find.pattern)” in “\(Paths.lastComponent(of: root))”") {
+            _ = $0.stopFind(side)
+        }
         findWork[side] = Task { [weak self] in
             let batches = FileFind.batches(root: root, matcher: matcher, contents: contents,
                                            includeHidden: includeHidden, cancelled: stop)
@@ -112,8 +117,21 @@ extension Workspace {
             findWork[side] = nil
             findStops[side] = nil
             sides[side]?.find?.isRunning = false
+            endTask(findTasks.removeValue(forKey: side))
             findProgressed(side, last, found: found, final: true)
         }
+    }
+
+    /// A search's progress as the Jobs window shows it (#112).
+    static func findProgress(_ find: FindState, found: Int?) -> String {
+        var parts = [find.foldersSearched == 1 ? "1 folder searched" : "\(find.foldersSearched) folders searched"]
+        if !find.contents.isEmpty {
+            parts.append(find.filesRead == 1 ? "1 file read" : "\(find.filesRead) files read")
+        }
+        if let found {
+            parts.append("\(found) found")
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// Shows how far the walk got and, if given, the results so far: filtered and sorted off the
@@ -126,6 +144,9 @@ extension Workspace {
         sides[side]?.find?.foldersSearched = batch.foldersSearched
         sides[side]?.find?.unreadableFolders = batch.unreadableFolders
         sides[side]?.find?.filesRead = batch.filesRead
+        if !final, let find = sides[side]?.find {
+            updateTask(findTasks[side], Self.findProgress(find, found: found?.count))
+        }
         guard let found, final || pendingWork[side] == nil else {
             notifyChange()
             return

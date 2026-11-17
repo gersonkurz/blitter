@@ -123,6 +123,9 @@ then what finished with problems.
   (a big folder deleted for good can be quiet that long without being stuck). A job started by
   automation (an assistant over the `blitter` tool) says so, and so does one started in another
   window when several are open.
+- **Searches and folder sizes** ([Find](find.md), Calculate Folder Sizes) are listed under Running
+  too while they take a while, with how far they are and **Cancel**, which stops them as their own
+  Stop does: the results so far stay. They run on their side at once and never wait for a turn.
 - **A waiting job** has **Cancel**, and **Start Now** to run it beside the others — when it only
   waits because jobs take turns, never when an earlier job uses its items.
 - **Quitting** with jobs not done asks first: **Quit and Cancel Them** stops them (what they

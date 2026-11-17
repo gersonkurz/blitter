@@ -1,4 +1,5 @@
 import BlitterCore
+import BlitterModel
 import Foundation
 
 /// The words a job row shows.
@@ -30,7 +31,7 @@ enum JobText {
 
     /// The strip's line (#112): a question first, then how many run and wait, how far the first
     /// running one is, and how many had problems.
-    static func summary(_ jobs: [Job]) -> String {
+    static func summary(_ jobs: [Job], tasks: [BackgroundTask] = []) -> String {
         let open = jobs.filter { !$0.isDone }
         if let asking = open.first(where: {
             if case .waiting = $0.state {
@@ -42,6 +43,9 @@ enum JobText {
             return title(asking.operation) + ": a question is waiting."
         }
         var parts: [String] = []
+        if let task = tasks.first { // a search or a folder measuring (#112 step 3)
+            parts.append(tasks.count == 1 ? task.title : "\(tasks.count) searches and measurings")
+        }
         let running = open.filter { $0.state == .running }
         let waiting = open.count - running.count
         if let first = running.first {

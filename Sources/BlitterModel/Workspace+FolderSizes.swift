@@ -38,6 +38,10 @@ extension Workspace {
         let location = state.entriesLocation
         let stop = CancellationFlag()
         folderSizeStops[side] = stop
+        folderSizeRequests[side] = (folders.count, 0)
+        let title = folders.count == 1 ? "Measuring “\(folders[0])”"
+            : "Measuring \(folders.count) folders in “\(Paths.lastComponent(of: location))”"
+        folderSizeTasks[side] = beginTask(title) { $0.stopMeasuring(side) } // #112: listed with the jobs
         let batches = Self.measured(folders, in: location, cancelled: stop, measure: measureFolder)
         folderSizeWork[side] = Task { [weak self] in
             await withTaskCancellationHandler {
@@ -55,6 +59,8 @@ extension Workspace {
             }
             folderSizeWork[side] = nil
             folderSizeStops[side] = nil
+            endTask(folderSizeTasks.removeValue(forKey: side))
+            notifyChange()
         }
         return true
     }
@@ -65,6 +71,8 @@ extension Workspace {
         folderSizeWork[side]?.cancel()
         folderSizeWork[side] = nil
         folderSizeStops[side] = nil
+        folderSizeRequests[side] = nil
+        endTask(folderSizeTasks.removeValue(forKey: side))
         if let sizes = sides[side]?.folderSizes {
             sides[side]?.folderSizes = sizes.filter { $0.value != .measuring }
         }
@@ -97,6 +105,12 @@ extension Workspace {
         }
         for (name, bytes) in batch where state.folderSizes[name] == .measuring {
             sides[side]?.folderSizes[name] = .measured(bytes)
+        }
+        // How far this request is, whatever sizes are known from earlier ones (#112 review).
+        if let request = folderSizeRequests[side] {
+            let done = min(request.total, request.done + batch.count)
+            folderSizeRequests[side] = (request.total, done)
+            updateTask(folderSizeTasks[side], "\(done) of \(request.total) folders measured")
         }
         // The rows stay where they are, even when sorted by size: nothing moves under the cursor
         // (#57). Sorting again, or a reload, puts the folders in size order.

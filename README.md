@@ -65,7 +65,8 @@ The details of each release are in its [release notes](https://github.com/gerson
 
 - **Unreleased (on main):** drag and drop copies or moves as you choose (⇧⌘M switches); Open With and Always
   Open With in the context menu; toolbar buttons with the icons of their apps, and an icon picker; file jobs take
-  turns instead of all running at once; the version in the window title.
+  turns instead of all running at once, and a Jobs window shows what runs and waits; the version in the window
+  title.
 - **0.4.0** (2026-11-15): the first notarized release. Several windows, the `blitter` command in the terminal, a
   configurable toolbar, recent folders in the path field's menu, color schemes tried out live.
 - **0.2.0** (2026-11-09): finding things (fast filter, Select by Pattern, the Find panel), Undo, Batch Rename,

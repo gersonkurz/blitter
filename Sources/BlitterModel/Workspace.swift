@@ -53,6 +53,11 @@ public final class Workspace {
     /// Find (#48): the running search per side, and the flag that stops its walk early.
     var findWork: [Side: Task<Void, Never>] = [:]
     var findStops: [Side: CancellationFlag] = [:]
+    /// Each side's search and folder measuring as listed with the jobs (#112).
+    var findTasks: [Side: Int] = [:]
+    var folderSizeTasks: [Side: Int] = [:]
+    /// The side's measuring request: how many folders, how many measured so far.
+    var folderSizeRequests: [Side: (total: Int, done: Int)] = [:]
     /// The fast filter's search for highlighted names (#39). A newer one cancels it.
     var highlightWork: [Side: Task<Void, Never>] = [:]
     /// Starting the diff tool (#40): finding it and launching it; tests replace both.
@@ -251,6 +256,7 @@ public final class Workspace {
         case let .answerConflict(job, answer): answerConflict(job, answer)
         case let .cancelJob(job): cancelJob(job)
         case let .startJobNow(job): startJobNow(job)
+        case let .cancelTask(task): cancelTask(task)
         case let .dismissJob(job): dismissJob(job)
         case let .runAction(id, side): runAction(id, on: side)
         case let .runFolderAction(id, side, folder): runFolderAction(id, on: side, folder: folder)

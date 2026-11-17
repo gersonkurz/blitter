@@ -16,7 +16,8 @@ struct JobsWindowPolicy: Equatable {
     var isOpen = false
     var closedByUser = false
 
-    mutating func step(_ jobs: [Job], at now: Date) -> Step {
+    /// `tasks`: searches and folder measurings (#112 step 3) — open like running jobs.
+    mutating func step(_ jobs: [Job], tasks: [BackgroundTask] = [], at now: Date) -> Step {
         let open = jobs.filter { !$0.isDone }
         let asks = open.contains {
             if case .waiting = $0.state {
@@ -26,7 +27,8 @@ struct JobsWindowPolicy: Equatable {
             }
         }
         let problems = jobs.contains { $0.isDone && !$0.errors.isEmpty }
-        if open.isEmpty {
+        let ages = open.map { now.timeIntervalSince($0.added) } + tasks.map { now.timeIntervalSince($0.started) }
+        if ages.isEmpty {
             closedByUser = false // the next long job shows the window again
         }
         if asks {
@@ -35,13 +37,13 @@ struct JobsWindowPolicy: Equatable {
             return .bringForward
         }
         if isOpen {
-            guard open.isEmpty, !problems else {
+            guard ages.isEmpty, !problems else {
                 return .none
             }
             isOpen = false
             return .close
         }
-        guard !closedByUser, open.contains(where: { now.timeIntervalSince($0.added) >= Self.delay }) else {
+        guard !closedByUser, ages.contains(where: { $0 >= Self.delay }) else {
             return .none
         }
         isOpen = true
@@ -83,6 +85,8 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
     private(set) var policy = JobsWindowPolicy()
     private let stack = NSStackView()
     private var rows: [Int: JobRowView] = [:]
+    /// Searches and folder measurings (#112 step 3), by task id.
+    private var taskRows: [Int: JobRowView] = [:]
     private let headers = (
         running: header("Running"),
         waiting: header("Waiting"),
@@ -146,15 +150,16 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
         lastWorkspace = workspace
         app = workspace.app
         let jobs = workspace.jobs
+        let tasks = workspace.backgroundTasks
         let time = now()
-        switch policy.step(jobs, at: time) {
+        switch policy.step(jobs, tasks: tasks, at: time) {
         case .none: break
         case .show, .bringForward: showWithoutFocus()
         case .close: closeItself()
         }
         renderPalette(workspace.shownTheme)
-        renderRows(jobs, canStartNow: workspace.canStartJobNow, at: time)
-        tickWhile(jobs.contains { !$0.isDone })
+        renderRows(jobs, tasks: tasks, canStartNow: workspace.canStartJobNow, at: time)
+        tickWhile(jobs.contains { !$0.isDone } || !tasks.isEmpty)
     }
 
     func renderPalette(_ theme: ThemeSettings) {
@@ -166,7 +171,7 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
         palette = new
         window?.appearance = new.appearance
         window?.backgroundColor = new.isThemed ? new.color(.background) : .windowBackgroundColor
-        for row in rows.values {
+        for row in Array(rows.values) + Array(taskRows.values) {
             row.apply(new)
         }
     }
@@ -175,7 +180,8 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
     func showByUser() {
         policy.shownByUser()
         if let workspace {
-            renderRows(workspace.jobs, canStartNow: workspace.canStartJobNow, at: now())
+            renderRows(workspace.jobs, tasks: workspace.backgroundTasks, canStartNow: workspace.canStartJobNow,
+                       at: now())
         }
         showWithoutFocus()
     }
@@ -205,25 +211,37 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: Rows
 
-    /// The rows for these jobs (the manual's picture shows made-up ones).
-    func renderRows(_ jobs: [Job], canStartNow: (Int) -> Bool, at time: Date) {
+    /// The rows for these jobs and tasks (the manual's picture shows made-up ones).
+    func renderRows(_ jobs: [Job], tasks: [BackgroundTask] = [], canStartNow: (Int) -> Bool, at time: Date) {
         let ids = Set(jobs.map(\.id))
         for (id, row) in rows where !ids.contains(id) {
             row.removeFromSuperview()
             rows[id] = nil
         }
-        let running = jobs.filter {
-            if case .queued = $0.state {
-                false
-            } else {
-                !$0.isDone
-            }
+        let taskIDs = Set(tasks.map(\.id))
+        for (id, row) in taskRows where !taskIDs.contains(id) {
+            row.removeFromSuperview()
+            taskRows[id] = nil
         }
+        place(sections(jobs, tasks: tasks, canStartNow: canStartNow, at: time))
+    }
+
+    /// Each section's header and rows, configured: running jobs (and the searches and measurings,
+    /// #112 step 3), waiting ones, those done with problems.
+    private func sections(_ jobs: [Job], tasks: [BackgroundTask], canStartNow: (Int) -> Bool,
+                          at time: Date) -> [NSView]
+    {
+        let running = jobs.filter { $0.state != .queued && !$0.isDone }
         let waiting = jobs.filter { $0.state == .queued }
         let problems = jobs.filter { $0.isDone && !$0.errors.isEmpty }
+        let taskViews: [NSView] = tasks.map { task in
+            let row = taskRows[task.id] ?? makeRow(task.id, isTask: true)
+            row.configure(task, now: time)
+            return row
+        }
         var order: [NSView] = []
-        for (header, group) in [(headers.running, running), (headers.waiting, waiting),
-                                (headers.problems, problems)] where !group.isEmpty
+        for (header, group, extra) in [(headers.running, running, taskViews), (headers.waiting, waiting, []),
+                                       (headers.problems, problems, [])] where !group.isEmpty || !extra.isEmpty
         {
             order.append(header)
             for job in group {
@@ -231,22 +249,29 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
                 row.configure(job, now: time, canStartNow: canStartNow(job.id))
                 order.append(row)
             }
+            order += extra
         }
-        if stack.arrangedSubviews != order {
-            for view in stack.arrangedSubviews {
-                stack.removeArrangedSubview(view)
-                view.removeFromSuperview()
-            }
-            for view in order {
-                stack.addArrangedSubview(view)
-                if view is JobRowView {
-                    view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
-                }
+        return order
+    }
+
+    /// The views in this order; only rebuilt when the order changed.
+    private func place(_ order: [NSView]) {
+        guard stack.arrangedSubviews != order else {
+            return
+        }
+        for view in stack.arrangedSubviews {
+            stack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        for view in order {
+            stack.addArrangedSubview(view)
+            if view is JobRowView {
+                view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
             }
         }
     }
 
-    private func makeRow(_ id: Int) -> JobRowView {
+    private func makeRow(_ id: Int, isTask: Bool = false) -> JobRowView {
         let row = JobRowView(id: id)
         row.apply(palette)
         row.onCommand = { [weak self] command in
@@ -256,7 +281,11 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
             workspace.perform(command)
             self?.render(workspace)
         }
-        rows[id] = row
+        if isTask {
+            taskRows[id] = row
+        } else {
+            rows[id] = row
+        }
         return row
     }
 
@@ -284,9 +313,13 @@ final class JobsWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// The rows as shown, for tests.
+    /// The rows as shown, for tests: jobs' and tasks'.
     var shownRows: [JobRowView] {
         stack.arrangedSubviews.compactMap { $0 as? JobRowView }
+    }
+
+    var shownTaskRows: [JobRowView] {
+        shownRows.filter { row in taskRows.values.contains { $0 === row } }
     }
 
     var shownHeaders: [String] {

@@ -155,6 +155,9 @@ public enum Command: Sendable {
     /// Start Now (#112): a waiting heavy job runs beside the others, if no earlier job uses its
     /// paths.
     case startJobNow(Int)
+    /// Cancel a search or a folder measuring from the Jobs window (#112): it stops as its own
+    /// Stop does.
+    case cancelTask(Int)
     /// Remove a finished job (one that reported problems) from the list.
     case dismissJob(Int)
     /// Run an action from the registry on a side, if its scope fits the side as it is now.

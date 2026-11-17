@@ -121,6 +121,7 @@ final class MainWindows {
     /// and stays saved.
     private func closed(_ id: ObjectIdentifier, _ controller: MainWindowController?) {
         if controllers.count > 1, !isQuitting {
+            controller?.workspace.windowClosed() // its searches and measurings end (#112)
             controllers.removeAll { ObjectIdentifier($0) == id || $0 === controller }
             save()
         }
