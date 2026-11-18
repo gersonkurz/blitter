@@ -15,7 +15,8 @@ struct DefaultColumnsTests {
         let visible = list.tableView.tableColumns.filter { !$0.isHidden }.map(\.title)
         #expect(visible == ["Name", "Size", "Date Modified"])
         #expect(list.tableView.tableColumns.contains { $0.title == "Kind" && $0.isHidden })
-        #expect(list.tableView.columnAutoresizingStyle == .firstColumnOnlyAutoresizingStyle)
+        // The widths are laid out by the list (#123), Name taking the spare room.
+        #expect(list.tableView.columnAutoresizingStyle == .noColumnAutoresizing)
     }
 
     @Test func theColumnLayoutIsSavedUnderANewNameSoV01LayoutsAreIgnored() {

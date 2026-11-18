@@ -25,13 +25,7 @@ extension FileListViewController {
         for listColumn in ListColumn.allCases {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(listColumn.rawValue))
             column.title = Self.title(of: listColumn)
-            column.width = switch listColumn {
-            case .name: 280
-            case .size: 80
-            case .modified: 150
-            case .kind: 140
-            case .permissions, .git: 90
-            }
+            column.width = Self.defaultWidths[listColumn] ?? 100
             column.isHidden = !shown.contains(listColumn)
             column.minWidth = 40
             if let sort = listColumn.sortColumn {
@@ -50,11 +44,16 @@ extension FileListViewController {
     /// Shows the side's columns; AppKit's saved layout may have others hidden or shown.
     func renderColumns() {
         let shown = workspace.columns(of: side)
+        var changed = false
         for column in tableView.tableColumns {
             let hidden = ListColumn(rawValue: column.identifier.rawValue).map { !shown.contains($0) } ?? true
             if column.isHidden != hidden {
                 column.isHidden = hidden
+                changed = true
             }
+        }
+        if changed {
+            layoutColumns() // the room is shared differently (#123)
         }
     }
 

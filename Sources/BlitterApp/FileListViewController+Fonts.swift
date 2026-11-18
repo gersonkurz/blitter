@@ -3,8 +3,8 @@ import BlitterModel
 
 /// The list's fonts (#62): the settings' face and size, fixed-width where columns line up.
 extension FileListViewController {
-    /// New fonts from the settings: every row in the new fonts and height, and the date column
-    /// grows if the dates no longer fit.
+    /// New fonts from the settings: every row in the new fonts and height, and the columns laid
+    /// out again for what their content needs in them (#123).
     func renderFonts() {
         let new = ListFonts.current(workspace.settings.font)
         guard new.settings != fonts.settings else {
@@ -12,7 +12,8 @@ extension FileListViewController {
         }
         fonts = new
         tableView.rowHeight = new.rowHeight
-        renderedDateFormat = "" // measured again in the new font
+        renderedDateFormat = "" // the dates formatted again
+        layoutColumns()
         tableView.reloadData()
     }
 

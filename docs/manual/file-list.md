@@ -12,6 +12,13 @@ header to show or hide more columns on that side:
 **Default Columns** in the same menu goes back to the columns of the settings file. Drag a
 column's header to move it, and its edge to resize it; Blitter keeps both.
 
+When a side is too narrow for its columns, the room is taken where it hurts least. First the
+columns that are wider than what they show (a date column wider than its dates) give up the extra.
+Then Name shrinks, but only to a readable width; then Kind; then Name further; the sizes, dates
+and permissions are cut last. When the side gets wider again, every column goes back to its width
+and Name gets the rest. A column that shows dates or sizes is always wide enough for them while
+there is room, so a longer date pattern or a bigger font widens it.
+
 Folders show `--` as their size until you [measure them](file-operations.md#folder-sizes).
 
 ## Sorting

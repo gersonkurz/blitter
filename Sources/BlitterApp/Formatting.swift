@@ -10,6 +10,17 @@ enum Formatting {
         return formatter
     }()
 
+    /// Bytes as the Size column shows them.
+    static func byteCount(_ bytes: Int64) -> String {
+        sizeFormatter.string(fromByteCount: bytes)
+    }
+
+    /// Sizes that show every unit with as many digits as it gets ("999 bytes", "999 KB",
+    /// "999.9 MB", "999.99 GB" …, "Zero KB"): the widest of them sizes the Size column (#123).
+    static let wideSampleSizes: [Int64] = [0, 999] + (1 ... 5).flatMap { power in
+        [999.4, 999.94, 999.994].map { Int64($0 * pow(1000, Double(power))) }
+    } + [Int64.max]
+
     /// A folder shows its size once measured (#52), "…" while it is being measured.
     static func size(of entry: DirectoryEntry, folderSize: FolderSize? = nil) -> String {
         guard entry.kind == .directory else {

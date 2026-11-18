@@ -46,6 +46,12 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
     let quickFilterBar = QuickFilterBar()
     let statusBar = SideStatusBar()
     var shownFolderSizes: [String: FolderSize] = [:]
+    /// Each column's preferred width (#123), by identifier.
+    var preferredWidths: [String: CGFloat] = [:]
+    /// Where `preferredWidths` are kept; tests set their own before the view loads.
+    var preferredWidthsStore: PreferredWidthsStore?
+    /// Set while the columns are being laid out: their resizes are not the user's.
+    var isLayingOutColumns = false
 
     static let nameColumn = NSUserInterfaceItemIdentifier(SortColumn.name.rawValue)
     static let sizeColumn = NSUserInterfaceItemIdentifier(SortColumn.size.rawValue)
@@ -55,12 +61,18 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         self.workspace = workspace
         self.side = side
         icons = FileIcons(side: side)
+        preferredWidthsStore = Self.preferredWidthsStore(side)
         super.init(nibName: nil, bundle: nil)
     }
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) is not supported")
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        layoutColumns() // the side's width changed (#123)
     }
 
     override func loadView() {
@@ -148,6 +160,7 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         addColumns()
         tableView.autosaveName = AppEnvironment.autosaveName(Self.columnsAutosaveName(side))
         tableView.autosaveTableColumns = !AppEnvironment.isHostedTest
+        loadPreferredWidths() // after AppKit restored the saved columns (#123)
         tableView.style = .fullWidth
         tableView.rowSizeStyle = .custom // the fonts decide the height (#62)
         tableView.rowHeight = fonts.rowHeight
@@ -156,8 +169,8 @@ final class FileListViewController: NSViewController, NSTableViewDataSource, NST
         tableView.allowsTypeSelect = false // the fast filter takes the keys (#39)
         tableView.onKey = { [weak self] event in self?.handleQuickFilterKey(event) ?? false }
         tableView.onZoom = { [weak self] zoom in self?.workspace.perform(.zoomFont(zoom)) }
-        // A wider list gives the room to the names.
-        tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        // The widths are laid out here (#123), not by AppKit: room is taken where it is not needed first.
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self

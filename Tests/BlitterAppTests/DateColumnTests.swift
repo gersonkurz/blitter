@@ -27,6 +27,7 @@ final class DateColumnTests {
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentViewController = controller
+        window.setContentSize(NSSize(width: 700, height: 300)) // the controller's view made it as narrow as it can be
         workspace.onChange = { [controller] in controller.render() }
         window.makeKeyAndOrderFront(nil)
         for _ in 0 ..< 200 where workspace.state(of: .left).visibleEntries.count < 2 {
@@ -65,7 +66,9 @@ final class DateColumnTests {
         }
     }
 
-    @Test func theColumnGrowsForALongPatternButNeverShrinks() throws {
+    /// #123: the column is as wide as the pattern needs; a shorter pattern gives it back its
+    /// preferred width (the grown width was never the user's).
+    @Test func theColumnGrowsForALongPatternAndGoesBackForAShortOne() throws {
         let column = try #require(tableView.tableColumns.first { $0.identifier.rawValue == "modified" })
         let width = column.width
         workspace.settings.dateFormat = "EEEE, d. MMMM yyyy 'um' HH:mm:ss"
@@ -82,10 +85,9 @@ final class DateColumnTests {
             #expect(column.width >= width + 4, "\(formatter.string(from: date))")
         }
 
-        let grown = column.width
         workspace.settings.dateFormat = "HH:mm"
         workspace.onChange?()
-        #expect(column.width == grown)
+        #expect(column.width == width) // the preferred width again
     }
 
     // MARK: Helpers

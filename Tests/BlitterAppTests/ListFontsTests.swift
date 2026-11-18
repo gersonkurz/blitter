@@ -27,6 +27,7 @@ final class ListFontsTests {
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentViewController = split
+        window.setContentSize(NSSize(width: 900, height: 300)) // the controllers made it as narrow as they can be
         workspace.onChange = { [controller, tree] in
             controller.render()
             tree.render()
@@ -73,7 +74,11 @@ final class ListFontsTests {
                 .textField?.font)
         }
         #expect(!treeFonts.isEmpty && treeFonts.allSatisfy { $0.familyName == "Helvetica" && $0.pointSize == 16 })
-        // The dates still fit their column in the new, wider font.
+        // The dates still fit their column in the new, wider font — once the window is laid out, as
+        // it is before it is drawn (the columns share the side's width, #123).
+        let split = try #require(window.contentViewController as? NSSplitViewController)
+        split.splitViewItems[0].isCollapsed = true // the tree away: the list wide enough for its columns
+        window.contentView?.layoutSubtreeIfNeeded()
         let date = try #require(cell("modified").textField?.stringValue) as NSString
         let column = try #require(controller.tableView.tableColumns.first { $0.identifier.rawValue == "modified" })
         #expect(try column.width >= date.size(withAttributes: [.font: font("modified")]).width)
